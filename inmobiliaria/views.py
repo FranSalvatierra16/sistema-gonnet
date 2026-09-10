@@ -2282,14 +2282,15 @@ def administracion_propiedades_operaciones(request):
         contratos_qs = ContratoAlquiler.objects.filter(propiedad=propiedad).select_related('inquilino', 'vendedor')
         cuotas_qs = CuotaMensual.objects.filter(contrato__propiedad=propiedad).select_related('contrato')
         propi = getattr(propiedad, 'propietario', None)
-        from inmobiliaria.models.liquidacion import q_gastos_del_propietario_actual
-        # Por ficha concreta: no filtrar por sucursal del gasto (tras traslados
-        # de sucursal los gastos pueden seguir con el id de la branch vieja).
-        gastos_qs = GastoPropietario.objects.all()
+        # Por ficha concreta: todos los gastos/movimientos de esa propiedad,
+        # sin filtrar por sucursal ni por titular vigente (tras traslados de branch
+        # o cambio de propietario los registros viejos deben seguir viéndose acá).
+        gastos_qs = GastoPropietario.objects.filter(propiedad=propiedad)
         if propi:
-            gastos_qs = gastos_qs.filter(q_gastos_del_propietario_actual(propiedad))
-        else:
-            gastos_qs = gastos_qs.filter(propiedad=propiedad)
+            gastos_qs = GastoPropietario.objects.filter(
+                Q(propiedad=propiedad)
+                | Q(propiedad__isnull=True, propietario_id=propi.id)
+            )
         # Solo pendientes: los ya cobrados en una liquidación no se listan acá
         # (igual que en el detalle de liquidaciones).
         gastos_qs = gastos_qs.filter(liquidacion__isnull=True).select_related('liquidacion')
@@ -4122,7 +4123,13 @@ def propiedad_cambiar_sucursal(request, propiedad_id):
                             f'{sync.get("liquidaciones", 0)} liquidaciones a «{nueva.nombre}».',
                         )
                     else:
-                        messages.warning(request, 'La propiedad ya está en esa sucursal.')
+                        messages.warning(
+                            request,
+                            'La ficha ya está en esa sucursal y no había gastos/movimientos '
+                            'de otra sucursal vinculados a este ID. Si faltan datos de '
+                            'Corrientes, mirá Operaciones por propiedad (ficha 3331898) '
+                            'o avisá para revisar vínculos en la base.',
+                        )
                     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                 else:
                     anterior = propiedad.sucursal.nombre
@@ -31021,12 +31028,12 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     )
 
     # Solo operaciones (con cobro/seña/recibo). Las reservas «Reservado» sin cobro no liquidan.
+    # Sin filtrar por sucursal: tras traslado de ficha pueden quedar en la branch vieja.
     reservas_pendientes = queryset_reservas_con_operacion(
         Reserva.objects.filter(
             propiedad=propiedad,
             estado__in=['pagada', 'confirmada_no_pagada', 'confirmada'],
             eliminada=False,
-            sucursal=sucursal,
         )
     ).exclude(
         id__in=reservas_excluidas
@@ -31034,7 +31041,6 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     
     contratos_pendientes = ContratoAlquiler.objects.filter(
         propiedad=propiedad,
-        sucursal=sucursal,
     ).prefetch_related('cuotas').select_related('inquilino')
     
     operaciones = []

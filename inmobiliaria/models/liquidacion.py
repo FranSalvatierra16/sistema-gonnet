@@ -569,6 +569,8 @@ def sincronizar_sucursal_al_trasladar_propiedad(propiedad, sucursal_nueva):
     de esa propiedad siguen con la sucursal vieja y desaparecen de los listados
     (filtran por sucursal del usuario). Esta función los alinea a la nueva.
     """
+    from django.db.models import Q
+
     from inmobiliaria.models.caja import MovimientoCaja
     from inmobiliaria.models.contrato import ContratoAlquiler
     from inmobiliaria.models.propiedad import Reserva
@@ -593,20 +595,33 @@ def sincronizar_sucursal_al_trasladar_propiedad(propiedad, sucursal_nueva):
         sucursal_id=sid
     ).update(sucursal_id=sid)
 
-    # Gastos del titular vinculados a la ficha (a veces sin FK propiedad, solo propietario).
+    # Gastos del titular sin FK a la ficha (quedaron solo con propietario en la branch vieja).
     n_gastos_tit = 0
     propi_id = getattr(propiedad, 'propietario_id', None)
     if propi_id:
         n_gastos_tit = GastoPropietario.objects.filter(
             propietario_id=propi_id,
-            liquidacion__isnull=True,
             propiedad__isnull=True,
+        ).exclude(sucursal_id=sid).update(sucursal_id=sid, propiedad_id=propiedad.pk)
+
+    # Movimientos de caja que mencionan la ficha en el concepto pero sin FK.
+    n_movs_txt = 0
+    pid = str(getattr(propiedad, 'pk', '') or '')
+    if pid:
+        n_movs_txt = MovimientoCaja.objects.filter(
+            fecha_eliminacion__isnull=True,
+            propiedad__isnull=True,
+        ).filter(
+            Q(concepto__icontains=f'#{pid}')
+            | Q(concepto__icontains=f'ficha {pid}')
+            | Q(concepto__icontains=f'propiedad {pid}')
+            | Q(concepto__icontains=f'propiedad #{pid}')
         ).exclude(sucursal_id=sid).update(sucursal_id=sid, propiedad_id=propiedad.pk)
 
     return {
         'gastos': n_gastos + n_gastos_tit,
         'liquidaciones': n_liqs,
-        'movimientos': n_movs,
+        'movimientos': n_movs + n_movs_txt,
         'reservas': n_reservas,
         'contratos': n_contratos,
     }

@@ -86,10 +86,10 @@ def _ids_operaciones_contratos_propiedad(propiedad, sucursal):
     """IDs de reservas (operaciones) y contratos vigentes de la propiedad."""
     from inmobiliaria.models import ContratoAlquiler, Reserva
 
+    # No filtrar por sucursal: tras un traslado pueden quedar ops de la branch vieja.
     reserva_ids = list(
         Reserva.objects.filter(
             propiedad=propiedad,
-            sucursal=sucursal,
             eliminada=False,
         )
         .exclude(estado='cancelada')
@@ -98,7 +98,6 @@ def _ids_operaciones_contratos_propiedad(propiedad, sucursal):
     contrato_ids = list(
         ContratoAlquiler.objects.filter(
             propiedad=propiedad,
-            sucursal=sucursal,
         )
         .exclude(estado='rescindido')
         .values_list('id', flat=True)[:400]
