@@ -442,8 +442,14 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if cuota.estado == 'pendiente' and cuota.fecha_vencimiento < today %}
+                                {% if cuota.estado == 'pendiente' or cuota.estado == 'vencida' %}
+                                    {% if cuota.tiene_adelanto_abonado or cuota.cubierta_por_credito %}
+                                    <span class="text-muted">-</span>
+                                    {% elif cuota.fecha_vencimiento < today %}
                                     <span class="text-danger">{{ cuota.dias_vencido }} días</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}

@@ -575,6 +575,79 @@ def movimientos_recibo_por_cuota(cuota, movimientos_iterable) -> list:
     return result
 
 
+def limpiar_mora_automatica_cuotas(contrato) -> int:
+    """
+    Quita recargo_mora de cuotas pendientes/vencidas y recalcula monto_total = monto_base.
+    La mora al 1%/día se aplicaba sola al abrir Cobrar y dejaba saldos inventados.
+    """
+    n = 0
+    for cuota in contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).iterator():
+        mora = Decimal(str(cuota.recargo_mora or 0))
+        if mora <= Decimal('0.005'):
+            # Aun sin mora, asegurar monto_total = base - descuento
+            esperado = Decimal(str(cuota.monto_base or 0)) - Decimal(str(cuota.descuento or 0))
+            if abs(Decimal(str(cuota.monto_total or 0)) - esperado) > Decimal('0.05'):
+                cuota.monto_total = max(Decimal('0'), esperado)
+                cuota.save(update_fields=['monto_total'])
+                n += 1
+            continue
+        cuota.recargo_mora = Decimal('0')
+        cuota.descuento = Decimal(str(cuota.descuento or 0))
+        cuota.monto_total = max(
+            Decimal('0'),
+            Decimal(str(cuota.monto_base or 0)) - cuota.descuento,
+        )
+        cuota.save(update_fields=['recargo_mora', 'monto_total', 'descuento'])
+        n += 1
+    return n
+
+
+def reimputar_desde_recibos_existentes(contrato, hoy=None) -> int:
+    """
+    Si hay movimientos con concepto 1000/29 apuntando a una cuota pendiente/vencida
+    por el saldo completo, marca esa cuota pagada (recibo existe, plan no actualizado).
+    """
+    from django.utils import timezone as tz
+
+    from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+
+    hoy = hoy or tz.now().date()
+    movs = list(
+        MovimientoCaja.objects.filter(
+            concepto__icontains=f'Contrato #{contrato.id}',
+            propiedad_id=contrato.propiedad_id,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            fecha_eliminacion__isnull=True,
+        ).order_by('fecha', 'id')
+    )
+    if not movs:
+        return 0
+    n = 0
+    for cuota in contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota'):
+        recibos = movimientos_recibo_por_cuota(cuota, movs)
+        if not recibos:
+            continue
+        mov = recibos[-1]
+        lineas = lineas_imputables_desde_movimiento(mov)
+        cubierto = Decimal('0')
+        for it in lineas:
+            raw_qid = str(it.get('cuota_objetivo_id') or '').strip()
+            if raw_qid.isdigit() and int(raw_qid) == int(cuota.id):
+                cubierto += parse_decimal_monto(it.get('importe'))
+        if cubierto <= Decimal('0.05'):
+            continue
+        saldo = cuota.saldo_para_cobro()
+        if saldo <= Decimal('0.05'):
+            continue
+        try:
+            if cubierto + Decimal('0.05') >= saldo:
+                marcar_cuota_pagada_con_excedente_a_favor(cuota, cubierto, mov, hoy)
+                n += 1
+        except ValueError:
+            continue
+    return n
+
+
 def mapa_movimientos_recibo_por_cuota_id(cuotas, movimientos_iterable) -> dict[int, list]:
     """cuota_id → movimientos/recibos que la imputan (una sola pasada)."""
     cuotas_list = list(cuotas)

@@ -380,11 +380,16 @@ class CuotaMensual(models.Model):
             return (timezone.now().date() - self.fecha_vencimiento).days
         return 0
     
-    def calcular_mora(self, tasa_mora_diaria=0.01):
-        """Calcula el recargo por mora (1% diario por defecto)"""
+    def calcular_mora(self, tasa_mora_diaria=0):
+        """
+        Recargo por mora. Por defecto no aplica (tasa 0): la mora automática
+        al 1% diario distorsionaba saldos y recibos. Si hace falta mora, cargarla
+        como concepto aparte en el cobro.
+        """
         dias = self.dias_vencido()
-        if dias > 0:
-            return self.monto_base * Decimal(str(tasa_mora_diaria)) * Decimal(str(dias))
+        tasa = Decimal(str(tasa_mora_diaria or 0))
+        if dias > 0 and tasa > 0:
+            return (self.monto_base * tasa * Decimal(str(dias))).quantize(Decimal('0.01'))
         return Decimal('0')
 
     def actualizar_monto_total(self):

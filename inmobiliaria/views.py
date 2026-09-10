@@ -20137,8 +20137,14 @@ def detalle_contrato(request, contrato_id):
     hoy = timezone.now().date()
     if contrato.finalizar_si_vencido(hoy):
         contrato.refresh_from_db()
-    from inmobiliaria.cuotas_imputacion import sincronizar_cuotas_totalmente_cubiertas_por_credito
+    from inmobiliaria.cuotas_imputacion import (
+        sincronizar_cuotas_totalmente_cubiertas_por_credito,
+        limpiar_mora_automatica_cuotas,
+        reimputar_desde_recibos_existentes,
+    )
 
+    limpiar_mora_automatica_cuotas(contrato)
+    reimputar_desde_recibos_existentes(contrato, hoy)
     if sincronizar_cuotas_totalmente_cubiertas_por_credito(contrato, hoy):
         contrato.refresh_from_db()
     cuotas = contrato.cuotas.select_related('movimiento').order_by('numero_cuota')
@@ -20768,8 +20774,11 @@ def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
             cuota.monto_base = montos[idx]
             cuota.recargo_mora = Decimal('0')
             cuota.descuento = Decimal('0')
-            cuota.credito_aplicado = Decimal('0')
-            cuota.credito_origen_numero_cuota = None
+            # Conservar adelantos/pagos a cuenta; solo topear al nuevo total.
+            cred = Decimal(str(cuota.credito_aplicado or 0))
+            nuevo = Decimal(str(montos[idx] or 0))
+            if cred > nuevo:
+                cuota.credito_aplicado = nuevo
             cuota.actualizar_monto_total()
             actualizadas += 1
     alineadas = _alinear_vencimientos_cuotas_contrato(contrato)
@@ -20869,8 +20878,10 @@ def actualizar_precios_bloques_contrato(request, contrato_id):
             cuota.monto_base = montos[idx]
             cuota.recargo_mora = Decimal('0')
             cuota.descuento = Decimal('0')
-            cuota.credito_aplicado = Decimal('0')
-            cuota.credito_origen_numero_cuota = None
+            cred = Decimal(str(cuota.credito_aplicado or 0))
+            nuevo = Decimal(str(montos[idx] or 0))
+            if cred > nuevo:
+                cuota.credito_aplicado = nuevo
             cuota.actualizar_monto_total()
             actualizadas += 1
 
@@ -22991,12 +23002,8 @@ def _aplicar_monto_solo_cuota(cuota, nuevo_monto, hoy=None):
     nuevo_monto = Decimal(str(nuevo_monto))
     if nuevo_monto < 0:
         raise ValueError('El importe del mes no puede ser negativo.')
-    hoy = hoy or timezone.now().date()
     cuota.monto_base = nuevo_monto
-    if cuota.estado == 'vencida' and cuota.fecha_vencimiento and cuota.fecha_vencimiento < hoy:
-        cuota.recargo_mora = cuota.calcular_mora()
-    else:
-        cuota.recargo_mora = Decimal('0')
+    cuota.recargo_mora = Decimal('0')
     cuota.descuento = Decimal('0')
     cuota.actualizar_monto_total()
     return cuota
@@ -23083,13 +23090,12 @@ def _aplicar_precio_mensual_desde_cuota(contrato, numero_cuota_desde, nuevo_prec
         estado__in=['pendiente', 'vencida'],
     ).order_by('numero_cuota'):
         cq.monto_base = nuevo_precio
-        if cq.estado == 'vencida' and cq.fecha_vencimiento and cq.fecha_vencimiento < hoy:
-            cq.recargo_mora = cq.calcular_mora()
-        else:
-            cq.recargo_mora = Decimal('0')
+        cq.recargo_mora = Decimal('0')
         cq.descuento = Decimal('0')
-        cq.credito_aplicado = Decimal('0')
-        cq.credito_origen_numero_cuota = None
+        # Conservar adelantos/créditos ya cobrados; solo topear al nuevo total.
+        cred = Decimal(str(cq.credito_aplicado or 0))
+        if cred > nuevo_precio:
+            cq.credito_aplicado = nuevo_precio
         cq.actualizar_monto_total()
         cq.save(
             update_fields=[
@@ -23098,7 +23104,6 @@ def _aplicar_precio_mensual_desde_cuota(contrato, numero_cuota_desde, nuevo_prec
                 'recargo_mora',
                 'descuento',
                 'credito_aplicado',
-                'credito_origen_numero_cuota',
             ]
         )
         actualizadas += 1
@@ -23149,10 +23154,7 @@ def _actualizar_pendientes_al_ultimo_importe(contrato, mes_tipo='mensual'):
         ):
             continue
         c.monto_base = monto
-        if c.estado == 'vencida' and c.fecha_vencimiento and c.fecha_vencimiento < hoy:
-            c.recargo_mora = c.calcular_mora()
-        else:
-            c.recargo_mora = Decimal('0')
+        c.recargo_mora = Decimal('0')
         c.descuento = Decimal('0')
         c.actualizar_monto_total()
         actualizadas += 1
@@ -23478,19 +23480,15 @@ def ver_cuotas_contrato(request, contrato_id):
 def api_cuota_detalle(request, cuota_id):
     """API para obtener detalles de una cuota"""
     cuota = get_object_or_404(CuotaMensual, id=cuota_id, contrato__sucursal=request.user.sucursal)
-    
-    # Calcular recargo por mora si aplica
-    if cuota.estado in ['pendiente', 'vencida'] and cuota.fecha_vencimiento < timezone.now().date():
-        cuota.recargo_mora = cuota.calcular_mora()
-        cuota.actualizar_monto_total()
-        cuota.save()
-    
+
     return JsonResponse({
         'id': cuota.id,
         'numero_cuota': cuota.numero_cuota,
         'monto_base': float(cuota.monto_base),  # Solo el precio mensual
-        'recargo_mora': float(cuota.recargo_mora),
-        'monto_total': float(cuota.monto_total)  # monto_base + recargo_mora - descuento
+        'recargo_mora': float(cuota.recargo_mora or 0),
+        'monto_total': float(cuota.monto_total),  # monto_base + recargo_mora - descuento
+        'saldo_cobro': float(cuota.saldo_para_cobro()),
+        'credito_aplicado': float(cuota.credito_aplicado or 0),
     })
 
 @login_required
@@ -23640,10 +23638,14 @@ def crear_pago_cuota_operacion(request, cuota_id):
         messages.error(request, 'Esta cuota no admite cobro en este estado.')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
-    if not modo_cobro_extra and cuota.estado in ('pendiente', 'vencida') and cuota.fecha_vencimiento < timezone.now().date():
-        cuota.recargo_mora = cuota.calcular_mora()
-        cuota.actualizar_monto_total()
-        cuota.save()
+    # No aplicar mora automática: solo limpiar recargos viejos que inflaban el saldo.
+    if not modo_cobro_extra and Decimal(str(cuota.recargo_mora or 0)) > 0:
+        cuota.recargo_mora = Decimal('0')
+        cuota.monto_total = max(
+            Decimal('0'),
+            Decimal(str(cuota.monto_base or 0)) - Decimal(str(cuota.descuento or 0)),
+        )
+        cuota.save(update_fields=['recargo_mora', 'monto_total'])
     cuota.refresh_from_db()
 
     try:
