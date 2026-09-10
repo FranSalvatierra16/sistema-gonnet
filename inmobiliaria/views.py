@@ -2283,7 +2283,9 @@ def administracion_propiedades_operaciones(request):
         cuotas_qs = CuotaMensual.objects.filter(contrato__propiedad=propiedad).select_related('contrato')
         propi = getattr(propiedad, 'propietario', None)
         from inmobiliaria.models.liquidacion import q_gastos_del_propietario_actual
-        gastos_qs = GastoPropietario.objects.filter(sucursal=request.user.sucursal)
+        # Por ficha concreta: no filtrar por sucursal del gasto (tras traslados
+        # de sucursal los gastos pueden seguir con el id de la branch vieja).
+        gastos_qs = GastoPropietario.objects.all()
         if propi:
             gastos_qs = gastos_qs.filter(q_gastos_del_propietario_actual(propiedad))
         else:
@@ -2295,10 +2297,9 @@ def administracion_propiedades_operaciones(request):
             'reserva', 'contrato', 'movimiento_caja'
         )
         pagos_qs = Pago.objects.filter(reserva__propiedad=propiedad, reserva__eliminada=False).select_related('reserva', 'concepto')
-        movimientos_qs = MovimientoCaja.objects.filter(sucursal=request.user.sucursal, propiedad=propiedad).select_related('empleado')
+        movimientos_qs = MovimientoCaja.objects.filter(propiedad=propiedad).select_related('empleado')
         # Egresos de la propiedad: propietario e inquilino (sin gastos de oficina).
         egresos_gasto_qs = MovimientoCaja.objects.filter(
-            sucursal=request.user.sucursal,
             propiedad=propiedad,
             tipo=TipoMovimientoCajaEnum.EGRESO,
             fecha_eliminacion__isnull=True,
@@ -2315,7 +2316,6 @@ def administracion_propiedades_operaciones(request):
         # Movimientos ya descontados en alguna liquidación (aunque el GastoPropietario
         # no entre en el filtro de fechas de esta pantalla).
         q_marcadores_liq = GastoPropietario.objects.filter(
-            sucursal=request.user.sucursal,
             liquidacion__isnull=False,
             observaciones__icontains='Movimiento de caja #',
         )
@@ -4107,14 +4107,42 @@ def propiedad_cambiar_sucursal(request, propiedad_id):
                 messages.error(request, 'Sucursal de destino no válida.')
             else:
                 if nueva.pk == propiedad.sucursal_id:
-                    messages.warning(request, 'La propiedad ya está en esa sucursal.')
+                    # Repara gastos/movimientos que quedaron en la sucursal vieja
+                    # tras un traslado anterior (ej. ficha 3331898).
+                    from inmobiliaria.models.liquidacion import (
+                        sincronizar_sucursal_al_trasladar_propiedad,
+                    )
+                    sync = sincronizar_sucursal_al_trasladar_propiedad(propiedad, nueva)
+                    movidos = sum(sync.values())
+                    if movidos:
+                        messages.success(
+                            request,
+                            f'Se realinearon {sync.get("gastos", 0)} gastos, '
+                            f'{sync.get("movimientos", 0)} movimientos de caja y '
+                            f'{sync.get("liquidaciones", 0)} liquidaciones a «{nueva.nombre}».',
+                        )
+                    else:
+                        messages.warning(request, 'La propiedad ya está en esa sucursal.')
+                    return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                 else:
                     anterior = propiedad.sucursal.nombre
                     propiedad.sucursal = nueva
                     propiedad.save(update_fields=['sucursal'])
+                    from inmobiliaria.models.liquidacion import (
+                        sincronizar_sucursal_al_trasladar_propiedad,
+                    )
+                    sync = sincronizar_sucursal_al_trasladar_propiedad(propiedad, nueva)
+                    detalle = (
+                        f' También se movieron {sync.get("gastos", 0)} gastos, '
+                        f'{sync.get("movimientos", 0)} movimientos y '
+                        f'{sync.get("liquidaciones", 0)} liquidaciones.'
+                        if sum(sync.values())
+                        else ''
+                    )
                     messages.success(
                         request,
-                        f'Sucursal actualizada: de «{anterior}» a «{nueva.nombre}» (ficha #{propiedad.id}).'
+                        f'Sucursal actualizada: de «{anterior}» a «{nueva.nombre}» '
+                        f'(ficha #{propiedad.id}).{detalle}'
                     )
                     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
 
@@ -30242,7 +30270,7 @@ def _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal):
         MovimientoCaja.objects.filter(
             propiedad=propiedad,
             tipo=TipoMovimientoCajaEnum.EGRESO,
-            sucursal=sucursal,
+            fecha_eliminacion__isnull=True,
         )
         .filter(
             Q(a_descontar='propietario')
@@ -30896,7 +30924,6 @@ def _gastos_solo_agregados_manual_liquidacion(propiedad, sucursal):
     qs = (
         GastoPropietario.objects.filter(
             liquidacion__isnull=True,
-            sucursal=sucursal,
             propiedad=propiedad,
         )
         .filter(q_titular)
@@ -30923,15 +30950,15 @@ def _gastos_pendientes_livianos_liquidacion(propiedad, sucursal):
     q_titular = q_gastos_del_propietario_actual(propiedad)
     gastos_saldo_negativo = GastoPropietario.objects.filter(
         liquidacion__isnull=True,
-        sucursal=sucursal,
         tipo_movimiento='egreso',
         observaciones__contains='liquidacion_pendiente_origen:',
-    ).filter(q_titular).order_by('-fecha_creacion')
+    ).filter(q_titular).filter(
+        Q(sucursal=sucursal) | Q(propiedad=propiedad)
+    ).order_by('-fecha_creacion')
 
     gastos_manuales = (
         GastoPropietario.objects.filter(
             liquidacion__isnull=True,
-            sucursal=sucursal,
         )
         .filter(q_titular)
         .filter(propiedad=propiedad)
@@ -31304,15 +31331,15 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
     q_titular = q_gastos_del_propietario_actual(propiedad)
     gastos_saldo_negativo = GastoPropietario.objects.filter(
         liquidacion__isnull=True,
-        sucursal=sucursal,
         tipo_movimiento='egreso',
         observaciones__contains='liquidacion_pendiente_origen:',
-    ).filter(q_titular).order_by('-fecha_creacion')
+    ).filter(q_titular).filter(
+        Q(sucursal=sucursal) | Q(propiedad=propiedad)
+    ).order_by('-fecha_creacion')
 
     gastos_manuales = (
         GastoPropietario.objects.filter(
             liquidacion__isnull=True,
-            sucursal=sucursal,
         )
         .filter(q_titular)
         .filter(propiedad=propiedad)

@@ -166,6 +166,17 @@ def _qs_movimientos_libro_propiedad(sucursal, propiedad, dr_desde=None, dr_hasta
     reserva_set = set(reserva_ids)
     contrato_set = set(contrato_ids)
 
+    # Movimientos directos de la ficha: no exigir sucursal del movimiento
+    # (tras un traslado de branch la caja puede seguir siendo de la sucursal vieja).
+    base_prop = MovimientoCaja.objects.filter(
+        fecha_eliminacion__isnull=True,
+        propiedad=propiedad,
+    ).select_related('recibo', 'recibo__reserva')
+    if dr_desde:
+        base_prop = base_prop.filter(fecha__date__gte=dr_desde)
+    if dr_hasta:
+        base_prop = base_prop.filter(fecha__date__lte=dr_hasta)
+
     base = MovimientoCaja.objects.filter(
         sucursal=sucursal,
         fecha_eliminacion__isnull=True,
@@ -178,7 +189,7 @@ def _qs_movimientos_libro_propiedad(sucursal, propiedad, dr_desde=None, dr_hasta
     # 1) Directos por FK propiedad (sin contrasientos de operación anulada
     #    ni movimientos cuyo recibo pertenece a otro depto).
     por_prop = []
-    for m in base.filter(propiedad=propiedad).order_by('fecha', 'id')[:2000]:
+    for m in base_prop.order_by('fecha', 'id')[:2000]:
         if _concepto_es_operacion_anulada(getattr(m, 'concepto', None)):
             continue
         if _movimiento_excluido_libro_oficina(m, propiedad):

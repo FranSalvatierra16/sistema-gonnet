@@ -432,8 +432,8 @@ def asegurar_gastos_saldo_negativo_propiedad(propiedad, sucursal=None):
         .exclude(estado='cancelada')
         .prefetch_related('gastos')
     )
-    if sucursal is not None:
-        qs = qs.filter(sucursal=sucursal)
+    # No filtrar por sucursal de la liquidación: tras un traslado de ficha
+    # las liquidaciones pueden seguir con la branch vieja.
 
     for liq in qs:
         monto_prev = liq.monto_a_pagar
@@ -561,6 +561,55 @@ def q_gastos_del_propietario_actual(propiedad):
         q_legacy = Q(propiedad=propiedad, propietario__isnull=True)
 
     return q_titular | q_legacy
+
+
+def sincronizar_sucursal_al_trasladar_propiedad(propiedad, sucursal_nueva):
+    """
+    Al cambiar la sucursal de una ficha, los gastos / liquidaciones / movimientos
+    de esa propiedad siguen con la sucursal vieja y desaparecen de los listados
+    (filtran por sucursal del usuario). Esta función los alinea a la nueva.
+    """
+    from inmobiliaria.models.caja import MovimientoCaja
+    from inmobiliaria.models.contrato import ContratoAlquiler
+    from inmobiliaria.models.propiedad import Reserva
+
+    if not propiedad or not sucursal_nueva:
+        return {}
+
+    sid = getattr(sucursal_nueva, 'pk', sucursal_nueva)
+    n_gastos = GastoPropietario.objects.filter(propiedad=propiedad).exclude(
+        sucursal_id=sid
+    ).update(sucursal_id=sid)
+    n_liqs = LiquidacionPropietario.objects.filter(propiedad=propiedad).exclude(
+        sucursal_id=sid
+    ).update(sucursal_id=sid)
+    n_movs = MovimientoCaja.objects.filter(propiedad=propiedad).exclude(
+        sucursal_id=sid
+    ).update(sucursal_id=sid)
+    n_reservas = Reserva.objects.filter(propiedad=propiedad).exclude(
+        sucursal_id=sid
+    ).update(sucursal_id=sid)
+    n_contratos = ContratoAlquiler.objects.filter(propiedad=propiedad).exclude(
+        sucursal_id=sid
+    ).update(sucursal_id=sid)
+
+    # Gastos del titular vinculados a la ficha (a veces sin FK propiedad, solo propietario).
+    n_gastos_tit = 0
+    propi_id = getattr(propiedad, 'propietario_id', None)
+    if propi_id:
+        n_gastos_tit = GastoPropietario.objects.filter(
+            propietario_id=propi_id,
+            liquidacion__isnull=True,
+            propiedad__isnull=True,
+        ).exclude(sucursal_id=sid).update(sucursal_id=sid, propiedad_id=propiedad.pk)
+
+    return {
+        'gastos': n_gastos + n_gastos_tit,
+        'liquidaciones': n_liqs,
+        'movimientos': n_movs,
+        'reservas': n_reservas,
+        'contratos': n_contratos,
+    }
 
 
 def sellar_gastos_al_cambiar_propietario(propiedad, propietario_anterior_id):
