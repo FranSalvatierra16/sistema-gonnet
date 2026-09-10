@@ -16,7 +16,6 @@ from inmobiliaria.models import (
     ComisionVendedor,
     CostosCompraLibroPropiedad,
     OperacionVenta,
-    Propiedad,
     Vendedor,
     VentaPropiedad,
 )
@@ -43,27 +42,6 @@ def _puede_gestionar_ventas(user):
     if getattr(user, 'is_superuser', False):
         return True
     return usuario_es_nivel_administracion(user) or getattr(user, 'nivel', 0) >= 3
-
-
-def _etiqueta_propiedad(prop):
-    if not prop:
-        return ''
-    partes = [f'#{prop.id}', '—', (prop.direccion or '').strip() or 'Sin dirección']
-    piso = (getattr(prop, 'piso', None) or '').strip()
-    depto = (getattr(prop, 'departamento', None) or '').strip()
-    if piso or depto:
-        ud = ' '.join(x for x in [f'{piso}°' if piso else '', depto] if x).strip()
-        if ud:
-            partes.append(f'· {ud}')
-    prop_txt = ''
-    if prop.propietario:
-        prop_txt = (
-            getattr(prop.propietario, 'nombre_completo_propietario', lambda: '')()
-            or str(prop.propietario)
-        ).strip()
-        if prop_txt:
-            partes.append(f'· {prop_txt}')
-    return ' '.join(partes)
 
 
 def _json_safe(obj):
@@ -129,7 +107,8 @@ def operaciones_venta_lista(request):
     busqueda = (request.GET.get('q') or '').strip()
     if busqueda:
         q = (
-            Q(propiedad__direccion__icontains=busqueda)
+            Q(propiedad_nombre__icontains=busqueda)
+            | Q(propiedad__direccion__icontains=busqueda)
             | Q(comprador_nombre__icontains=busqueda)
             | Q(vendedor__nombre__icontains=busqueda)
             | Q(vendedor__apellido__icontains=busqueda)
@@ -203,7 +182,7 @@ def _form_data_desde_operacion(op):
         'comprador_nombre': op.comprador_nombre or '',
         'escribania': op.escribania or '',
         'observaciones': op.observaciones or '',
-        'propiedad_buscar': _etiqueta_propiedad(op.propiedad),
+        'propiedad_nombre': op.etiqueta_propiedad() if (op.propiedad_nombre or '').strip() or op.propiedad_id else '',
         'comisiones_usd': comisiones_usd,
         'comision_fichaje_usd': comision_fichaje_usd,
     }
@@ -212,17 +191,16 @@ def _form_data_desde_operacion(op):
 def _parsear_post_venta(request, form_data, vendedores, sucursal):
     """
     Valida el POST de alta/edición.
-    Devuelve (errores, datos) donde datos tiene propiedad, fecha, montos, etc.
+    Devuelve (errores, datos) donde datos tiene propiedad_nombre, fecha, montos, etc.
     """
     errores = []
-    prop_id = (request.POST.get('propiedad_id') or '').strip()
-    propiedad = None
-    if prop_id.isdigit():
-        propiedad = Propiedad.objects.filter(
-            pk=int(prop_id), sucursal=sucursal
-        ).select_related('fichado_por').first()
-    if not propiedad:
-        errores.append('Seleccioná una propiedad válida de la sucursal.')
+    propiedad_nombre = (
+        form_data.get('propiedad_nombre')
+        or request.POST.get('propiedad_nombre')
+        or ''
+    ).strip()
+    if not propiedad_nombre:
+        errores.append('Indicá el nombre de la propiedad.')
 
     try:
         fecha_venta = datetime.strptime(form_data['fecha_venta'][:10], '%Y-%m-%d').date()
@@ -293,7 +271,7 @@ def _parsear_post_venta(request, form_data, vendedores, sucursal):
         errores.append('Cargá al menos una comisión de productor en USD.')
 
     return errores, {
-        'propiedad': propiedad,
+        'propiedad_nombre': propiedad_nombre[:255],
         'fecha_venta': fecha_venta,
         'precio_usd': precio_usd,
         'cotizacion': cotizacion,
@@ -303,7 +281,6 @@ def _parsear_post_venta(request, form_data, vendedores, sucursal):
         'monto_fichaje_ars': monto_fichaje_ars,
         'honorarios_ars': honorarios_ars,
         'honorarios_usd': honorarios_usd.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-        'prop_id': prop_id,
     }
 
 
@@ -336,6 +313,22 @@ def _reemplazar_comisiones_venta(op, partes_ars, monto_fichaje_ars, fichado_por)
     return comisiones
 
 
+def _liberar_marca_vendida_si_corresponde(propiedad_id):
+    """Si no quedan ventas confirmadas de esa ficha, vuelve a disponible."""
+    if not propiedad_id:
+        return
+    otras = OperacionVenta.objects.filter(
+        propiedad_id=propiedad_id, estado='confirmada'
+    ).exists()
+    if otras:
+        return
+    info = VentaPropiedad.objects.filter(propiedad_id=propiedad_id).first()
+    if info and info.estado == 'vendido':
+        info.estado = 'disponible'
+        info.en_venta = True
+        info.save(update_fields=['estado', 'en_venta', 'fecha_actualizacion'])
+
+
 @login_required
 def operaciones_venta_nueva(request):
     if not _puede_gestionar_ventas(request.user):
@@ -345,13 +338,6 @@ def operaciones_venta_nueva(request):
     vendedores = Vendedor.objects.filter(
         sucursal=sucursal, is_active=True
     ).order_by('apellido', 'nombre')
-
-    propiedad_pre = None
-    prop_id = (request.GET.get('propiedad') or request.POST.get('propiedad_id') or '').strip()
-    if prop_id.isdigit():
-        propiedad_pre = Propiedad.objects.filter(
-            pk=int(prop_id), sucursal=sucursal
-        ).select_related('propietario', 'info_venta', 'costos_compra_libro', 'fichado_por').first()
 
     default_vendedor = str(request.user.pk) if isinstance(request.user, Vendedor) else ''
     form_data = {
@@ -365,25 +351,10 @@ def operaciones_venta_nueva(request):
         'comprador_nombre': '',
         'escribania': '',
         'observaciones': '',
-        'propiedad_buscar': '',
+        'propiedad_nombre': '',
         'comisiones_usd': {},
         'comision_fichaje_usd': '',
     }
-    if propiedad_pre:
-        form_data['propiedad_buscar'] = _etiqueta_propiedad(propiedad_pre)
-        if propiedad_pre.fichado_por_id:
-            form_data['fichado_por_id'] = str(propiedad_pre.fichado_por_id)
-        info = getattr(propiedad_pre, 'info_venta', None)
-        if info and info.precio_venta:
-            form_data['precio_usd'] = _fmt_decimal_form(info.precio_venta)
-        costos = getattr(propiedad_pre, 'costos_compra_libro', None)
-        if costos:
-            if costos.valor_depto_vendido:
-                form_data['precio_usd'] = _fmt_decimal_form(costos.valor_depto_vendido)
-            if costos.honorarios_venta:
-                form_data['honorarios_usd'] = _fmt_decimal_form(costos.honorarios_venta)
-            if costos.escribania:
-                form_data['escribania'] = costos.escribania
 
     if request.method == 'POST':
         vendedor_ids_raw = request.POST.getlist('vendedor_ids')
@@ -398,7 +369,7 @@ def operaciones_venta_nueva(request):
             'comprador_nombre': (request.POST.get('comprador_nombre') or '').strip(),
             'escribania': (request.POST.get('escribania') or '').strip(),
             'observaciones': (request.POST.get('observaciones') or '').strip(),
-            'propiedad_buscar': (request.POST.get('propiedad_buscar') or '').strip(),
+            'propiedad_nombre': (request.POST.get('propiedad_nombre') or '').strip(),
             'comision_fichaje_usd': (request.POST.get('comision_fichaje_usd') or '').strip(),
         })
         errores, datos = _parsear_post_venta(request, form_data, vendedores, sucursal)
@@ -409,7 +380,8 @@ def operaciones_venta_nueva(request):
             try:
                 with transaction.atomic():
                     op = OperacionVenta(
-                        propiedad=datos['propiedad'],
+                        propiedad=None,
+                        propiedad_nombre=datos['propiedad_nombre'],
                         sucursal=sucursal,
                         vendedor=datos['vendedores_sel'][0],
                         fichado_por=datos['fichado_por'],
@@ -427,8 +399,6 @@ def operaciones_venta_nueva(request):
                     )
                     op.save()
                     op.vendedores.set(datos['vendedores_sel'])
-                    _marcar_propiedad_vendida(datos['propiedad'])
-                    _sincronizar_libro_propiedad(op, usuario=request.user)
                     comisiones = _crear_comisiones_venta(
                         op,
                         [(v, m) for v, m, _r in datos['partes_ars']],
@@ -443,17 +413,11 @@ def operaciones_venta_nueva(request):
                     request,
                     f'Venta #{op.pk} registrada: U$S {op.precio_usd} — '
                     f'honorarios oficina U$S {op.honorarios_usd} / ${op.honorarios_ars} '
-                    f'(cotiz. {op.cotizacion_dolar}). Libro del depto actualizado.',
+                    f'(cotiz. {op.cotizacion_dolar}).',
                 )
                 return redirect('inmobiliaria:operaciones_venta_detalle', operacion_id=op.pk)
             except Exception as exc:
                 messages.error(request, f'No se pudo guardar la venta: {exc}')
-
-        prop_id = datos.get('prop_id') or (request.POST.get('propiedad_id') or '').strip()
-        if prop_id.isdigit():
-            propiedad_pre = Propiedad.objects.filter(
-                pk=int(prop_id), sucursal=sucursal
-            ).select_related('propietario', 'fichado_por').first()
 
     _aplicar_json_form(form_data)
     return render(
@@ -461,7 +425,6 @@ def operaciones_venta_nueva(request):
         'inmobiliaria/ventas/operacion_form.html',
         {
             'vendedores': vendedores,
-            'propiedad': propiedad_pre,
             'form': form_data,
             'modo': 'nueva',
             'operacion': None,
@@ -508,7 +471,6 @@ def operaciones_venta_editar(request, operacion_id):
     ).order_by('apellido', 'nombre').distinct()
 
     form_data = _form_data_desde_operacion(op)
-    propiedad_pre = op.propiedad
 
     if request.method == 'POST':
         vendedor_ids_raw = request.POST.getlist('vendedor_ids')
@@ -523,7 +485,7 @@ def operaciones_venta_editar(request, operacion_id):
             'comprador_nombre': (request.POST.get('comprador_nombre') or '').strip(),
             'escribania': (request.POST.get('escribania') or '').strip(),
             'observaciones': (request.POST.get('observaciones') or '').strip(),
-            'propiedad_buscar': (request.POST.get('propiedad_buscar') or '').strip(),
+            'propiedad_nombre': (request.POST.get('propiedad_nombre') or '').strip(),
             'comision_fichaje_usd': (request.POST.get('comision_fichaje_usd') or '').strip(),
         })
         errores, datos = _parsear_post_venta(request, form_data, vendedores, sucursal)
@@ -534,7 +496,8 @@ def operaciones_venta_editar(request, operacion_id):
             prop_anterior_id = op.propiedad_id
             try:
                 with transaction.atomic():
-                    op.propiedad = datos['propiedad']
+                    op.propiedad = None
+                    op.propiedad_nombre = datos['propiedad_nombre']
                     op.vendedor = datos['vendedores_sel'][0]
                     op.fichado_por = datos['fichado_por']
                     op.fecha_venta = datos['fecha_venta']
@@ -549,26 +512,8 @@ def operaciones_venta_editar(request, operacion_id):
                     op.estado = 'confirmada'
                     op.save()
                     op.vendedores.set(datos['vendedores_sel'])
-                    _marcar_propiedad_vendida(datos['propiedad'])
-                    if prop_anterior_id != datos['propiedad'].pk:
-                        otras = OperacionVenta.objects.filter(
-                            propiedad_id=prop_anterior_id, estado='confirmada'
-                        ).exclude(pk=op.pk).exists()
-                        if not otras:
-                            info = VentaPropiedad.objects.filter(
-                                propiedad_id=prop_anterior_id
-                            ).first()
-                            if info and info.estado == 'vendido':
-                                info.estado = 'disponible'
-                                info.en_venta = True
-                                info.save(
-                                    update_fields=[
-                                        'estado',
-                                        'en_venta',
-                                        'fecha_actualizacion',
-                                    ]
-                                )
-                    _sincronizar_libro_propiedad(op, usuario=request.user)
+                    if prop_anterior_id:
+                        _liberar_marca_vendida_si_corresponde(prop_anterior_id)
                     _reemplazar_comisiones_venta(
                         op,
                         datos['partes_ars'],
@@ -584,19 +529,12 @@ def operaciones_venta_editar(request, operacion_id):
             except Exception as exc:
                 messages.error(request, f'No se pudo guardar la venta: {exc}')
 
-        prop_id = (request.POST.get('propiedad_id') or '').strip()
-        if prop_id.isdigit():
-            propiedad_pre = Propiedad.objects.filter(
-                pk=int(prop_id), sucursal=sucursal
-            ).select_related('propietario', 'fichado_por').first() or op.propiedad
-
     _aplicar_json_form(form_data)
     return render(
         request,
         'inmobiliaria/ventas/operacion_form.html',
         {
             'vendedores': vendedores,
-            'propiedad': propiedad_pre,
             'form': form_data,
             'modo': 'editar',
             'operacion': op,
@@ -698,17 +636,7 @@ def operaciones_venta_eliminar(request, operacion_id):
         op.comision = None
         op.save(update_fields=['comision'])
         op.delete()
-
-        # Si no quedan ventas confirmadas de esa propiedad, sacar marca de vendido.
-        otras = OperacionVenta.objects.filter(
-            propiedad_id=prop_id, estado='confirmada'
-        ).exists()
-        if not otras:
-            info = VentaPropiedad.objects.filter(propiedad_id=prop_id).first()
-            if info and info.estado == 'vendido':
-                info.estado = 'disponible'
-                info.en_venta = True
-                info.save(update_fields=['estado', 'en_venta', 'fecha_actualizacion'])
+        _liberar_marca_vendida_si_corresponde(prop_id)
 
     messages.success(
         request,
@@ -718,6 +646,8 @@ def operaciones_venta_eliminar(request, operacion_id):
 
 
 def _marcar_propiedad_vendida(propiedad):
+    if not propiedad:
+        return
     info, _ = VentaPropiedad.objects.get_or_create(propiedad=propiedad)
     info.estado = 'vendido'
     info.en_venta = False
@@ -728,7 +658,10 @@ def _sincronizar_libro_propiedad(op, usuario=None):
     """
     Refleja la venta en CostosCompraLibroPropiedad (libro del depto en oficina /
     mis propiedades): valor vendido, escritura, honorarios y escribanía.
+    Solo aplica si la venta sigue vinculada a una ficha.
     """
+    if not op.propiedad_id:
+        return
     costos, _ = CostosCompraLibroPropiedad.objects.get_or_create(propiedad=op.propiedad)
     costos.valor_depto_vendido = op.precio_usd
     costos.gastos_escritura_venta = op.gastos_escritura_usd or Decimal('0')
@@ -770,7 +703,7 @@ def _crear_comisiones_venta(op, partes_ars, monto_fichaje_ars=None):
 
     dt = _fecha_operacion_aware(op.fecha_venta)
     estado_com = _estado_comision_venta(op.fecha_venta)
-    dir_prop = (op.propiedad.direccion or '').strip() or f'#{op.propiedad_id}'
+    dir_prop = op.etiqueta_propiedad()
     creadas = []
 
     def _pct_sobre_honorarios(monto):
@@ -792,7 +725,7 @@ def _crear_comisiones_venta(op, partes_ars, monto_fichaje_ars=None):
                 porcentaje_comision=pct_comision,
                 monto_comision=monto,
                 concepto_operacion=(
-                    f'Venta propiedad #{op.propiedad_id} — {dir_prop} '
+                    f'Venta — {dir_prop} '
                     f'(U$S {op.precio_usd} @ {op.cotizacion_dolar})'
                 )[:200],
                 rol_comision=ROL_COMISION_VENTA,
@@ -820,7 +753,7 @@ def _crear_comisiones_venta(op, partes_ars, monto_fichaje_ars=None):
                 porcentaje_comision=pct_f,
                 monto_comision=monto_f,
                 concepto_operacion=(
-                    f'Fichaje venta #{op.propiedad_id} — {dir_prop}'
+                    f'Fichaje venta — {dir_prop}'
                 )[:200],
                 rol_comision=ROL_COMISION_FICHAJE,
                 fecha_operacion=dt,

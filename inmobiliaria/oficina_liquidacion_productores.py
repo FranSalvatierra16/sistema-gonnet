@@ -291,18 +291,21 @@ def _col_label_vendedor(v):
 
 
 def _label_venta(op):
-    prop = getattr(op, 'propiedad', None)
-    propietario = ''
-    if prop is not None:
-        dueño = getattr(prop, 'propietario', None)
-        if dueño:
-            propietario = (getattr(dueño, 'apellido', None) or getattr(dueño, 'nombre', None) or '').strip()
-        if not propietario:
-            propietario = (getattr(prop, 'direccion', None) or '').strip()
+    nombre = (getattr(op, 'propiedad_nombre', None) or '').strip()
+    if not nombre:
+        prop = getattr(op, 'propiedad', None)
+        if prop is not None:
+            dueño = getattr(prop, 'propietario', None)
+            if dueño:
+                nombre = (
+                    getattr(dueño, 'apellido', None) or getattr(dueño, 'nombre', None) or ''
+                ).strip()
+            if not nombre:
+                nombre = (getattr(prop, 'direccion', None) or '').strip()
     comprador = (getattr(op, 'comprador_nombre', None) or '').strip()
-    if propietario and comprador:
-        return f'{propietario} - {comprador}'
-    return comprador or propietario or f'Venta #{op.id}'
+    if nombre and comprador:
+        return f'{nombre} - {comprador}'
+    return comprador or nombre or f'Venta #{op.id}'
 
 
 def _celdas(n, oficina=None, por_id=None, columnas=None):

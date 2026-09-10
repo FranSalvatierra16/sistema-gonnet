@@ -12,7 +12,7 @@
             <p class="text-muted small mb-0">Modificá lo que haga falta; al guardar se actualizan las comisiones con la fecha de venta.</p>
             {% else %}
             <h1 class="h4 mb-1"><i class="fas fa-file-signature text-success me-2"></i>Registrar venta</h1>
-            <p class="text-muted small mb-0">Precio y comisiones en dólares; con la cotización pasan a pesos. Se refleja en el libro del depto.</p>
+            <p class="text-muted small mb-0">Precio y comisiones en dólares; con la cotización pasan a pesos.</p>
             {% endif %}
         </div>
         <div class="d-flex gap-2">
@@ -27,30 +27,13 @@
     <form method="post" class="card shadow-sm border-0" id="form_venta">
         {% csrf_token %}
         <div class="card-body">
-            <div class="mb-3 position-relative">
-                <label class="form-label fw-semibold" for="propiedad_buscar">Propiedad *</label>
-                <input type="hidden" name="propiedad_id" id="propiedad_id" value="{% if propiedad %}{{ propiedad.id }}{% endif %}">
-                <input type="text" class="form-control" id="propiedad_buscar" name="propiedad_buscar"
-                       value="{{ form.propiedad_buscar }}"
-                       placeholder="ID, dirección o propietario…" autocomplete="off"
-                       {% if propiedad %}readonly{% endif %}>
-                <div id="dropdown_propiedades" class="list-group position-absolute shadow-sm mt-1 w-100" style="z-index:20; display:none;"></div>
-                {% if propiedad %}
-                <div class="form-text">
-                    Seleccionada: <strong>#{{ propiedad.id }}</strong> — {{ propiedad.direccion }}
-                    {% if propiedad.piso or propiedad.departamento %}
-                    <span class="text-muted">
-                        ({% if propiedad.piso %}{{ propiedad.piso }}°{% endif %}{% if propiedad.piso and propiedad.departamento %} {% endif %}{% if propiedad.departamento %}{{ propiedad.departamento }}{% endif %})
-                    </span>
-                    {% endif %}
-                    {% if propiedad.propietario %}
-                    <span class="text-muted">· {{ propiedad.propietario }}</span>
-                    {% endif %}
-                    <a href="#" class="ms-2" id="btn_cambiar_propiedad">Cambiar</a>
-                </div>
-                {% else %}
-                <div class="form-text">Empezá a escribir; se busca como en caja.</div>
-                {% endif %}
+            <div class="mb-3">
+                <label class="form-label fw-semibold" for="propiedad_nombre">Propiedad *</label>
+                <input type="text" class="form-control" id="propiedad_nombre" name="propiedad_nombre"
+                       value="{{ form.propiedad_nombre }}"
+                       placeholder="Nombre o descripción de lo vendido…"
+                       maxlength="255" required autocomplete="off">
+                <div class="form-text">Texto libre; no se vincula a ninguna ficha del sistema.</div>
             </div>
 
             <div class="mb-3">
@@ -429,86 +412,6 @@
     if (honArs && String(honArs.value || '').trim()) honorariosArsManual = true;
     syncHonorariosOficinaArs();
     recalc();
-
-    function pisoDepto(p) {
-        var piso = (p.piso || '').trim();
-        var depto = (p.departamento || '').trim();
-        if (!piso && !depto) return '';
-        var ud = '';
-        if (piso) ud += piso + '°';
-        if (piso && depto) ud += ' ';
-        if (depto) ud += depto;
-        return ud;
-    }
-    function labelProp(p) {
-        var label = '#' + p.id + ' — ' + (p.direccion || '');
-        var ud = pisoDepto(p);
-        if (ud) label += ' · ' + ud;
-        if (p.propietario) label += ' · ' + p.propietario;
-        return label;
-    }
-
-    var $buscar = $('#propiedad_buscar');
-    var $hidden = $('#propiedad_id');
-    var $dd = $('#dropdown_propiedades');
-    var $fichaje = $('#fichado_por_id');
-    var timer = null;
-
-    $('#btn_cambiar_propiedad').on('click', function(e) {
-        e.preventDefault();
-        $buscar.prop('readonly', false).val('').focus();
-        $hidden.val('');
-        $(this).closest('.form-text').hide();
-    });
-
-    function render(props) {
-        $dd.empty();
-        if (!props || !props.length) {
-            $dd.append('<div class="list-group-item text-muted py-2">Sin resultados</div>').show();
-            return;
-        }
-        props.forEach(function(p) {
-            var label = labelProp(p);
-            var $a = $('<a href="#" class="list-group-item list-group-item-action py-2"></a>').text(label);
-            $a.on('click', function(e) {
-                e.preventDefault();
-                $hidden.val(p.id);
-                $buscar.val(label);
-                if (p.fichado_por_id && $fichaje.find('option[value="' + p.fichado_por_id + '"]').length) {
-                    $fichaje.val(String(p.fichado_por_id));
-                    recalc();
-                }
-                $dd.hide().empty();
-            });
-            $dd.append($a);
-        });
-        $dd.show();
-    }
-
-    $buscar.on('input', function() {
-        if ($buscar.prop('readonly')) return;
-        var t = $buscar.val().trim();
-        $hidden.val('');
-        clearTimeout(timer);
-        if (t.length < 2) { $dd.hide().empty(); return; }
-        timer = setTimeout(function() {
-            $.ajax({
-                url: '{% url "inmobiliaria:buscar_propiedades_caja" %}',
-                method: 'POST',
-                data: { termino: t, csrfmiddlewaretoken: '{{ csrf_token }}' },
-                success: function(resp) {
-                    if (resp && resp.success) render(resp.propiedades || []);
-                    else render([]);
-                },
-                error: function() { render([]); }
-            });
-        }, 280);
-    });
-    $(document).on('click', function(e) {
-        if (!$(e.target).closest('#propiedad_buscar, #dropdown_propiedades').length) {
-            $dd.hide();
-        }
-    });
 })();
 </script>
 {% endblock %}

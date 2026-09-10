@@ -11,7 +11,9 @@ class OperacionVenta(models.Model):
     Registro de una venta cerrada.
     Precio y honorarios se cargan en dólares; con la cotización se calculan
     los honorarios en pesos (lo que va como comisión al vendedor).
-    Al confirmar, se sincroniza con el libro del depto (mis propiedades / oficina).
+    La propiedad se indica como texto libre (sin vincular a una ficha del sistema).
+    Si queda una FK antigua (`propiedad`), al confirmar aún puede sincronizar
+    el libro del depto; las ventas nuevas solo usan `propiedad_nombre`.
     """
 
     ESTADO_CHOICES = [
@@ -23,7 +25,17 @@ class OperacionVenta(models.Model):
         'Propiedad',
         on_delete=models.PROTECT,
         related_name='operaciones_venta',
+        verbose_name='Propiedad (ficha)',
+        null=True,
+        blank=True,
+        help_text='Opcional / legado. Las ventas nuevas no vinculan ficha.',
+    )
+    propiedad_nombre = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
         verbose_name='Propiedad',
+        help_text='Nombre o descripción libre de lo vendido (sin ficha).',
     )
     sucursal = models.ForeignKey(
         'Sucursal',
@@ -136,7 +148,18 @@ class OperacionVenta(models.Model):
         ordering = ['-fecha_venta', '-id']
 
     def __str__(self):
-        return f'Venta #{self.pk} — {self.propiedad_id} U$S {self.precio_usd}'
+        return f'Venta #{self.pk} — {self.etiqueta_propiedad()} U$S {self.precio_usd}'
+
+    def etiqueta_propiedad(self):
+        """Texto para listados: nombre libre o, si falta, la ficha legada."""
+        nombre = (self.propiedad_nombre or '').strip()
+        if nombre:
+            return nombre
+        prop = self.propiedad
+        if prop is None:
+            return f'Venta #{self.pk}' if self.pk else 'Sin propiedad'
+        dir_txt = (prop.direccion or '').strip() or 'Sin dirección'
+        return f'#{prop.id} — {dir_txt}'
 
     def recalcular_honorarios_ars(self):
         """honorarios_ars = honorarios_usd × cotización."""
