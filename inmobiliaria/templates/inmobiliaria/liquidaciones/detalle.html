@@ -28,6 +28,11 @@
                     <a href="{% url 'inmobiliaria:imprimir_liquidacion_cobranzas' liquidacion.id %}" class="btn btn-outline-primary" target="_blank" rel="noopener">
                         <i class="fas fa-print me-2"></i>Imprimir liquidación de cobranzas
                     </a>
+                    {% if puede_editar_liquidacion %}
+                    <a href="{% url 'inmobiliaria:editar_liquidacion' liquidacion.id %}" class="btn btn-warning">
+                        <i class="fas fa-edit me-2"></i>Editar liquidación
+                    </a>
+                    {% endif %}
                     <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-secondary">
                         <i class="fas fa-arrow-left me-2"></i>Volver a Lista
                     </a>

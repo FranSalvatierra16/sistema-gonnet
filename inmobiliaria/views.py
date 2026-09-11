@@ -29310,7 +29310,7 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
     return render(request, 'inmobiliaria/liquidaciones/crear.html', context)
 
 
-def _cuotas_excluidas_por_liquidaciones_contrato(propiedad):
+def _cuotas_excluidas_por_liquidaciones_contrato(propiedad, excepto_liquidacion_id=None):
     """
     IDs de cuotas (ContratoAlquiler) ya imputadas en liquidaciones no canceladas.
 
@@ -29319,8 +29319,17 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad):
       fecha_pago <= fecha de cierre de la liquidación (procesamiento o creación).
     - Liquidaciones en estado pendiente: solo excluyen las cuotas que figuran
       explícitamente en operaciones_incluidas (no bloquean el resto del contrato).
+    - excepto_liquidacion_id: no contar esa liquidación (al editarla).
     """
-    cached = getattr(propiedad, '_cache_cuotas_excluidas_liq', None) if propiedad else None
+    excepto = None
+    try:
+        if excepto_liquidacion_id is not None:
+            excepto = int(excepto_liquidacion_id)
+    except (TypeError, ValueError):
+        excepto = None
+
+    cache_key = f'_cache_cuotas_excluidas_liq_{excepto or 0}'
+    cached = getattr(propiedad, cache_key, None) if propiedad else None
     if cached is not None:
         return cached
 
@@ -29329,6 +29338,7 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad):
         LiquidacionPropietario.objects.filter(propiedad=propiedad)
         .exclude(estado='cancelada')
         .only(
+            'id',
             'operaciones_incluidas',
             'contrato_id',
             'estado',
@@ -29336,6 +29346,8 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad):
             'fecha_procesamiento',
         )
     )
+    if excepto:
+        qs = qs.exclude(pk=excepto)
     for liq in qs:
         ops = liq.operaciones_incluidas or []
         if liq.estado == 'pendiente':
@@ -29407,7 +29419,7 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad):
             ).values_list('id', flat=True):
                 cuotas_excluidas.add(cq_id)
     if propiedad is not None:
-        propiedad._cache_cuotas_excluidas_liq = cuotas_excluidas
+        setattr(propiedad, cache_key, cuotas_excluidas)
     return cuotas_excluidas
 
 
@@ -31155,10 +31167,11 @@ def _gastos_pendientes_livianos_liquidacion(propiedad, sucursal):
     return out
 
 
-def _operaciones_gastos_pendientes_data(propiedad, sucursal):
+def _operaciones_gastos_pendientes_data(propiedad, sucursal, excepto_liquidacion_id=None):
     """
     Lista operaciones y gastos pendientes de liquidación para una propiedad (dict serializable a JSON).
     `sucursal` debe ser la sucursal del usuario (coincidente con la de la propiedad).
+    excepto_liquidacion_id: al editar una liquidación, no excluir sus cuotas/reservas/gastos.
     """
     from inmobiliaria.models.liquidacion import asegurar_gastos_saldo_negativo_propiedad
 
@@ -31181,9 +31194,13 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         _fecha_hasta_parte_creada_liquidacion,
     )
 
-    reservas_excluidas = reserva_ids_completamente_liquidadas(propiedad)
+    reservas_excluidas = reserva_ids_completamente_liquidadas(
+        propiedad, excepto_liquidacion_id=excepto_liquidacion_id
+    )
 
-    cuotas_excluidas = _cuotas_excluidas_por_liquidaciones_contrato(propiedad)
+    cuotas_excluidas = _cuotas_excluidas_por_liquidaciones_contrato(
+        propiedad, excepto_liquidacion_id=excepto_liquidacion_id
+    )
 
     from inmobiliaria.caja_devolucion_deposito import (
         queryset_reservas_con_operacion,
@@ -31530,6 +31547,25 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal):
         # Ingresos (reintegro observaciones) y egresos van a «Movimientos pendientes».
         gastos_pendientes_list.append(_dict_gasto_pendiente(gasto, detalle=obs))
 
+    # Al editar: incluir gastos ya asociados a esta liquidación para poder retildarlos.
+    if excepto_liquidacion_id:
+        try:
+            excepto_int = int(excepto_liquidacion_id)
+        except (TypeError, ValueError):
+            excepto_int = None
+        if excepto_int:
+            for gasto in GastoPropietario.objects.filter(
+                liquidacion_id=excepto_int
+            ).order_by('-fecha_creacion'):
+                if gasto.id in vistos:
+                    continue
+                vistos.add(gasto.id)
+                obs = (gasto.observaciones or '').strip()
+                if 'liquidacion_pendiente_origen:' in obs:
+                    gastos_pendientes_list.append(_dict_gasto_saldo_negativo_liquidacion(gasto))
+                else:
+                    gastos_pendientes_list.append(_dict_gasto_pendiente(gasto, detalle=obs))
+
     egresos_caja = _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal)
     gastos_pendientes_list.extend(egresos_caja)
 
@@ -31763,7 +31799,10 @@ def obtener_operaciones_pendientes(request, propiedad_id):
     """Vista AJAX: operaciones y gastos pendientes para una propiedad."""
     try:
         propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
-        data = _operaciones_gastos_pendientes_data(propiedad, request.user.sucursal)
+        excepto = (request.GET.get('excepto_liquidacion') or '').strip() or None
+        data = _operaciones_gastos_pendientes_data(
+            propiedad, request.user.sucursal, excepto_liquidacion_id=excepto
+        )
         lbl = _etiqueta_propiedad_liquidacion(propiedad)
         for op in data.get('operaciones') or []:
             op['propiedad_id'] = propiedad.id
@@ -31798,9 +31837,12 @@ def obtener_operaciones_pendientes_propietario(request, propietario_id):
                 sucursal=request.user.sucursal,
             ).select_related('propietario')
         )
+        excepto = (request.GET.get('excepto_liquidacion') or '').strip() or None
         for propiedad in props:
             try:
-                data = _operaciones_gastos_pendientes_data(propiedad, request.user.sucursal)
+                data = _operaciones_gastos_pendientes_data(
+                    propiedad, request.user.sucursal, excepto_liquidacion_id=excepto
+                )
             except Exception as exc:
                 logger.exception(
                     'Error al armar operaciones pendientes propiedad %s (propietario %s)',
@@ -32838,6 +32880,10 @@ def detalle_liquidacion(request, liquidacion_id):
         'url_siguiente_parcial': url_siguiente_parcial,
         'operaciones_tabla': _operaciones_incluidas_tabla(liquidacion),
         'puede_eliminar_liquidacion': usuario_es_nivel_administracion(request.user),
+        'puede_editar_liquidacion': (
+            usuario_puede_eliminar_movimiento_caja(request.user)
+            and (liquidacion.estado or '') in ('pendiente', 'cerrada')
+        ),
         'gastos_pendientes_disponibles': gastos_pendientes_disponibles,
         'egresos_caja_pendientes_count': egresos_caja_pendientes_count,
         'liq_editable': liq_editable,
@@ -32847,6 +32893,258 @@ def detalle_liquidacion(request, liquidacion_id):
     }
 
     return render(request, 'inmobiliaria/liquidaciones/detalle.html', context)
+
+
+@login_required
+@transaction.atomic
+def editar_liquidacion(request, liquidacion_id):
+    """
+    Editar una liquidación con la misma pantalla que «crear».
+    Solo super administrador (nivel 5). Pendiente o cerrada (no pagada/cancelada).
+    """
+    if not usuario_puede_eliminar_movimiento_caja(request.user):
+        messages.error(request, 'Solo el super administrador puede editar liquidaciones.')
+        return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
+
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario.objects.select_related(
+            'propietario', 'propiedad', 'reserva', 'contrato'
+        ).prefetch_related('gastos'),
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+    )
+    if (liquidacion.estado or '') not in ('pendiente', 'cerrada'):
+        messages.error(
+            request,
+            'Solo se pueden editar liquidaciones pendientes o cerradas (no pagadas ni canceladas).',
+        )
+        return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
+
+    if request.method == 'POST':
+        try:
+            def parse_decimal_es(valor):
+                return parse_decimal_monto(valor or '0')
+
+            propiedad_id = request.POST.get('propiedad_id')
+            if not propiedad_id:
+                messages.error(request, 'Debe seleccionar una propiedad.')
+                return redirect('inmobiliaria:editar_liquidacion', liquidacion_id=liquidacion.id)
+
+            propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
+            monto_total = parse_decimal_es(request.POST.get('monto_total', '0'))
+            monto_propietario = parse_decimal_es(request.POST.get('monto_propietario', '0'))
+            monto_cochera = parse_decimal_es(request.POST.get('monto_cochera', '0'))
+            if monto_cochera < 0:
+                monto_cochera = Decimal('0')
+            monto_fondo_mantenimiento = parse_decimal_es(request.POST.get('monto_fondo_mantenimiento', '0'))
+            if monto_fondo_mantenimiento < 0:
+                monto_fondo_mantenimiento = Decimal('0')
+            comision_locador = parse_decimal_es(request.POST.get('comision_locador', '0'))
+            comision_locatario = parse_decimal_es(request.POST.get('comision_locatario', '0'))
+            if comision_locador < 0:
+                comision_locador = Decimal('0')
+            if comision_locatario < 0:
+                comision_locatario = Decimal('0')
+            fecha_desde = request.POST.get('fecha_desde')
+            fecha_hasta = request.POST.get('fecha_hasta')
+            observaciones = request.POST.get('observaciones', '')
+
+            cotizacion_dolar = None
+            cotiz_raw = (request.POST.get('cotizacion_dolar') or '').strip()
+            if cotiz_raw:
+                try:
+                    cotizacion_dolar = parse_decimal_es(cotiz_raw)
+                    if cotizacion_dolar <= 0:
+                        cotizacion_dolar = None
+                except (TypeError, ValueError, InvalidOperation):
+                    cotizacion_dolar = None
+
+            raw_inm = (request.POST.get('monto_inmobiliaria') or '').strip()
+            if raw_inm:
+                monto_inmobiliaria = parse_decimal_es(raw_inm)
+            else:
+                monto_inmobiliaria = monto_total - monto_propietario - monto_cochera
+
+            import json as _json_ops_prop
+            montos_prop_por_op = {}
+            for raw_m in request.POST.getlist('operacion_monto_propietario[]'):
+                try:
+                    d_m = _json_ops_prop.loads(raw_m or '{}')
+                    t_m = str(d_m.get('tipo') or '').strip().lower()
+                    id_m = int(d_m.get('id'))
+                    montos_prop_por_op[f'{t_m}:{id_m}'] = parse_decimal_es(str(d_m.get('monto') or '0'))
+                except (TypeError, ValueError, _json_ops_prop.JSONDecodeError):
+                    continue
+
+            operaciones_incluidas = []
+            for item in request.POST.getlist('operaciones_seleccionadas[]'):
+                item = (item or '').strip()
+                if ':' not in item:
+                    continue
+                tipo, sid = item.split(':', 1)
+                tipo = tipo.strip().lower()
+                try:
+                    pk = int(sid.strip())
+                except ValueError:
+                    continue
+                if tipo in (
+                    'reserva',
+                    'contrato',
+                    'contrato_cuota',
+                    'contrato_operacion_principal',
+                    'movimiento_caja',
+                    'gasto_propietario',
+                    'observacion_cobro',
+                ):
+                    op_row = {'tipo': tipo, 'id': pk}
+                    m_prop_op = montos_prop_por_op.get(f'{tipo}:{pk}')
+                    if m_prop_op is not None and m_prop_op >= 0:
+                        op_row['monto_propietario'] = str(m_prop_op.quantize(Decimal('0.01')))
+                    operaciones_incluidas.append(op_row)
+
+            # Conservar bloques «division» previos si el formulario no los reenvía
+            for op in liquidacion.operaciones_incluidas or []:
+                if isinstance(op, dict) and (op.get('tipo') or '').lower() == 'division':
+                    operaciones_incluidas.append(op)
+
+            contrato_fk = liquidacion.contrato
+            reserva_fk = liquidacion.reserva
+            for o in operaciones_incluidas:
+                if (o.get('tipo') or '').lower() == 'contrato' and not contrato_fk:
+                    try:
+                        contrato_fk = ContratoAlquiler.objects.filter(
+                            pk=int(o['id']), sucursal=request.user.sucursal
+                        ).first()
+                    except (TypeError, ValueError, KeyError):
+                        pass
+                if (o.get('tipo') or '').lower() == 'reserva' and not reserva_fk:
+                    try:
+                        reserva_fk = Reserva.objects.filter(
+                            pk=int(o['id']), sucursal=request.user.sucursal
+                        ).first()
+                    except (TypeError, ValueError, KeyError):
+                        pass
+
+            fd_liq = datetime.strptime(fecha_desde, '%Y-%m-%d').date() if fecha_desde else None
+            fh_liq = datetime.strptime(fecha_hasta, '%Y-%m-%d').date() if fecha_hasta else None
+
+            liquidacion.propietario = propiedad.propietario
+            liquidacion.propiedad = propiedad
+            liquidacion.reserva = reserva_fk
+            liquidacion.contrato = contrato_fk
+            liquidacion.moneda = _resolver_moneda_liquidacion(
+                contrato_fk=contrato_fk,
+                operaciones_incluidas=operaciones_incluidas,
+                post_moneda=request.POST.get('moneda'),
+            )
+            liquidacion.cotizacion_dolar = cotizacion_dolar
+            liquidacion.monto_total_operacion = monto_total
+            liquidacion.monto_propietario = monto_propietario
+            liquidacion.monto_inmobiliaria = monto_inmobiliaria
+            liquidacion.monto_cochera = monto_cochera
+            liquidacion.monto_fondo_mantenimiento = monto_fondo_mantenimiento
+            liquidacion.comision_locador = comision_locador
+            liquidacion.comision_locatario = comision_locatario
+            liquidacion.fecha_desde = fd_liq
+            liquidacion.fecha_hasta = fh_liq
+            liquidacion.observaciones = observaciones
+            liquidacion.operaciones_incluidas = operaciones_incluidas
+            liquidacion.save()
+
+            # Re-vincular gastos: soltar los actuales y asociar los tildados
+            for g in liquidacion.gastos.all():
+                g.liquidacion = None
+                g.save(update_fields=['liquidacion'])
+
+            gastos_seleccionados = _leer_gastos_seleccionados_post(request.POST)
+            if gastos_seleccionados:
+                _asociar_gastos_seleccionados_a_liquidacion(
+                    liquidacion, gastos_seleccionados, propiedad=propiedad
+                )
+
+            liquidacion.calcular_monto_a_pagar()
+            from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
+
+            confirmar_comisiones_por_liquidacion(liquidacion)
+
+            messages.success(request, f'Liquidación #{liquidacion.id} actualizada.')
+            return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
+        except Exception as e:
+            messages.error(request, f'Error al editar la liquidación: {e}')
+            return redirect('inmobiliaria:editar_liquidacion', liquidacion_id=liquidacion.id)
+
+    from inmobiliaria.decimal_utils import format_monto_argentino
+
+    propiedades = Propiedad.objects.filter(
+        sucursal=request.user.sucursal
+    ).select_related('propietario').order_by('direccion')
+
+    ops_restaurar = []
+    for op in liquidacion.operaciones_incluidas or []:
+        if not isinstance(op, dict):
+            continue
+        tipo = (op.get('tipo') or '').lower()
+        if tipo in ('division',):
+            continue
+        try:
+            ops_restaurar.append({'tipo': tipo, 'id': str(int(op['id']))})
+        except (KeyError, TypeError, ValueError):
+            continue
+
+    gastos_ids = [str(g.id) for g in liquidacion.gastos.all()]
+    edit_bootstrap = {
+        'liquidacion_id': liquidacion.id,
+        'propiedad_id': liquidacion.propiedad_id,
+        'restaurarOperaciones': ops_restaurar,
+        'restaurarGastosIds': gastos_ids,
+        'montosEditadosManualmente': True,
+        'montoTotal': format_monto_argentino(liquidacion.monto_total_operacion or 0),
+        'montoPropietario': format_monto_argentino(liquidacion.monto_propietario or 0),
+        'montoInmobiliaria': format_monto_argentino(liquidacion.monto_inmobiliaria or 0),
+        'montoCochera': format_monto_argentino(liquidacion.monto_cochera or 0),
+        'montoFondo': format_monto_argentino(liquidacion.monto_fondo_mantenimiento or 0),
+        'fechaDesde': liquidacion.fecha_desde.strftime('%Y-%m-%d') if liquidacion.fecha_desde else '',
+        'fechaHasta': liquidacion.fecha_hasta.strftime('%Y-%m-%d') if liquidacion.fecha_hasta else '',
+        'comisionLocador': format_monto_argentino(liquidacion.comision_locador or 0),
+        'comisionLocatario': format_monto_argentino(liquidacion.comision_locatario or 0),
+    }
+
+    context = {
+        'liquidacion_editando': liquidacion,
+        'excepto_liquidacion_id': liquidacion.id,
+        'edit_bootstrap': edit_bootstrap,
+        'reserva': liquidacion.reserva,
+        'contrato': liquidacion.contrato,
+        'propiedades': propiedades,
+        'propiedad': liquidacion.propiedad,
+        'operacion_buscar_inicial': (
+            liquidacion.contrato_id or liquidacion.reserva_id or ''
+        ),
+        'cuota_liquidacion_inicial': '',
+        'cuotas_liquidacion_inicial': [],
+        'principal_liquidacion_inicial': False,
+        'moneda_inicial': (liquidacion.moneda or 'ARS'),
+        'monto_total': format_monto_argentino(liquidacion.monto_total_operacion or 0),
+        'monto_propietario_inicial': format_monto_argentino(liquidacion.monto_propietario or 0),
+        'monto_inmobiliaria_inicial': format_monto_argentino(liquidacion.monto_inmobiliaria or 0),
+        'monto_cochera_inicial': format_monto_argentino(liquidacion.monto_cochera or 0),
+        'monto_fondo_inicial': format_monto_argentino(liquidacion.monto_fondo_mantenimiento or 0),
+        'fecha_desde_inicial': (
+            liquidacion.fecha_desde.strftime('%Y-%m-%d') if liquidacion.fecha_desde else ''
+        ),
+        'fecha_hasta_inicial': (
+            liquidacion.fecha_hasta.strftime('%Y-%m-%d') if liquidacion.fecha_hasta else ''
+        ),
+        'observaciones_inicial': liquidacion.observaciones or '',
+        'cotizacion_dolar_inicial': (
+            format_monto_argentino(liquidacion.cotizacion_dolar)
+            if liquidacion.cotizacion_dolar
+            else ''
+        ),
+        'comision_locador_inicial': format_monto_argentino(liquidacion.comision_locador or 0),
+        'comision_locatario_inicial': format_monto_argentino(liquidacion.comision_locatario or 0),
+    }
+    return render(request, 'inmobiliaria/liquidaciones/crear.html', context)
 
 
 @login_required

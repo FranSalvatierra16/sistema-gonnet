@@ -1,24 +1,29 @@
 {% extends 'inmobiliaria/base.html' %}
 
-{% block title %}Crear Liquidación{% endblock %}
+{% block title %}{% if liquidacion_editando %}Editar Liquidación #{{ liquidacion_editando.id }}{% else %}Crear Liquidación{% endif %}{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
-            <h1 class="mb-4">💰 Crear Nueva Liquidación
+            <h1 class="mb-4">{% if liquidacion_editando %}✏️ Editar Liquidación #{{ liquidacion_editando.id }}{% else %}💰 Crear Nueva Liquidación{% endif %}
                 <span id="badge-moneda-liquidacion" class="badge {% if moneda_inicial == 'USD' %}bg-info{% else %}bg-secondary{% endif %} ms-2 fs-6 align-middle">
                     {% if moneda_inicial == 'USD' %}Dólares (USD){% else %}Pesos (ARS){% endif %}
                 </span>
             </h1>
 
             <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Datos de la Liquidación</h5>
+                <div class="card-header {% if liquidacion_editando %}bg-warning text-dark{% else %}bg-primary text-white{% endif %}">
+                    <h5 class="mb-0">{% if liquidacion_editando %}Modificar datos (super admin){% else %}Datos de la Liquidación{% endif %}</h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST" id="formCrearLiquidacion" novalidate>
+                    <form method="POST" id="formCrearLiquidacion" novalidate
+                          {% if liquidacion_editando %}action="{% url 'inmobiliaria:editar_liquidacion' liquidacion_editando.id %}"{% endif %}>
                         {% csrf_token %}
+                        {% if liquidacion_editando %}
+                        <input type="hidden" name="liquidacion_id" value="{{ liquidacion_editando.id }}">
+                        {{ edit_bootstrap|json_script:"liquidacion-edit-bootstrap" }}
+                        {% endif %}
                         <input type="hidden" name="moneda" id="moneda_liquidacion" value="{{ moneda_inicial|default:'ARS' }}">
                         <input type="hidden" name="propietario_id" id="propietario_id" value="">
                         <input type="hidden" name="operacion_referencia_numero" id="operacion_referencia_numero" value="">
@@ -63,7 +68,7 @@
                                     <option value="">Seleccione una propiedad</option>
                                     {% for propiedad in propiedades %}
                                     <option value="{{ propiedad.id }}" 
-                                            {% if reserva and propiedad.id == reserva.propiedad.id %}selected{% endif %}
+                                            {% if liquidacion_editando and liquidacion_editando.propiedad_id == propiedad.id %}selected{% elif reserva and propiedad.id == reserva.propiedad.id %}selected{% elif propiedad_id_inicial and propiedad.id == propiedad_id_inicial %}selected{% endif %}
                                             data-propietario="{{ propiedad.propietario.apellido }}, {{ propiedad.propietario.nombre }}"
                                             data-cuenta-bancaria="{{ propiedad.propietario.cuenta_bancaria|default:'' }}">
                                         {{ propiedad.direccion }}
@@ -300,12 +305,12 @@
                             <div class="col-md-6">
                                 <label class="form-label">Fecha Desde</label>
                                 <input type="date" name="fecha_desde" class="form-control" 
-                                       value="{% if fecha_desde %}{{ fecha_desde|date:'Y-m-d' }}{% endif %}">
+                                       value="{% if fecha_desde_inicial %}{{ fecha_desde_inicial }}{% elif fecha_desde %}{{ fecha_desde|date:'Y-m-d' }}{% endif %}">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Fecha Hasta</label>
                                 <input type="date" name="fecha_hasta" class="form-control" 
-                                       value="{% if fecha_hasta %}{{ fecha_hasta|date:'Y-m-d' }}{% endif %}">
+                                       value="{% if fecha_hasta_inicial %}{{ fecha_hasta_inicial }}{% elif fecha_hasta %}{{ fecha_hasta|date:'Y-m-d' }}{% endif %}">
                             </div>
                         </div>
 
@@ -314,7 +319,7 @@
                             <div class="input-group" style="max-width: 18rem;">
                                 <span class="input-group-text">$</span>
                                 <input type="text" name="cotizacion_dolar" id="cotizacion_dolar_liq" class="form-control input-monto-ar"
-                                       inputmode="decimal" autocomplete="off" value="" placeholder="Ej. 1450">
+                                       inputmode="decimal" autocomplete="off" value="{{ cotizacion_dolar_inicial|default:'' }}" placeholder="Ej. 1450">
                             </div>
                             <small class="form-text text-muted">Pesos por 1 dólar. Se puede cargar aunque la liquidación esté en pesos o en dólares.</small>
                         </div>
@@ -322,15 +327,15 @@
                         <div class="mb-3">
                             <label class="form-label">Observaciones</label>
                             <textarea name="observaciones" class="form-control" rows="3" 
-                                      placeholder="Observaciones adicionales..."></textarea>
+                                      placeholder="Observaciones adicionales...">{{ observaciones_inicial|default:'' }}</textarea>
                         </div>
 
                         <div class="d-flex justify-content-between">
-                            <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-secondary">
+                            <a href="{% if liquidacion_editando %}{% url 'inmobiliaria:detalle_liquidacion' liquidacion_editando.id %}{% else %}{% url 'inmobiliaria:lista_liquidaciones' %}{% endif %}" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left me-2"></i>Cancelar
                             </a>
-                            <button type="submit" class="btn btn-primary" id="btn_crear_liquidacion">
-                                <i class="fas fa-save me-2"></i>Crear Liquidación
+                            <button type="submit" class="btn {% if liquidacion_editando %}btn-warning{% else %}btn-primary{% endif %}" id="btn_crear_liquidacion">
+                                <i class="fas fa-save me-2"></i>{% if liquidacion_editando %}Guardar cambios{% else %}Crear Liquidación{% endif %}
                             </button>
                         </div>
                     </form>
@@ -1297,7 +1302,13 @@ document.addEventListener('DOMContentLoaded', function() {
         container.style.display = 'block';
         lista.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin me-2"></i>Cargando operaciones pendientes...</div>';
 
-        fetch(`{% url 'inmobiliaria:obtener_operaciones_pendientes' 0 %}`.replace('0', propiedadId))
+        let urlPend = `{% url 'inmobiliaria:obtener_operaciones_pendientes' 0 %}`.replace('0', propiedadId);
+        const exceptoLiq = {{ excepto_liquidacion_id|default:'null' }};
+        if (exceptoLiq) {
+            urlPend += (urlPend.indexOf('?') >= 0 ? '&' : '?') + 'excepto_liquidacion=' + encodeURIComponent(exceptoLiq);
+        }
+
+        fetch(urlPend)
             .then(function(response) {
                 if (!response.ok) {
                     return response.json().catch(function() { return {}; }).then(function(body) {
@@ -2507,7 +2518,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Desde carátula u otra pantalla: buscar operación por número y pre-cargar pendientes
     const operacionInicial = '{{ operacion_buscar_inicial|default:"" }}';
-    if (operacionInicial && operacionBuscarInput) {
+    const editBootstrapEl = document.getElementById('liquidacion-edit-bootstrap');
+    let editBootstrap = null;
+    if (editBootstrapEl) {
+        try { editBootstrap = JSON.parse(editBootstrapEl.textContent); } catch (e) { editBootstrap = null; }
+    }
+    if (editBootstrap && editBootstrap.propiedad_id) {
+        const pidEdit = String(editBootstrap.propiedad_id);
+        asegurarOpcionPropiedad(pidEdit);
+        propiedadSelect.value = pidEdit;
+        const selectedOption = propiedadSelect.options[propiedadSelect.selectedIndex];
+        if (selectedOption) {
+            propiedadBuscar.value = `#${selectedOption.value} - ${selectedOption.textContent.trim()}`;
+            btnLimpiarPropiedad.classList.remove('d-none');
+            propietarioDisplay.value = selectedOption.getAttribute('data-propietario') || '';
+            const cb0 = (selectedOption.getAttribute('data-cuenta-bancaria') || '').trim();
+            cuentaPropietarioDisplay.value = cb0 || '';
+            cuentaPropietarioDisplay.placeholder = cb0 ? '' : 'Sin cuenta cargada';
+        }
+        if (editBootstrap.comisionLocador != null && comisionLocador) {
+            comisionLocador.value = editBootstrap.comisionLocador;
+        }
+        if (editBootstrap.comisionLocatario != null && comisionLocatario) {
+            comisionLocatario.value = editBootstrap.comisionLocatario;
+        }
+        cargarOperacionesPendientes(pidEdit, editBootstrap);
+    } else if (operacionInicial && operacionBuscarInput) {
         operacionBuscarInput.value = operacionInicial;
         buscarOperacionPorNumero();
     } else if (propiedadSelect.value) {

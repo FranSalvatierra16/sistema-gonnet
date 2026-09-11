@@ -434,21 +434,27 @@ def encadenar_fechas_partes_division(partes):
     return partes
 
 
-def reserva_ids_completamente_liquidadas(propiedad) -> set:
+def reserva_ids_completamente_liquidadas(propiedad, excepto_liquidacion_id=None) -> set:
     """
     IDs de reserva cuya parte al propietario ya está cubierta al 100%
     (una o más liquidaciones no canceladas). Las parciales NO entran.
+    Si excepto_liquidacion_id, esa liquidación no cuenta (útil al editarla).
     """
     from inmobiliaria.models import LiquidacionPropietario, Reserva
 
     if not propiedad:
         return set()
+    excepto = None
+    try:
+        if excepto_liquidacion_id is not None:
+            excepto = int(excepto_liquidacion_id)
+    except (TypeError, ValueError):
+        excepto = None
     candidatos = set()
-    for liq in (
-        LiquidacionPropietario.objects.filter(propiedad=propiedad)
-        .exclude(estado='cancelada')
-        .only('reserva_id', 'operaciones_incluidas')
-    ):
+    qs = LiquidacionPropietario.objects.filter(propiedad=propiedad).exclude(estado='cancelada')
+    if excepto:
+        qs = qs.exclude(pk=excepto)
+    for liq in qs.only('reserva_id', 'operaciones_incluidas'):
         if liq.reserva_id:
             candidatos.add(int(liq.reserva_id))
         for op in liq.operaciones_incluidas or []:
@@ -466,7 +472,10 @@ def reserva_ids_completamente_liquidadas(propiedad) -> set:
     for reserva in Reserva.objects.filter(id__in=candidatos, propiedad=propiedad).select_related(
         'propiedad'
     ):
-        if saldo_liquidacion_reserva(reserva)['completa']:
+        liqs = liquidaciones_activas_reserva(reserva)
+        if excepto:
+            liqs = [l for l in liqs if int(l.pk) != excepto]
+        if saldo_liquidacion_reserva(reserva, liquidaciones=liqs)['completa']:
             completas.add(int(reserva.id))
     return completas
 

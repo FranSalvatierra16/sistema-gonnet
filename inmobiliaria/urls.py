@@ -604,6 +604,11 @@ urlpatterns = [
         name='crear_liquidacion_contrato',
     ),
     path('liquidaciones/<int:liquidacion_id>/eliminar/', views.eliminar_liquidacion, name='eliminar_liquidacion'),
+    path(
+        'liquidaciones/<int:liquidacion_id>/editar/',
+        views.editar_liquidacion,
+        name='editar_liquidacion',
+    ),
     path('liquidaciones/<int:liquidacion_id>/', views.detalle_liquidacion, name='detalle_liquidacion'),
     path(
         'liquidaciones/<int:liquidacion_id>/imprimir-cobranzas/',
