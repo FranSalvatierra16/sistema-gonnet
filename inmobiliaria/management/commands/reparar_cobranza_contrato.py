@@ -18,6 +18,7 @@ from django.utils import timezone
 from inmobiliaria.models import ContratoAlquiler
 from inmobiliaria.cuotas_imputacion import (
     dejar_cuota_en_adelanto_parcial,
+    imputar_cuotas_mensuales_desde_movimiento_1000,
     limpiar_mora_automatica_cuotas,
     marcar_cuota_pagada_desde_recibo_mes,
     mover_credito_adelanto_entre_cuotas,
@@ -77,6 +78,14 @@ class Command(BaseCommand):
                 'cuota 568900 con a favor 23518+525200; saldo ~20182). No toca otras cuotas.'
             ),
         )
+        parser.add_argument(
+            '--reimputar-caja',
+            action='store_true',
+            help=(
+                'Relee los ingresos de caja del contrato e imputa líneas 1000/1200/a cuenta '
+                'al mes indicado en observaciones (ej. A CUENTA AGOSTO).'
+            ),
+        )
 
     def handle(self, *args, **options):
         cid = options['contrato_id']
@@ -106,12 +115,15 @@ class Command(BaseCommand):
 
         dejar = options.get('dejar_adelanto')
         set_credito = options.get('set_credito')
-        solo_puntual = (dejar or set_credito) and not (
+        reimputar_caja = bool(options.get('reimputar_caja'))
+        solo_puntual = (dejar or set_credito or reimputar_caja) and not (
             options.get('mayo')
             or options.get('mover_adelanto')
             or options.get('recibo_mes')
         )
         if solo_puntual:
+            if reimputar_caja:
+                self._reimputar_caja(contrato)
             if dejar:
                 self._dejar_adelanto(contrato, dejar[0], dejar[1], dejar[2])
             if set_credito and not dejar:
@@ -180,6 +192,39 @@ class Command(BaseCommand):
                 f'  {c.numero_cuota:02d} {fv} {c.estado} '
                 f'base={c.monto_base} total={c.monto_total} crédito={c.credito_aplicado} '
                 f'saldo={c.saldo_para_cobro()}'
+            )
+
+    def _reimputar_caja(self, contrato):
+        from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+
+        movs = list(
+            MovimientoCaja.objects.filter(
+                propiedad_id=contrato.propiedad_id,
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+                fecha_eliminacion__isnull=True,
+                concepto__icontains=f'Contrato #{contrato.id}',
+            ).order_by('fecha', 'id')
+        )
+        total = 0
+        for mov in movs:
+            n = imputar_cuotas_mensuales_desde_movimiento_1000(contrato, mov)
+            if n:
+                total += n
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f'  Movimiento #{mov.id}: imputó {n} cuota(s)/adelanto(s)'
+                    )
+                )
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'Reimputación caja: {total} cuota(s) afectadas en {len(movs)} movimiento(s).'
+            )
+        )
+        for c in contrato.cuotas.all().order_by('numero_cuota')[:8]:
+            fv = c.fecha_vencimiento.strftime('%d/%m/%Y') if c.fecha_vencimiento else '—'
+            self.stdout.write(
+                f'  {c.numero_cuota:02d} {fv} {c.estado} '
+                f'base={c.monto_base} crédito={c.credito_aplicado} saldo={c.saldo_para_cobro()}'
             )
 
     def _dejar_adelanto(self, contrato, numero_raw, monto_raw, credito_raw):

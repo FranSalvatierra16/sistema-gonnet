@@ -1,5 +1,5 @@
 """
-Imputación de CuotaMensual desde líneas de concepto de alquiler/cuota (1000, 29, 1 o 15)
+Imputación de CuotaMensual desde líneas de concepto de alquiler/cuota
 guardadas en MovimientoCaja.concepto_detalle.
 Usado en operación principal y en reparaciones por management command.
 """
@@ -7,19 +7,28 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from decimal import Decimal
 
 from .decimal_utils import parse_decimal_monto
 
 logger = logging.getLogger(__name__)
 
-# Conceptos cuyo importe se imputa a una CuotaMensual (con cuota_objetivo_id o en orden).
-# 1290 = «Alquiler a Cobrar» (catálogo legacy / cobranzas).
-CODIGOS_IMPUTACION_ALQUILER_CUOTA = frozenset({'1000', '1', '15', '29', '1290'})
+# Conceptos cuyo importe se imputa a una CuotaMensual (con cuota_objetivo_id, mes en obs, o en orden).
+# 1290 / 1010 = «Alquiler a Cobrar»; 100 = Saldo Locación; 1200 = Pago a cuenta (legacy).
+CODIGOS_IMPUTACION_ALQUILER_CUOTA = frozenset({
+    '1000', '1', '15', '29', '1290', '100', '1010', '1200',
+})
 # Exigen elegir cuota objetivo en operaciones de cobro de cuota.
-CONCEPTOS_CUOTA_OBJETIVO = frozenset({'1000', '29', '1290'})
+CONCEPTOS_CUOTA_OBJETIVO = frozenset({'1000', '29', '1290', '1010', '1200'})
 # En operación principal (depósito/honorarios) solo imputan 1000/29/1290 o 1/15 con cuota elegida.
-CONCEPTOS_ALQUILER_LEGACY_SIN_CUOTA_OBJETIVO = frozenset({'1', '15'})
+CONCEPTOS_ALQUILER_LEGACY_SIN_CUOTA_OBJETIVO = frozenset({'1', '15', '100'})
+
+MESES_ES = {
+    'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4, 'mayo': 5, 'junio': 6,
+    'julio': 7, 'agosto': 8, 'septiembre': 9, 'setiembre': 9, 'octubre': 10,
+    'noviembre': 11, 'diciembre': 12,
+}
 
 
 def _normalizar_codigo_concepto_caja(cid_raw) -> str:
@@ -43,6 +52,76 @@ def _normalizar_codigo_concepto_caja(cid_raw) -> str:
     except (ValueError, OverflowError):
         pass
     return s
+
+
+def texto_linea_concepto(it) -> str:
+    """Observaciones + nombre de una línea de concepto (para detectar mes / a cuenta)."""
+    parts = [
+        it.get('observaciones') or '',
+        it.get('obs') or '',
+        it.get('detalle') or '',
+        it.get('detalle_l2') or '',
+        it.get('nombre') or '',
+        it.get('concepto') or '',
+    ]
+    return ' '.join(str(p) for p in parts if p).strip()
+
+
+def mes_anio_desde_texto(texto: str) -> tuple[int | None, int | None]:
+    """Extrae mes y año de textos tipo «A CUENTA AGOSTO 2026» / «SALDO JUNIO 2026»."""
+    t = (texto or '').lower()
+    if not t:
+        return None, None
+    mes_n = None
+    for nombre, num in MESES_ES.items():
+        if nombre in t:
+            mes_n = num
+            break
+    m_anio = re.search(r'(20\d{2})', t)
+    anio_n = int(m_anio.group(1)) if m_anio else None
+    return mes_n, anio_n
+
+
+def linea_es_imputacion_alquiler_cuota(it) -> bool:
+    """True si la línea debe imputarse al plan de cuotas (código o nombre legacy)."""
+    cid = _normalizar_codigo_concepto_caja(it.get('id') if it.get('id') is not None else it.get('codigo'))
+    if cid in CODIGOS_IMPUTACION_ALQUILER_CUOTA:
+        return True
+    nom = (it.get('nombre') or it.get('concepto') or '').strip().lower()
+    if not nom:
+        return False
+    claves = (
+        'alquiler a cobrar',
+        'pago a cuenta',
+        'a cuenta',
+        'saldo locaci',
+        'saldo alquiler',
+        'saldo de locaci',
+    )
+    return any(k in nom for k in claves)
+
+
+def resolver_cuota_por_mes_texto(contrato, texto: str, cuotas=None):
+    """Busca la cuota del contrato cuyo vencimiento coincide con el mes/año del texto."""
+    mes_n, anio_n = mes_anio_desde_texto(texto)
+    if mes_n is None:
+        return None
+    candidatas = list(cuotas) if cuotas is not None else list(
+        contrato.cuotas.all().order_by('numero_cuota')
+    )
+    for c in candidatas:
+        fv = getattr(c, 'fecha_vencimiento', None)
+        if not fv or int(fv.month) != int(mes_n):
+            continue
+        if anio_n is not None and int(fv.year) != int(anio_n):
+            continue
+        return c
+    if anio_n is not None:
+        for c in candidatas:
+            fv = getattr(c, 'fecha_vencimiento', None)
+            if fv and int(fv.month) == int(mes_n):
+                return c
+    return None
 
 
 def payload_conceptos_desde_movimiento_detalle(movimiento) -> list:
@@ -74,20 +153,20 @@ def lineas_imputables_desde_movimiento(movimiento, *, operacion_principal: bool 
     lineas = payload_conceptos_desde_movimiento_detalle(movimiento)
     out = []
     for it in lineas:
-        cid_raw = it.get('id')
-        if cid_raw is None:
-            cid_raw = it.get('codigo')
-        cid = _normalizar_codigo_concepto_caja(cid_raw)
-        if cid not in CODIGOS_IMPUTACION_ALQUILER_CUOTA:
+        if not linea_es_imputacion_alquiler_cuota(it):
             continue
+        cid = _normalizar_codigo_concepto_caja(it.get('id') if it.get('id') is not None else it.get('codigo'))
         imp = parse_decimal_monto(it.get('importe'))
         if imp <= 0:
             continue
         if operacion_principal:
             raw_qid = str(it.get('cuota_objetivo_id') or '').strip()
-            if cid in CONCEPTOS_CUOTA_OBJETIVO:
+            if cid in CONCEPTOS_CUOTA_OBJETIVO or (not cid and linea_es_imputacion_alquiler_cuota(it)):
                 out.append(it)
             elif cid in CONCEPTOS_ALQUILER_LEGACY_SIN_CUOTA_OBJETIVO and raw_qid.isdigit():
+                out.append(it)
+            elif mes_anio_desde_texto(texto_linea_concepto(it))[0] is not None:
+                # «A CUENTA AGOSTO» etc. aunque sea código legacy
                 out.append(it)
             continue
         out.append(it)
@@ -442,9 +521,8 @@ def imputar_cuotas_mensuales_desde_movimiento_1000(
     contrato, movimiento, *, operacion_principal: bool = False
 ) -> int:
     """
-    Marca pagadas las cuotas pendientes/vencidas según líneas de alquiler/cuota del movimiento
-    (conceptos 1000, 29, 1 o 15; ARS o USD), por cuota_objetivo_id o en orden de numero_cuota.
-    Devuelve la cantidad de cuotas afectadas (pagadas o adelanto).
+    Marca pagadas / adelanto las cuotas según líneas de alquiler/a cuenta del movimiento.
+    Resuelve el mes por cuota_objetivo_id o por texto en observaciones («A CUENTA AGOSTO 2026»).
     """
     lineas_imputables = lineas_imputables_desde_movimiento(
         movimiento, operacion_principal=operacion_principal
@@ -454,16 +532,8 @@ def imputar_cuotas_mensuales_desde_movimiento_1000(
         return 0
 
     tol_q = Decimal('0.05')
-    monto_lineas = sum(parse_decimal_monto(it.get('importe')) for it in lineas_imputables)
-    monto_ya_imputado = Decimal('0')
-    for cq in contrato.cuotas.filter(movimiento=movimiento, estado__in=['pagada', 'pagada_con_mora']):
-        monto_ya_imputado += Decimal(str(cq.monto_total or 0))
-    if monto_ya_imputado > 0 and monto_ya_imputado + tol_q >= monto_lineas:
-        return 0
-
-    cuotas_pendientes = list(
-        contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota')
-    )
+    cuotas_todas = list(contrato.cuotas.all().order_by('numero_cuota'))
+    cuotas_pendientes = [c for c in cuotas_todas if c.estado in ('pendiente', 'vencida')]
     if not cuotas_pendientes:
         return 0
 
@@ -473,10 +543,24 @@ def imputar_cuotas_mensuales_desde_movimiento_1000(
 
     for it in lineas_imputables:
         imp = parse_decimal_monto(it.get('importe'))
+        if imp <= tol_q:
+            continue
+        texto = texto_linea_concepto(it)
         raw_qid = str(it.get('cuota_objetivo_id') or '').strip()
         cuota_target = None
         if raw_qid.isdigit():
             cuota_target = cuotas_by_id.get(int(raw_qid))
+
+        if not cuota_target:
+            # «SALDO JUNIO» / «A CUENTA AGOSTO 2026» → mes correcto (no la primera pendiente).
+            cuota_por_mes = resolver_cuota_por_mes_texto(contrato, texto, cuotas_todas)
+            if cuota_por_mes is not None:
+                if cuota_por_mes.estado in ('pagada', 'pagada_con_mora'):
+                    # Ese mes ya está cerrado; no volcar el importe al siguiente pendiente.
+                    continue
+                if cuota_por_mes.estado in ('pendiente', 'vencida'):
+                    cuota_target = cuota_por_mes
+
         if not cuota_target:
             while idx_primera_pendiente < len(cuotas_pendientes):
                 cnd = cuotas_pendientes[idx_primera_pendiente]
@@ -498,6 +582,12 @@ def imputar_cuotas_mensuales_desde_movimiento_1000(
         cq.refresh_from_db()
         cubierto = asignado_por_cuota.get(cq.id, Decimal('0'))
         if cubierto <= tol_q:
+            continue
+        # Evitar duplicar si este movimiento ya dejó adelanto en la cuota.
+        if (
+            Decimal(str(cq.credito_aplicado or 0)) + tol_q >= cubierto
+            and movimiento_imputa_cuota(movimiento, cq)
+        ):
             continue
         origen = ultima_cuota_pagada_num if ultima_cuota_pagada_num is not None else int(cq.numero_cuota)
         resultado = imputar_importe_a_cuota(
@@ -560,22 +650,31 @@ def movimiento_imputa_cuota(movimiento, cuota, *, operacion_principal: bool = Fa
     mes_txt = str(payload.get('mes_alquiler_texto_recibo') or '').strip().lower()
     fv = getattr(cuota, 'fecha_vencimiento', None)
     if mes_txt and fv is not None:
-        meses_es = {
-            1: 'enero', 2: 'febrero', 3: 'marzo', 4: 'abril', 5: 'mayo', 6: 'junio',
-            7: 'julio', 8: 'agosto', 9: 'septiembre', 10: 'octubre', 11: 'noviembre', 12: 'diciembre',
-        }
-        nombre_mes = meses_es.get(int(fv.month), '')
+        nombre_mes = None
+        for nombre, num in MESES_ES.items():
+            if num == int(fv.month):
+                nombre_mes = nombre
+                break
         if nombre_mes and nombre_mes in mes_txt:
-            # Si el texto trae año, exigir coincidencia; si no, alcanza el mes
-            import re
             m_anio = re.search(r'(20\d{2})', mes_txt)
             if not m_anio or int(m_anio.group(1)) == int(fv.year):
                 if lineas or any(
-                    _normalizar_codigo_concepto_caja(it.get('id') or it.get('codigo')) in CODIGOS_IMPUTACION_ALQUILER_CUOTA
-                    or 'alquiler' in (it.get('nombre') or '').lower()
+                    linea_es_imputacion_alquiler_cuota(it)
                     for it in payload_conceptos_desde_movimiento_detalle(movimiento)
                 ):
                     return True
+
+    # Observaciones de línea: «A CUENTA AGOSTO 2026» / «SALDO JUNIO»
+    if fv is not None:
+        for it in payload_conceptos_desde_movimiento_detalle(movimiento):
+            if not linea_es_imputacion_alquiler_cuota(it):
+                continue
+            mes_n, anio_n = mes_anio_desde_texto(texto_linea_concepto(it))
+            if mes_n is None or int(mes_n) != int(fv.month):
+                continue
+            if anio_n is not None and int(anio_n) != int(fv.year):
+                continue
+            return True
     return False
 
 
