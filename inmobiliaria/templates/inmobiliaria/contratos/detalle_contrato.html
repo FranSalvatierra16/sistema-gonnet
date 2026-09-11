@@ -379,15 +379,32 @@
                 {% csrf_token %}
                 <span class="small text-muted">Dejar adelanto</span>
                 <input type="number" name="numero_cuota" class="form-control form-control-sm" style="width:4.2rem"
-                       min="1" max="{{ contrato.duracion_meses }}" placeholder="Nº" title="Nº de cuota (5 = septiembre)" required>
+                       min="1" max="{{ contrato.duracion_meses }}"
+                       value="{% if contrato.id == 230 %}5{% endif %}"
+                       placeholder="Nº" title="Nº de cuota (5 = septiembre)" required>
                 <input type="text" name="monto_cuota" class="form-control form-control-sm" style="width:6.5rem"
+                       value="{% if contrato.id == 230 %}568900{% endif %}"
                        placeholder="Cuota" title="Monto de la cuota (ej. 568900)" required>
                 <input type="text" name="credito_total" class="form-control form-control-sm" style="width:6.5rem"
+                       value="{% if contrato.id == 230 %}548718{% endif %}"
                        placeholder="A favor" title="A favor total = 23.518 + 525.200 = 548718" required>
                 <button type="submit" class="btn btn-sm btn-outline-warning" title="Ej: 5 / 568900 / 548718 → faltan ~20182">
                     <i class="fas fa-undo"></i> Aplicar
                 </button>
             </form>
+            {% if contrato.id == 230 %}
+            <form method="post" action="{% url 'inmobiliaria:dejar_adelanto_cuota_contrato_super_admin' contrato.id %}"
+                  class="d-inline"
+                  onsubmit="return confirm('¿Corregir septiembre del contrato 230?\n\nCuota 568.900\nA favor 23.518 + pago 525.200 = 548.718\nSaldo a cobrar ≈ 20.182\n\nNo toca las demás cuotas.');">
+                {% csrf_token %}
+                <input type="hidden" name="numero_cuota" value="5">
+                <input type="hidden" name="monto_cuota" value="568900">
+                <input type="hidden" name="credito_total" value="548718">
+                <button type="submit" class="btn btn-sm btn-warning">
+                    <i class="fas fa-wrench"></i> Corregir septiembre (faltan ~20.182)
+                </button>
+            </form>
+            {% endif %}
             {% endif %}
             </div>
         </div>
