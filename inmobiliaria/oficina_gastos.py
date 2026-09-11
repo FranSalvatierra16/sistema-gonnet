@@ -86,6 +86,7 @@ ESTRUCTURA_CIERRE_OFICINA = [
         [
             'Alquileres propios por día',
             'Alquileres propios temp. inv',
+            'Alquileres propios 24 meses',
             'Imp. inm. complementario edificado',
             'Imp. inm. complem. baldío',
             'Gtos. lotes',
@@ -102,7 +103,6 @@ ESTRUCTURA_CIERRE_OFICINA = [
             'Tarj. American',
             'Tarj. Visa Galicia',
             'OSDE',
-            'Varios (Quiniela-Vrios, Tarj. Ext)',
         ],
     ),
 ]
@@ -123,6 +123,7 @@ RAICES_EXTENSION_CIERRE = frozenset({
 FONDO_OSCAR_SIGNOS = {
     'alquileres propios por dia': 1,
     'alquileres propios temp. inv': 1,
+    'alquileres propios 24 meses': 1,
     'imp. inm. complementario edificado': -1,
     'imp. inm. complem. baldio': -1,
     'gtos. lotes': -1,
@@ -959,6 +960,12 @@ SUBCATEGORIAS_LEGACY_SUELDOS = frozenset({
 })
 SUBCATEGORIAS_LEGACY_VALES = frozenset({'productores'})
 
+# Subcategorías de Gastos Oscar que ya no se muestran.
+SUBCATEGORIAS_LEGACY_GASTOS_OSCAR = frozenset({
+    'varios (quiniela-vrios, tarj. ext)',
+})
+
+
 
 def _normalizar_nombre_sucursal(nombre):
     t = (nombre or '').strip().lower()
@@ -1473,6 +1480,12 @@ def desactivar_categorias_legacy_oficina(sucursal):
                     if hijo.activa:
                         hijo.activa = False
                         hijo.save(update_fields=['activa'])
+                continue
+
+            if nombre_l == 'gastos oscar' and nombre_h_l in SUBCATEGORIAS_LEGACY_GASTOS_OSCAR:
+                if hijo.activa:
+                    hijo.activa = False
+                    hijo.save(update_fields=['activa'])
                 continue
 
 def _nombre_vendedor_categoria(vendedor, nombres_usados=None):

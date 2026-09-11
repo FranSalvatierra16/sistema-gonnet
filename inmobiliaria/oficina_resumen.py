@@ -428,15 +428,42 @@ def _bloque_extension_suma(
     }
 
 
-def _bloque_fondo_oscar(raiz, totales_por_cat):
+def _bloque_fondo_oscar(raiz, totales_por_cat, extras_por_nombre=None):
+    """
+    extras_por_nombre: montos del reporte de deptos propios
+    (por día / invierno / 24 meses) que alimentan las filas de alquileres.
+    """
+    extras = extras_por_nombre or {}
+    extras_norm = {_norm_nombre_cat(k): v for k, v in extras.items()}
     filas = []
     total = Decimal('0')
+    usados = set()
     for hijo in _hijos_activos(raiz):
         signo = signo_fondo_oscar(hijo.nombre)
-        monto = _monto_absoluto_cat(totales_por_cat, hijo.id)
+        clave = _norm_nombre_cat(hijo.nombre)
+        if clave in extras_norm:
+            monto = Decimal(str(extras_norm[clave] or 0)).quantize(Decimal('0.01'))
+        else:
+            monto = _monto_absoluto_cat(totales_por_cat, hijo.id)
         firmado = (monto * Decimal(signo)).quantize(Decimal('0.01'))
         filas.append({
             'nombre': hijo.nombre,
+            'monto': monto,
+            'monto_firmado': firmado,
+            'signo': signo,
+        })
+        total += firmado
+        usados.add(clave)
+    # Si falta la subcategoría (p. ej. 24 meses aún no sincronizada), igual mostrar fila.
+    for nombre_extra, monto_e in extras.items():
+        clave = _norm_nombre_cat(nombre_extra)
+        if clave in usados:
+            continue
+        monto = Decimal(str(monto_e or 0)).quantize(Decimal('0.01'))
+        signo = signo_fondo_oscar(nombre_extra)
+        firmado = (monto * Decimal(signo)).quantize(Decimal('0.01'))
+        filas.append({
+            'nombre': nombre_extra,
             'monto': monto,
             'monto_firmado': firmado,
             'signo': signo,
@@ -564,6 +591,27 @@ def construir_resumen_cierre(sucursal, anio, mes):
         sucursal, fecha_desde, fecha_hasta
     )
 
+    # Tarifas del reporte de deptos propios → Fondo Oscar (día / invierno / 24 meses).
+    extras_fondo_oscar = {}
+    try:
+        from inmobiliaria.oficina_reporte_deptos import (
+            construir_reporte_mensual_deptos_oficina,
+        )
+
+        reporte_deptos = construir_reporte_mensual_deptos_oficina(sucursal, anio, mes)
+        extras_fondo_oscar = {
+            'Alquileres propios por día': reporte_deptos.get('total_tarifa_dia') or Decimal('0'),
+            'Alquileres propios temp. inv': reporte_deptos.get('total_tarifa_invierno') or Decimal('0'),
+            'Alquileres propios 24 meses': reporte_deptos.get('total_tarifa_24') or Decimal('0'),
+        }
+    except Exception:
+        logger.exception(
+            'resumen_cierre: falló tarifas deptos propios (sucursal_id=%s, %s-%02d)',
+            getattr(sucursal, 'pk', None),
+            anio,
+            mes,
+        )
+
     vendedores_map = {
         v.id: v
         for v in Vendedor.objects.filter(sucursal=sucursal).only('id', 'nombre', 'apellido')
@@ -617,7 +665,9 @@ def construir_resumen_cierre(sucursal, anio, mes):
                     bloque['origen'] = 'caja'
                 bloque_cierre_tomados = bloque
             elif nombre_norm == 'fondo oscar':
-                bloque_fondo_oscar = _bloque_fondo_oscar(raiz, totales_por_cat)
+                bloque_fondo_oscar = _bloque_fondo_oscar(
+                    raiz, totales_por_cat, extras_por_nombre=extras_fondo_oscar
+                )
             elif nombre_norm == 'gastos oscar':
                 bloque_gastos_oscar = _bloque_extension_suma(
                     raiz, totales_por_cat, titulo='GASTOS OSCAR'
@@ -699,7 +749,27 @@ def construir_resumen_cierre(sucursal, anio, mes):
             'origen': 'reporte_asegurados',
         }
     if bloque_fondo_oscar is None:
-        bloque_fondo_oscar = {'titulo': 'FONDO OSCAR', 'filas': [], 'total': Decimal('0')}
+        if extras_fondo_oscar:
+            filas_fo = []
+            total_fo = Decimal('0')
+            for nombre_extra, monto_e in extras_fondo_oscar.items():
+                monto = Decimal(str(monto_e or 0)).quantize(Decimal('0.01'))
+                signo = signo_fondo_oscar(nombre_extra)
+                firmado = (monto * Decimal(signo)).quantize(Decimal('0.01'))
+                filas_fo.append({
+                    'nombre': nombre_extra,
+                    'monto': monto,
+                    'monto_firmado': firmado,
+                    'signo': signo,
+                })
+                total_fo += firmado
+            bloque_fondo_oscar = {
+                'titulo': 'FONDO OSCAR',
+                'filas': filas_fo,
+                'total': total_fo.quantize(Decimal('0.01')),
+            }
+        else:
+            bloque_fondo_oscar = {'titulo': 'FONDO OSCAR', 'filas': [], 'total': Decimal('0')}
     if bloque_gastos_oscar is None:
         bloque_gastos_oscar = {'titulo': 'GASTOS OSCAR', 'filas': [], 'total': Decimal('0')}
 
