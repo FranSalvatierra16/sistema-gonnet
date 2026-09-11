@@ -5,7 +5,7 @@ from decimal import Decimal
 import unicodedata
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
 from inmobiliaria.decimal_utils import parse_decimal_monto
 from inmobiliaria.models import (
@@ -678,24 +678,40 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     filas.append({'tipo': 'total-final', 'label': 'TOTAL.:', 'celdas': tot_final})
 
     filas_sg = filas_sueldos(sucursal)
-    por_comis_todos = {}
-    for v in vendedores_sueldos:
-        por_comis_todos[v.id] = (desglose.get(v.id) or _desglose_vacio())['total']
-
-    cat_sin_v = [f['cid'] for f in filas_sg if not f.get('vid')]
-    gastos_cat = {}
-    if cat_sin_v:
+    cat_ids = [f['cid'] for f in filas_sg if f.get('cid')]
+    gastos_sueldo = {}
+    if cat_ids:
         for row in (
             GastoOficina.objects.filter(
                 sucursal=sucursal,
-                categoria_id__in=cat_sin_v,
+                categoria_id__in=cat_ids,
                 fecha__gte=fecha_desde,
                 fecha__lte=fecha_hasta,
             )
             .values('categoria_id')
             .annotate(total=Sum('monto'))
         ):
-            gastos_cat[row['categoria_id']] = _d(row['total'])
+            gastos_sueldo[row['categoria_id']] = _d(row['total'])
+
+    # Respaldo por vendedor (por si el gasto quedó en otra sub de Sueldos).
+    vids = [f['vid'] for f in filas_sg if f.get('vid')]
+    gastos_sueldo_vid = {}
+    if vids:
+        for row in (
+            GastoOficina.objects.filter(
+                sucursal=sucursal,
+                vendedor_id__in=vids,
+                fecha__gte=fecha_desde,
+                fecha__lte=fecha_hasta,
+            )
+            .filter(
+                Q(categoria__parent__nombre__iexact='Sueldos')
+                | Q(categoria__nombre__iexact='Sueldos')
+            )
+            .values('vendedor_id')
+            .annotate(total=Sum('monto'))
+        ):
+            gastos_sueldo_vid[row['vendedor_id']] = _d(row['total'])
 
     guardados_total = ids_total_gral(sucursal)
     hay_filtro_total = bool(guardados_total)
@@ -703,10 +719,11 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     productores = []
     total_prod = _d(0)
     for fsg in filas_sg:
-        if fsg.get('vid'):
-            monto = por_comis_todos.get(fsg['vid'], _d(0))
-        else:
-            monto = gastos_cat.get(fsg['cid'], _d(0))
+        # Monto = sueldo pagado (GastoOficina), no comisiones.
+        monto = gastos_sueldo.get(fsg['cid'], _d(0))
+        if fsg.get('vid') and fsg['vid'] in gastos_sueldo_vid:
+            monto = gastos_sueldo_vid[fsg['vid']]
+        monto = abs(monto)
         if hay_filtro_total:
             checked = fsg['key'] in guardados_total
         else:
