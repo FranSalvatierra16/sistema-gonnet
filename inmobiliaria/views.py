@@ -32882,7 +32882,7 @@ def detalle_liquidacion(request, liquidacion_id):
         'puede_eliminar_liquidacion': usuario_es_nivel_administracion(request.user),
         'puede_editar_liquidacion': (
             usuario_puede_eliminar_movimiento_caja(request.user)
-            and (liquidacion.estado or '') in ('pendiente', 'cerrada')
+            and (liquidacion.estado or '') in ('pendiente', 'cerrada', 'oficina', 'procesada')
         ),
         'gastos_pendientes_disponibles': gastos_pendientes_disponibles,
         'egresos_caja_pendientes_count': egresos_caja_pendientes_count,
