@@ -9,6 +9,8 @@ Uso:
   python manage.py reparar_cobranza_contrato 230 --recibo-mes junio --numero-recibo 0001-150
   python manage.py reparar_cobranza_contrato 230 --set-credito 5 23518
   python manage.py reparar_cobranza_contrato 230 --dejar-adelanto 5 568900 548718
+  python manage.py reparar_cobranza_contrato 311 --set-saldo 4 36500 --set-saldo 5 221000
+  python manage.py reparar_cobranza_contrato 311 --reimputar-caja
 """
 from decimal import Decimal
 
@@ -17,6 +19,7 @@ from django.utils import timezone
 
 from inmobiliaria.models import ContratoAlquiler
 from inmobiliaria.cuotas_imputacion import (
+    dejar_cuota_con_saldo_a_cobrar,
     dejar_cuota_en_adelanto_parcial,
     imputar_cuotas_mensuales_desde_movimiento_1000,
     limpiar_mora_automatica_cuotas,
@@ -79,6 +82,13 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
+            '--set-saldo',
+            nargs=2,
+            action='append',
+            metavar=('CUOTA', 'SALDO'),
+            help='Deja la cuota N con ese saldo a cobrar (ej. --set-saldo 4 36500 --set-saldo 5 221000).',
+        )
+        parser.add_argument(
             '--reimputar-caja',
             action='store_true',
             help=(
@@ -115,8 +125,9 @@ class Command(BaseCommand):
 
         dejar = options.get('dejar_adelanto')
         set_credito = options.get('set_credito')
+        set_saldos = options.get('set_saldo') or []
         reimputar_caja = bool(options.get('reimputar_caja'))
-        solo_puntual = (dejar or set_credito or reimputar_caja) and not (
+        solo_puntual = (dejar or set_credito or set_saldos or reimputar_caja) and not (
             options.get('mayo')
             or options.get('mover_adelanto')
             or options.get('recibo_mes')
@@ -124,6 +135,8 @@ class Command(BaseCommand):
         if solo_puntual:
             if reimputar_caja:
                 self._reimputar_caja(contrato)
+            if set_saldos:
+                self._set_saldos(contrato, set_saldos)
             if dejar:
                 self._dejar_adelanto(contrato, dejar[0], dejar[1], dejar[2])
             if set_credito and not dejar:
@@ -192,6 +205,27 @@ class Command(BaseCommand):
                 f'  {c.numero_cuota:02d} {fv} {c.estado} '
                 f'base={c.monto_base} total={c.monto_total} crédito={c.credito_aplicado} '
                 f'saldo={c.saldo_para_cobro()}'
+            )
+
+    def _set_saldos(self, contrato, pares):
+        from inmobiliaria.decimal_utils import parse_decimal_monto
+
+        for numero_raw, saldo_raw in pares:
+            try:
+                numero = int(str(numero_raw).strip())
+            except (TypeError, ValueError) as e:
+                raise CommandError('Número de cuota inválido en --set-saldo.') from e
+            try:
+                res = dejar_cuota_con_saldo_a_cobrar(
+                    contrato, numero, parse_decimal_monto(str(saldo_raw))
+                )
+            except ValueError as e:
+                raise CommandError(str(e)) from e
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Cuota {res["cuota_numero"]}: monto ${res["monto"]}, '
+                    f'a favor ${res["credito"]}, saldo a cobrar ${res["saldo"]}.'
+                )
             )
 
     def _reimputar_caja(self, contrato):

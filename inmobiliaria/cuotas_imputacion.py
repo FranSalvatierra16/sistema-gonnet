@@ -921,6 +921,29 @@ def dejar_cuota_en_adelanto_parcial(
     }
 
 
+def dejar_cuota_con_saldo_a_cobrar(contrato, numero_cuota: int, saldo_a_cobrar: Decimal) -> dict:
+    """
+    Deja la cuota pendiente/vencida con el saldo a cobrar indicado.
+    El crédito se calcula como monto_cuota - saldo (usa el monto_base actual de la cuota).
+    """
+    numero = int(numero_cuota)
+    saldo = Decimal(str(saldo_a_cobrar or 0))
+    if saldo < 0:
+        raise ValueError('El saldo a cobrar no puede ser negativo.')
+    cuota = contrato.cuotas.filter(numero_cuota=numero).first()
+    if not cuota:
+        raise ValueError(f'No existe la cuota {numero}.')
+    monto = Decimal(str(cuota.monto_total or cuota.monto_base or 0))
+    if monto <= Decimal('0.05'):
+        raise ValueError(f'La cuota {numero} no tiene monto definido.')
+    if saldo > monto + Decimal('0.05'):
+        raise ValueError(
+            f'El saldo ${saldo} no puede ser mayor al monto de la cuota ${monto}.'
+        )
+    credito = monto - saldo
+    return dejar_cuota_en_adelanto_parcial(contrato, numero, monto, credito)
+
+
 def limpiar_mora_automatica_cuotas(contrato) -> int:
     """
     Quita recargo_mora de cuotas pendientes/vencidas y recalcula monto_total = monto_base.

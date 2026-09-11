@@ -20873,6 +20873,39 @@ def dejar_adelanto_cuota_contrato_super_admin(request, contrato_id):
 
 @login_required
 @require_POST
+@transaction.atomic
+def corregir_saldos_julio_agosto_311(request, contrato_id):
+    """Contrato 311: julio falta $36.500; agosto falta $221.000."""
+    if not usuario_puede_eliminar_movimiento_caja(request.user):
+        messages.error(request, 'Solo el super administrador puede corregir estos saldos.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato_id)
+
+    if int(contrato_id) != 311:
+        messages.error(request, 'Esta corrección es solo para el contrato 311.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato_id)
+
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    from inmobiliaria.cuotas_imputacion import dejar_cuota_con_saldo_a_cobrar
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+
+    try:
+        # Cuota 4 = julio (05/07), cuota 5 = agosto (05/08)
+        r_jul = dejar_cuota_con_saldo_a_cobrar(contrato, 4, parse_decimal_monto('36500'))
+        r_ago = dejar_cuota_con_saldo_a_cobrar(contrato, 5, parse_decimal_monto('221000'))
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    messages.success(
+        request,
+        f'Listo. Julio (cuota {r_jul["cuota_numero"]}): saldo ${r_jul["saldo"]}. '
+        f'Agosto (cuota {r_ago["cuota_numero"]}): saldo ${r_ago["saldo"]}.',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
 def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
     """Vuelve a calcular monto_base/monto_total de cuotas no pagadas según precio_mensual y precios_bloques del contrato."""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)

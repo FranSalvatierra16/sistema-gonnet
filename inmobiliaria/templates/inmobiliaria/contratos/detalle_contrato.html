@@ -405,6 +405,16 @@
                 </button>
             </form>
             {% endif %}
+            {% if contrato.id == 311 %}
+            <form method="post" action="{% url 'inmobiliaria:corregir_saldos_julio_agosto_311' contrato.id %}"
+                  class="d-inline"
+                  onsubmit="return confirm('¿Dejar julio con $36.500 pendientes y agosto con $221.000 pendientes?\n\nNo toca las demás cuotas.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-warning">
+                    <i class="fas fa-wrench"></i> Julio $36.500 / Agosto $221.000
+                </button>
+            </form>
+            {% endif %}
             {% endif %}
             </div>
         </div>

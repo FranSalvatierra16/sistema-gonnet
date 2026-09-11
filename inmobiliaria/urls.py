@@ -512,6 +512,11 @@ urlpatterns = [
         name='dejar_adelanto_cuota_contrato_super_admin',
     ),
     path(
+        'contratos/<int:contrato_id>/corregir-julio-agosto-311/',
+        views.corregir_saldos_julio_agosto_311,
+        name='corregir_saldos_julio_agosto_311',
+    ),
+    path(
         'contratos/<int:contrato_id>/recalcular-montos-cuotas/',
         views.recalcular_cuotas_montos_desde_contrato,
         name='recalcular_cuotas_montos_desde_contrato',
