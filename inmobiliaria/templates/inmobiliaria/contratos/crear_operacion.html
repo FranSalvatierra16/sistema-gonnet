@@ -776,7 +776,7 @@ function sincronizarConceptosDesdeGastosInquilino() {
 /** Conceptos de catálogo que imputan a una cuota y exigen elegir cuota objetivo (misma lógica que 1000). */
 function conceptoCatalogoRequiereCuotaObjetivo(catalogId) {
     const s = String(catalogId == null ? '' : catalogId).trim();
-    return s === '1000' || s === '29';
+    return s === '1000' || s === '29' || s === '1290';
 }
 
 function renderOpcionesCuotasObjetivo(selectedId) {
@@ -1879,11 +1879,11 @@ function cuotaIdSincronizacionMesAlquiler() {
 /** True si la línea debe tomar el importe del bloque «cobro del mes» (no otras cuotas agregadas a mano). */
 function conceptoDebeSincronizarImporteMesAlquiler(c) {
     var cid = String(c.conceptoId || '').trim();
-    if (cid !== '1' && cid !== '15' && cid !== '1000' && cid !== '29') return false;
+    if (cid !== '1' && cid !== '15' && cid !== '1000' && cid !== '29' && cid !== '1290') return false;
     var syncCuotaId = cuotaIdSincronizacionMesAlquiler();
     var qid = String(c.cuotaObjetivoId || '').trim();
     if (syncCuotaId) {
-        if (cid === '1000' || cid === '29') {
+        if (cid === '1000' || cid === '29' || cid === '1290') {
             return !qid || qid === syncCuotaId;
         }
         return false;
@@ -1908,7 +1908,7 @@ function sincronizarConceptoCuotaDesdeMesAlquiler() {
     conceptosAgregados.forEach(function(c) {
         if (!conceptoDebeSincronizarImporteMesAlquiler(c)) return;
         var cid = String(c.conceptoId || '').trim();
-        if ((cid === '1000' || cid === '29') && !c.cuotaObjetivoId && syncCuotaId) {
+        if ((cid === '1000' || cid === '29' || cid === '1290') && !c.cuotaObjetivoId && syncCuotaId) {
             c.cuotaObjetivoId = syncCuotaId;
             c.cuotaObjetivoLabel = etiquetaCuotaDesdeCfg(syncCuotaId);
         }

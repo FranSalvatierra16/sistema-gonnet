@@ -6,6 +6,7 @@ Uso:
   python manage.py reparar_cobranza_contrato 230
   python manage.py reparar_cobranza_contrato 230 --mayo 525200
   python manage.py reparar_cobranza_contrato 230 --mover-adelanto 1 2
+  python manage.py reparar_cobranza_contrato 230 --recibo-mes junio --numero-recibo 0001-150
 """
 from decimal import Decimal
 
@@ -15,6 +16,7 @@ from django.utils import timezone
 from inmobiliaria.models import ContratoAlquiler
 from inmobiliaria.cuotas_imputacion import (
     limpiar_mora_automatica_cuotas,
+    marcar_cuota_pagada_desde_recibo_mes,
     mover_credito_adelanto_entre_cuotas,
     reimputar_desde_recibos_existentes,
 )
@@ -38,6 +40,24 @@ class Command(BaseCommand):
             type=int,
             metavar=('DESDE', 'HACIA'),
             help='Mueve credito_aplicado de la cuota DESDE a la cuota HACIA (ej. 1 2 = mayo→junio).',
+        )
+        parser.add_argument(
+            '--recibo-mes',
+            type=str,
+            default='',
+            help='Marca pagada la cuota del mes usando un recibo (ej. junio).',
+        )
+        parser.add_argument(
+            '--numero-recibo',
+            type=str,
+            default='',
+            help='Número de recibo a usar con --recibo-mes (ej. 0001-150).',
+        )
+        parser.add_argument(
+            '--anio',
+            type=int,
+            default=None,
+            help='Año de la cuota al usar --recibo-mes (opcional).',
         )
 
     def handle(self, *args, **options):
@@ -81,6 +101,27 @@ class Command(BaseCommand):
                     c.actualizar_monto_total()
                     self.stdout.write(self.style.SUCCESS(f'Mayo (cuota {c.numero_cuota}) → {monto_mayo}'))
 
+        recibo_mes = (options.get('recibo_mes') or '').strip()
+        if recibo_mes:
+            mov = self._buscar_movimiento(contrato, options.get('numero_recibo') or '')
+            if not mov:
+                raise CommandError(
+                    'No se encontró el movimiento/recibo. Pasá --numero-recibo 0001-150 '
+                    'o verificá que el concepto diga Contrato #230.'
+                )
+            try:
+                res = marcar_cuota_pagada_desde_recibo_mes(
+                    contrato, mov, mes_nombre=recibo_mes, anio=options.get('anio')
+                )
+            except ValueError as e:
+                raise CommandError(str(e)) from e
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Recibo → cuota {res["cuota_numero"]} (mes {res["mes"]}/{res["anio"]}): '
+                    f'${res["importe"]} estado={res["estado"]}'
+                )
+            )
+
         mover = options.get('mover_adelanto')
         if mover:
             res = mover_credito_adelanto_entre_cuotas(contrato, mover[0], mover[1])
@@ -103,3 +144,54 @@ class Command(BaseCommand):
                 f'base={c.monto_base} total={c.monto_total} crédito={c.credito_aplicado} '
                 f'saldo={c.saldo_para_cobro()}'
             )
+
+    def _buscar_movimiento(self, contrato, numero_recibo: str):
+        from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+
+        qs = MovimientoCaja.objects.filter(
+            propiedad_id=contrato.propiedad_id,
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            fecha_eliminacion__isnull=True,
+            concepto__icontains=f'Contrato #{contrato.id}',
+        ).select_related('recibo').order_by('-fecha', '-id')
+
+        numero = (numero_recibo or '').strip()
+        if numero:
+            # Coincide por número de recibo o por liquidación
+            for mov in qs[:80]:
+                rec = getattr(mov, 'recibo', None)
+                rn = (getattr(rec, 'numero_recibo', None) or '').strip() if rec else ''
+                nl = (getattr(mov, 'numero_liquidacion', None) or '').strip()
+                if numero in rn or numero in nl or rn.endswith(numero) or nl.endswith(numero):
+                    return mov
+            # Fallback: búsqueda directa
+            mov = (
+                MovimientoCaja.objects.filter(
+                    propiedad_id=contrato.propiedad_id,
+                    tipo=TipoMovimientoCajaEnum.INGRESO,
+                    fecha_eliminacion__isnull=True,
+                    recibo__numero_recibo__icontains=numero,
+                )
+                .select_related('recibo')
+                .order_by('-fecha', '-id')
+                .first()
+            )
+            if mov:
+                return mov
+            return (
+                MovimientoCaja.objects.filter(
+                    propiedad_id=contrato.propiedad_id,
+                    tipo=TipoMovimientoCajaEnum.INGRESO,
+                    fecha_eliminacion__isnull=True,
+                    numero_liquidacion__icontains=numero,
+                )
+                .order_by('-fecha', '-id')
+                .first()
+            )
+
+        # Sin número: primer ingreso con líneas de alquiler / mes junio en detalle
+        for mov in qs[:40]:
+            detalle = (getattr(mov, 'concepto_detalle', None) or '').lower()
+            if '1290' in detalle or 'alquiler a cobrar' in detalle or 'junio' in detalle:
+                return mov
+        return qs.first()

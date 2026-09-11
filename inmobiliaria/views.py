@@ -25333,11 +25333,23 @@ def recibo_contrato_24(request, contrato_id):
                     if mes_alquiler_importe_recibo is None and conceptos_data:
                         for citem in conceptos_data:
                             cid = str(citem.get('id') or citem.get('codigo') or '').strip()
-                            if cid in ('1', '15'):
+                            if cid in ('1', '15', '1000', '29', '1290'):
                                 try:
                                     mes_alquiler_importe_recibo = Decimal(str(citem.get('importe', 0)))
                                 except (TypeError, ValueError, ArithmeticError):
                                     pass
+                                break
+                    # Cobro de alquiler/cuota (legacy 1290 «Alquiler a Cobrar» u objetivo de cuota):
+                    # no armar el cuadro de posesión (depósito + honorarios totales).
+                    if not pago_cuota_mensual_recibo and conceptos_data:
+                        for citem in conceptos_data:
+                            cid = str(citem.get('id') or citem.get('codigo') or '').strip()
+                            nom = (citem.get('nombre') or '').strip().lower()
+                            if cid in ('1000', '29', '1290') or 'alquiler a cobrar' in nom or 'imputación mensual' in nom or 'imputacion mensual' in nom:
+                                pago_cuota_mensual_recibo = True
+                                break
+                            if citem.get('cuota_objetivo_id'):
+                                pago_cuota_mensual_recibo = True
                                 break
                     if (
                         mes_alquiler_tipo_recibo != 'proporcional'
