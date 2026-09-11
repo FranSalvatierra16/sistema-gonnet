@@ -355,6 +355,52 @@ def _norm_tokens_nombre(texto):
     return tuple(p for p in t.split() if p)
 
 
+def _distancia_edicion(a, b):
+    """Levenshtein simple (nombres cortos)."""
+    a = a or ''
+    b = b or ''
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, start=1):
+        cur = [i]
+        for j, cb in enumerate(b, start=1):
+            cur.append(min(
+                prev[j] + 1,
+                cur[j - 1] + 1,
+                prev[j - 1] + (0 if ca == cb else 1),
+            ))
+        prev = cur
+    return prev[-1]
+
+
+def _nombres_sueldo_compatibles(nombre_a, nombre_b):
+    """True si son el mismo nombre (permite typo tipo Kucic/Kucik)."""
+    ta = _norm_tokens_nombre(nombre_a)
+    tb = _norm_tokens_nombre(nombre_b)
+    if not ta or not tb or len(ta) != len(tb):
+        return False
+    if set(ta) == set(tb):
+        return True
+    usados = [False] * len(tb)
+    for tok_a in ta:
+        hallado = False
+        for i, tok_b in enumerate(tb):
+            if usados[i]:
+                continue
+            if tok_a == tok_b or _distancia_edicion(tok_a, tok_b) <= 1:
+                usados[i] = True
+                hallado = True
+                break
+        if not hallado:
+            return False
+    return True
+
+
 def _match_vendedor_por_nombre(nombre_cat, vendedores):
     tokens = set(_norm_tokens_nombre(nombre_cat))
     if not tokens:
@@ -362,11 +408,76 @@ def _match_vendedor_por_nombre(nombre_cat, vendedores):
     hits = []
     for v in vendedores:
         vt = set(_norm_tokens_nombre(v.apellido) + _norm_tokens_nombre(v.nombre))
-        if vt and vt == tokens:
+        if vt and (vt == tokens or _nombres_sueldo_compatibles(nombre_cat, f'{v.apellido} {v.nombre}')):
             hits.append(v)
     if len(hits) == 1:
         return hits[0]
     return None
+
+
+def _montos_sueldos_pagados(sucursal, fecha_desde, fecha_hasta):
+    """
+    Sueldos efectivamente pagados en el mes (GastoOficina › Sueldos).
+    Ignora montos 0 del reparto Colón/Corrientes.
+    """
+    qs = (
+        GastoOficina.objects.filter(
+            sucursal=sucursal,
+            fecha__gte=fecha_desde,
+            fecha__lte=fecha_hasta,
+        )
+        .filter(
+            Q(categoria__parent__nombre__iexact='Sueldos')
+            | Q(categoria__nombre__iexact='Sueldos')
+        )
+        .select_related('categoria', 'vendedor')
+    )
+    lineas = []
+    for g in qs:
+        monto = abs(_d(g.monto))
+        if monto <= 0:
+            continue
+        v = g.vendedor
+        nombre_v = ''
+        if v:
+            nombre_v = (
+                f'{(v.apellido or "").strip()}, {(v.nombre or "").strip()}'.strip(' ,')
+            )
+        lineas.append({
+            'id': g.id,
+            'cid': g.categoria_id,
+            'vid': g.vendedor_id,
+            'nombre_cat': (g.categoria.nombre or '').strip() if g.categoria_id else '',
+            'nombre_vend': nombre_v,
+            'monto': monto,
+        })
+    return lineas
+
+
+def _monto_sueldo_para_fila(fsg, lineas):
+    """Resuelve el sueldo pagado de una fila TOTAL GRAL (sin duplicar)."""
+    cid = fsg.get('cid')
+    vid = fsg.get('vid')
+    nombre = (fsg.get('nombre') or '').strip()
+    total = _d(0)
+    vistos = set()
+    for lin in lineas:
+        if lin['id'] in vistos:
+            continue
+        ok = False
+        if cid and lin['cid'] == cid:
+            ok = True
+        elif vid and lin['vid'] == vid:
+            ok = True
+        elif nombre and (
+            _nombres_sueldo_compatibles(nombre, lin['nombre_cat'])
+            or _nombres_sueldo_compatibles(nombre, lin['nombre_vend'])
+        ):
+            ok = True
+        if ok:
+            vistos.add(lin['id'])
+            total += lin['monto']
+    return total
 
 
 def filas_sueldos(sucursal):
@@ -678,40 +789,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     filas.append({'tipo': 'total-final', 'label': 'TOTAL.:', 'celdas': tot_final})
 
     filas_sg = filas_sueldos(sucursal)
-    cat_ids = [f['cid'] for f in filas_sg if f.get('cid')]
-    gastos_sueldo = {}
-    if cat_ids:
-        for row in (
-            GastoOficina.objects.filter(
-                sucursal=sucursal,
-                categoria_id__in=cat_ids,
-                fecha__gte=fecha_desde,
-                fecha__lte=fecha_hasta,
-            )
-            .values('categoria_id')
-            .annotate(total=Sum('monto'))
-        ):
-            gastos_sueldo[row['categoria_id']] = _d(row['total'])
-
-    # Respaldo por vendedor (por si el gasto quedó en otra sub de Sueldos).
-    vids = [f['vid'] for f in filas_sg if f.get('vid')]
-    gastos_sueldo_vid = {}
-    if vids:
-        for row in (
-            GastoOficina.objects.filter(
-                sucursal=sucursal,
-                vendedor_id__in=vids,
-                fecha__gte=fecha_desde,
-                fecha__lte=fecha_hasta,
-            )
-            .filter(
-                Q(categoria__parent__nombre__iexact='Sueldos')
-                | Q(categoria__nombre__iexact='Sueldos')
-            )
-            .values('vendedor_id')
-            .annotate(total=Sum('monto'))
-        ):
-            gastos_sueldo_vid[row['vendedor_id']] = _d(row['total'])
+    lineas_sueldo = _montos_sueldos_pagados(sucursal, fecha_desde, fecha_hasta)
 
     guardados_total = ids_total_gral(sucursal)
     hay_filtro_total = bool(guardados_total)
@@ -719,11 +797,8 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     productores = []
     total_prod = _d(0)
     for fsg in filas_sg:
-        # Monto = sueldo pagado (GastoOficina), no comisiones.
-        monto = gastos_sueldo.get(fsg['cid'], _d(0))
-        if fsg.get('vid') and fsg['vid'] in gastos_sueldo_vid:
-            monto = gastos_sueldo_vid[fsg['vid']]
-        monto = abs(monto)
+        # Monto = sueldo pagado en Gastos de oficina › Sueldos del mes.
+        monto = _monto_sueldo_para_fila(fsg, lineas_sueldo)
         if hay_filtro_total:
             checked = fsg['key'] in guardados_total
         else:
