@@ -507,6 +507,11 @@ urlpatterns = [
         name='fijar_credito_cuota_contrato_super_admin',
     ),
     path(
+        'contratos/<int:contrato_id>/dejar-adelanto-cuota/',
+        views.dejar_adelanto_cuota_contrato_super_admin,
+        name='dejar_adelanto_cuota_contrato_super_admin',
+    ),
+    path(
         'contratos/<int:contrato_id>/recalcular-montos-cuotas/',
         views.recalcular_cuotas_montos_desde_contrato,
         name='recalcular_cuotas_montos_desde_contrato',

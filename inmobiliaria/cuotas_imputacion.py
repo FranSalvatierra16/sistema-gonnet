@@ -744,24 +744,80 @@ def marcar_cuota_pagada_desde_recibo_mes(
     if cubierto <= Decimal('0.05'):
         raise ValueError('El recibo no tiene un importe de alquiler usable.')
 
-    # Ajustar monto_base al cobrado si el plan tenía otro importe (ej. 568900 vs 525200).
-    if abs(Decimal(str(cuota.monto_base or 0)) - cubierto) > Decimal('0.05'):
-        cuota.monto_base = cubierto
-        cuota.recargo_mora = Decimal('0')
-        cuota.descuento = Decimal('0')
-        cuota.monto_total = cubierto
-        cuota.save(update_fields=['monto_base', 'monto_total', 'recargo_mora', 'descuento'])
-        cuota.refresh_from_db()
-
+    # Nunca bajar el monto_base al importe del recibo: un «pago a cuenta» de 525200
+    # sobre una cuota de 568900 debe quedar como adelanto, no como mes pagado de 525200.
     resultado = imputar_importe_a_cuota(
         cuota, cubierto, mov, hoy, origen_numero_cuota=int(cuota.numero_cuota)
     )
+    cuota.refresh_from_db()
     return {
         'cuota_numero': int(cuota.numero_cuota),
         'mes': mes_n,
         'anio': cuota.fecha_vencimiento.year if cuota.fecha_vencimiento else anio_n,
         'importe': cubierto,
         'resultado': resultado,
+        'estado': cuota.estado,
+    }
+
+
+def dejar_cuota_en_adelanto_parcial(
+    contrato,
+    numero_cuota: int,
+    monto_cuota: Decimal,
+    credito_total: Decimal,
+) -> dict:
+    """
+    Deja una cuota como adelanto parcial (pendiente/vencida con crédito).
+    Útil cuando un pago a cuenta se marcó erróneamente como «Pagada».
+
+    Ejemplo sept: monto 568900, crédito 23518+525200=548718 → saldo ~20182.
+    """
+    from django.utils import timezone as tz
+
+    numero = int(numero_cuota)
+    monto = Decimal(str(monto_cuota or 0))
+    credito = Decimal(str(credito_total or 0))
+    if monto <= Decimal('0.05'):
+        raise ValueError('El monto de la cuota debe ser mayor a cero.')
+    if credito < 0:
+        raise ValueError('El crédito a favor no puede ser negativo.')
+
+    cuota = contrato.cuotas.filter(numero_cuota=numero).first()
+    if not cuota:
+        raise ValueError(f'No existe la cuota {numero}.')
+
+    hoy = tz.now().date()
+    if cuota.fecha_vencimiento and cuota.fecha_vencimiento < hoy:
+        estado = 'vencida'
+    else:
+        estado = 'pendiente'
+
+    cuota.monto_base = monto
+    cuota.recargo_mora = Decimal('0')
+    cuota.descuento = Decimal('0')
+    cuota.monto_total = monto
+    cuota.credito_aplicado = credito
+    cuota.estado = estado
+    cuota.fecha_pago = None
+    cuota.movimiento = None
+    cuota.save(
+        update_fields=[
+            'monto_base',
+            'monto_total',
+            'recargo_mora',
+            'descuento',
+            'credito_aplicado',
+            'estado',
+            'fecha_pago',
+            'movimiento',
+        ]
+    )
+    cuota.refresh_from_db()
+    return {
+        'cuota_numero': numero,
+        'monto': monto,
+        'credito': credito,
+        'saldo': cuota.saldo_para_cobro(),
         'estado': cuota.estado,
     }
 

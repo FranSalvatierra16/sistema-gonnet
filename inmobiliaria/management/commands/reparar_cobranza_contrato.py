@@ -8,6 +8,7 @@ Uso:
   python manage.py reparar_cobranza_contrato 230 --mover-adelanto 1 2
   python manage.py reparar_cobranza_contrato 230 --recibo-mes junio --numero-recibo 0001-150
   python manage.py reparar_cobranza_contrato 230 --set-credito 5 23518
+  python manage.py reparar_cobranza_contrato 230 --dejar-adelanto 5 568900 548718
 """
 from decimal import Decimal
 
@@ -16,6 +17,7 @@ from django.utils import timezone
 
 from inmobiliaria.models import ContratoAlquiler
 from inmobiliaria.cuotas_imputacion import (
+    dejar_cuota_en_adelanto_parcial,
     limpiar_mora_automatica_cuotas,
     marcar_cuota_pagada_desde_recibo_mes,
     mover_credito_adelanto_entre_cuotas,
@@ -66,6 +68,15 @@ class Command(BaseCommand):
             metavar=('CUOTA', 'MONTO'),
             help='Solo fija credito_aplicado de la cuota N al monto (ej. 5 23518). No toca el resto.',
         )
+        parser.add_argument(
+            '--dejar-adelanto',
+            nargs=3,
+            metavar=('CUOTA', 'MONTO', 'CREDITO'),
+            help=(
+                'Deja la cuota como adelanto parcial (ej. 5 568900 548718 = '
+                'cuota 568900 con a favor 23518+525200; saldo ~20182). No toca otras cuotas.'
+            ),
+        )
 
     def handle(self, *args, **options):
         cid = options['contrato_id']
@@ -93,14 +104,18 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('Dry-run: no se modificó nada.'))
             return
 
-        # Solo fijar crédito: no limpia mora ni reimputa.
+        dejar = options.get('dejar_adelanto')
         set_credito = options.get('set_credito')
-        if set_credito and not (
+        solo_puntual = (dejar or set_credito) and not (
             options.get('mayo')
             or options.get('mover_adelanto')
             or options.get('recibo_mes')
-        ):
-            self._fijar_credito(contrato, set_credito[0], set_credito[1])
+        )
+        if solo_puntual:
+            if dejar:
+                self._dejar_adelanto(contrato, dejar[0], dejar[1], dejar[2])
+            if set_credito and not dejar:
+                self._fijar_credito(contrato, set_credito[0], set_credito[1])
             return
 
         n_mora = limpiar_mora_automatica_cuotas(contrato)
@@ -149,7 +164,9 @@ class Command(BaseCommand):
                 )
             )
 
-        if set_credito:
+        if dejar:
+            self._dejar_adelanto(contrato, dejar[0], dejar[1], dejar[2])
+        elif set_credito:
             self._fijar_credito(contrato, set_credito[0], set_credito[1])
 
         self.stdout.write(
@@ -164,6 +181,29 @@ class Command(BaseCommand):
                 f'base={c.monto_base} total={c.monto_total} crédito={c.credito_aplicado} '
                 f'saldo={c.saldo_para_cobro()}'
             )
+
+    def _dejar_adelanto(self, contrato, numero_raw, monto_raw, credito_raw):
+        from inmobiliaria.decimal_utils import parse_decimal_monto
+
+        try:
+            numero = int(str(numero_raw).strip())
+        except (TypeError, ValueError) as e:
+            raise CommandError('Número de cuota inválido.') from e
+        try:
+            res = dejar_cuota_en_adelanto_parcial(
+                contrato,
+                numero,
+                parse_decimal_monto(str(monto_raw)),
+                parse_decimal_monto(str(credito_raw)),
+            )
+        except ValueError as e:
+            raise CommandError(str(e)) from e
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'Cuota {res["cuota_numero"]}: monto ${res["monto"]}, a favor ${res["credito"]}, '
+                f'saldo a cobrar ${res["saldo"]} ({res["estado"]}). Nada más modificado.'
+            )
+        )
 
     def _fijar_credito(self, contrato, numero_raw, monto_raw):
         from inmobiliaria.decimal_utils import parse_decimal_monto

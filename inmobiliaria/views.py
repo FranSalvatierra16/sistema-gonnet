@@ -20835,6 +20835,44 @@ def fijar_credito_cuota_contrato_super_admin(request, contrato_id):
 
 @login_required
 @require_POST
+@transaction.atomic
+def dejar_adelanto_cuota_contrato_super_admin(request, contrato_id):
+    """Deja una cuota como adelanto parcial (ej. 568900 con 23k+525k → faltan ~20k)."""
+    if not usuario_puede_eliminar_movimiento_caja(request.user):
+        messages.error(request, 'Solo el super administrador puede corregir adelantos de cuotas.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato_id)
+
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    try:
+        numero = int((request.POST.get('numero_cuota') or '').strip())
+    except (TypeError, ValueError):
+        messages.error(request, 'Indicá el número de cuota.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    from inmobiliaria.cuotas_imputacion import dejar_cuota_en_adelanto_parcial
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+
+    try:
+        res = dejar_cuota_en_adelanto_parcial(
+            contrato,
+            numero,
+            parse_decimal_monto(request.POST.get('monto_cuota') or ''),
+            parse_decimal_monto(request.POST.get('credito_total') or ''),
+        )
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    messages.success(
+        request,
+        f'Cuota {res["cuota_numero"]}: monto ${res["monto"]}, a favor ${res["credito"]}, '
+        f'saldo a cobrar ${res["saldo"]}.',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
 def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
     """Vuelve a calcular monto_base/monto_total de cuotas no pagadas según precio_mensual y precios_bloques del contrato."""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)

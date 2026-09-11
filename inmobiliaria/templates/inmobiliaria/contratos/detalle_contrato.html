@@ -373,6 +373,21 @@
                     <i class="fas fa-edit"></i> Aplicar
                 </button>
             </form>
+            <form method="post" action="{% url 'inmobiliaria:dejar_adelanto_cuota_contrato_super_admin' contrato.id %}"
+                  class="d-inline-flex align-items-center gap-1 flex-wrap border rounded px-2 py-1 bg-light"
+                  onsubmit="return confirm('¿Dejar esa cuota como adelanto parcial (no pagada)? Solo modifica esa cuota.');">
+                {% csrf_token %}
+                <span class="small text-muted">Dejar adelanto</span>
+                <input type="number" name="numero_cuota" class="form-control form-control-sm" style="width:4.2rem"
+                       min="1" max="{{ contrato.duracion_meses }}" placeholder="Nº" title="Nº de cuota (5 = septiembre)" required>
+                <input type="text" name="monto_cuota" class="form-control form-control-sm" style="width:6.5rem"
+                       placeholder="Cuota" title="Monto de la cuota (ej. 568900)" required>
+                <input type="text" name="credito_total" class="form-control form-control-sm" style="width:6.5rem"
+                       placeholder="A favor" title="A favor total = 23.518 + 525.200 = 548718" required>
+                <button type="submit" class="btn btn-sm btn-outline-warning" title="Ej: 5 / 568900 / 548718 → faltan ~20182">
+                    <i class="fas fa-undo"></i> Aplicar
+                </button>
+            </form>
             {% endif %}
             </div>
         </div>
@@ -497,6 +512,25 @@
                                             title="Registrar todo en efectivo sin pantalla de operación">
                                         Efectivo
                                     </button>
+                                    {% if cuota.recibos_cobro %}
+                                    <div class="dropdown d-inline-block ms-1">
+                                        <button class="btn btn-sm btn-info dropdown-toggle" type="button"
+                                                data-bs-toggle="dropdown" aria-expanded="false"
+                                                title="Ver recibo(s) de adelanto / cobro de esta cuota">
+                                            <i class="fas fa-receipt"></i> Recibo{% if cuota.recibos_cobro|length > 1 %}s{% endif %}
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            {% for m in cuota.recibos_cobro %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'inmobiliaria:recibo_contrato_24' contrato.id %}?movimiento_id={{ m.id }}" target="_blank" rel="noopener">
+                                                    Recibo {% if m.recibo %}{{ m.recibo.numero_recibo }}{% else %}#{{ m.id }}{% endif %}
+                                                    <small class="text-muted">({{ m.fecha|date:"d/m/Y" }})</small>
+                                                </a>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
                                     {% endif %}
                                     {% if user.nivel == 5 and cuotas|length > 1 %}
                                     <div class="mt-1">
