@@ -54,6 +54,39 @@
         </div>
     </form>
 
+    {% if reporte.disponibles_para_agregar %}
+    <form method="post" class="card card-body border py-2 mb-3 no-print">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="agregar">
+        <input type="hidden" name="anio" value="{{ anio }}">
+        <input type="hidden" name="mes" value="{{ mes }}">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-8 col-lg-6">
+                <label class="form-label small mb-0" for="propiedad_id_agregar">Agregar depto al resumen</label>
+                <select name="propiedad_id" id="propiedad_id_agregar" class="form-select form-select-sm" required>
+                    <option value="">Elegí un departamento…</option>
+                    {% for d in reporte.disponibles_para_agregar %}
+                    <option value="{{ d.id }}">{{ d.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-success btn-sm">
+                    <i class="fas fa-plus me-1"></i>Agregar
+                </button>
+            </div>
+            {% if reporte.ocultos %}
+            <div class="col-12">
+                <span class="text-muted small">
+                    Ocultos ahora: {{ reporte.ocultos|length }}.
+                    También aparecen acá los de la cartera sin movimiento en el mes.
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </form>
+    {% endif %}
+
     <div class="card border mb-3">
         <div class="card-header bg-light py-2">
             <strong>DEPARTAMENTOS DE OFICINA — {{ reporte.periodo_label }}</strong>
@@ -70,6 +103,7 @@
                             <th class="text-end">Ing. bruto</th>
                             <th class="text-end">Gastos</th>
                             <th class="text-end">Ing. neto</th>
+                            <th class="text-nowrap">Tarifas</th>
                             <th class="no-print"></th>
                         </tr>
                     </thead>
@@ -95,17 +129,41 @@
                                 ${{ f.neto|format_price }}
                                 {% endif %}
                             </td>
+                            <td class="small text-nowrap">
+                                <div>Día:
+                                    {% if f.tarifa_por_dia %}${{ f.tarifa_por_dia|format_price }}{% else %}—{% endif %}
+                                </div>
+                                <div>Invierno:
+                                    {% if f.tarifa_invierno %}${{ f.tarifa_invierno|format_price }}/mes{% else %}—{% endif %}
+                                </div>
+                                <div>24 meses:
+                                    {% if f.tarifa_24_meses %}${{ f.tarifa_24_meses|format_price }}/mes{% else %}—{% endif %}
+                                </div>
+                            </td>
                             <td class="no-print text-nowrap">
                                 <a class="btn btn-outline-primary btn-sm py-0"
                                    href="{% url 'inmobiliaria:oficina_propiedad_libro' f.propiedad.id %}?fecha_desde={{ f.fecha_desde_mes }}&fecha_hasta={{ f.fecha_hasta_mes }}">
                                     Libro
                                 </a>
+                                <form method="post" class="d-inline" onsubmit="return confirm('¿Sacar este depto del resumen?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="accion" value="sacar">
+                                    <input type="hidden" name="propiedad_id" value="{{ f.propiedad.id }}">
+                                    <input type="hidden" name="anio" value="{{ anio }}">
+                                    <input type="hidden" name="mes" value="{{ mes }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm py-0" title="Sacar del resumen">
+                                        Sacar
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">
+                            <td colspan="8" class="text-center text-muted py-4">
                                 No hay movimientos de departamentos de oficina en este mes.
+                                {% if reporte.disponibles_para_agregar %}
+                                Podés agregar uno con el selector de arriba.
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -119,6 +177,7 @@
                             <td class="text-end" style="background:#fff3cd">
                                 ${{ reporte.total_neto|format_price }}
                             </td>
+                            <td></td>
                             <td class="no-print"></td>
                         </tr>
                     </tfoot>

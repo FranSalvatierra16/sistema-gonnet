@@ -65,6 +65,94 @@ def etiqueta_propiedad_oficina(prop) -> str:
     return label or f'#{prop.id}'
 
 
+def _precio_dia_desde_precio_obj(precio_obj):
+    if not precio_obj:
+        return None
+    raw = precio_obj.precio_por_dia or precio_obj.precio_dia_toma
+    if raw is None:
+        return None
+    valor = Decimal(str(raw))
+    if valor <= 0:
+        return None
+    ajuste = precio_obj.ajuste_porcentaje or 0
+    if ajuste:
+        valor *= Decimal('1') - Decimal(str(ajuste)) / Decimal('100')
+    return _q(valor)
+
+
+def tarifas_ingreso_propiedad(prop) -> dict:
+    """
+    Tarifas de referencia del depto:
+    - por_dia: precio por día (temporada baja, o el primero disponible).
+    - invierno: canon mensual invierno.
+    - meses_24: canon mensual 24 meses.
+    """
+    from django.core.exceptions import ObjectDoesNotExist
+    from inmobiliaria.models import Precio, TipoPrecio
+
+    por_dia = None
+    precios = list(getattr(prop, '_prefetched_objects_cache', {}).get('precios') or [])
+    if not precios:
+        precios = list(Precio.objects.filter(propiedad_id=prop.id))
+
+    por_tipo = {p.tipo_precio: p for p in precios}
+    for tipo in (
+        TipoPrecio.TEMPORADA_BAJA,
+        TipoPrecio.VACACIONES_INVIERNO,
+        TipoPrecio.FINDE_LARGO,
+    ):
+        por_dia = _precio_dia_desde_precio_obj(por_tipo.get(tipo))
+        if por_dia is not None:
+            break
+    if por_dia is None:
+        for p in precios:
+            por_dia = _precio_dia_desde_precio_obj(p)
+            if por_dia is not None:
+                break
+
+    invierno = None
+    try:
+        info_inv = prop.info_invierno
+    except ObjectDoesNotExist:
+        info_inv = None
+    if info_inv and info_inv.precio_mensual:
+        invierno = _q(info_inv.precio_mensual)
+    elif getattr(prop, 'precio_invierno', None):
+        invierno = _q(prop.precio_invierno)
+
+    meses_24 = None
+    try:
+        info_meses = prop.info_meses
+    except ObjectDoesNotExist:
+        info_meses = None
+    if info_meses and info_meses.precio_mensual:
+        meses_24 = _q(info_meses.precio_mensual)
+    elif getattr(prop, 'precio_23_meses', None):
+        meses_24 = _q(prop.precio_23_meses)
+
+    return {
+        'por_dia': por_dia,
+        'invierno': invierno,
+        'meses_24': meses_24,
+    }
+
+
+def preferencias_reporte_deptos(sucursal):
+    """Devuelve sets de ids ocultos y forzados para el resumen."""
+    from inmobiliaria.models import ReporteDeptosOficinaPreferencia
+
+    ocultos = set()
+    forzados = set()
+    for row in ReporteDeptosOficinaPreferencia.objects.filter(sucursal=sucursal).only(
+        'propiedad_id', 'oculto', 'forzado'
+    ):
+        if row.oculto:
+            ocultos.add(row.propiedad_id)
+        if row.forzado:
+            forzados.add(row.propiedad_id)
+    return ocultos, forzados
+
+
 def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
     """
     Filas del libro en el rango (sin fila de inicio de caja).
@@ -273,6 +361,7 @@ def _aplicar_arrastre(buckets, anio, mes, fecha_corte=None):
 def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     """
     Arma el reporte mensual de todos los deptos de la cartera de oficina.
+    Respeta preferencias: ocultos no salen; forzados salen aunque estén en cero.
     """
     from inmobiliaria.views_oficina import (
         _ordenar_propiedades_oficina,
@@ -285,12 +374,20 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     fecha_hasta = date(anio, mes, ultimo_dia)
     periodo_label = f'{MESES_ES[mes]} DE {anio}'
 
+    ocultos, forzados = preferencias_reporte_deptos(sucursal)
+
     props = _ordenar_propiedades_oficina(
-        list(_qs_propiedades_oficina(sucursal)),
-        orden='piso',
+        list(
+            _qs_propiedades_oficina(sucursal)
+            .select_related('info_invierno', 'info_meses')
+            .prefetch_related('precios')
+        ),
+        orden='direccion',
     )
 
     filas = []
+    ocultos_labels = []
+    disponibles_para_agregar = []
     total_bruto = Decimal('0')
     total_gastos = Decimal('0')
     total_neto_positivos = Decimal('0')
@@ -298,6 +395,11 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     n_negativos = 0
 
     for prop in props:
+        label = etiqueta_propiedad_oficina(prop)
+        if prop.id in ocultos:
+            ocultos_labels.append({'id': prop.id, 'label': label})
+            continue
+
         # Desde el 8/6/2026 (o inicio de caja si es posterior) hasta fin del mes pedido
         filas_libro, fecha_corte = _filas_libro_sin_inicio(
             sucursal, prop,
@@ -307,14 +409,16 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         buckets = _buckets_mensuales(filas_libro)
         calc = _aplicar_arrastre(buckets, anio, mes, fecha_corte=fecha_corte)
 
-        # Omitir deptos sin movimiento ni arrastre en el mes (todo en cero)
+        # Omitir deptos sin movimiento ni arrastre en el mes (todo en cero),
+        # salvo que estén forzados a aparecer.
         sin_mov = (
             calc['bruto'] <= Decimal('0.009')
             and calc['gastos'] <= Decimal('0.009')
             and calc['arrastre_anterior'] <= Decimal('0.009')
             and abs(calc['neto']) <= Decimal('0.009')
         )
-        if sin_mov:
+        if sin_mov and prop.id not in forzados:
+            disponibles_para_agregar.append({'id': prop.id, 'label': label})
             continue
 
         total_bruto += calc['bruto']
@@ -325,10 +429,11 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         elif calc['negativo']:
             n_negativos += 1
 
+        tarifas = tarifas_ingreso_propiedad(prop)
         filas.append({
             'nro': len(filas) + 1,
             'propiedad': prop,
-            'propiedad_label': etiqueta_propiedad_oficina(prop),
+            'propiedad_label': label,
             'periodo': periodo_label,
             'bruto': calc['bruto'],
             'gastos': calc['gastos'],
@@ -341,11 +446,19 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
             'arrastre_siguiente': calc['arrastre_siguiente'],
             'fecha_desde_mes': date(anio, mes, 1).isoformat(),
             'fecha_hasta_mes': fecha_hasta.isoformat(),
+            'tarifa_por_dia': tarifas['por_dia'],
+            'tarifa_invierno': tarifas['invierno'],
+            'tarifa_24_meses': tarifas['meses_24'],
+            'forzado': prop.id in forzados,
         })
 
     # Renumerar tras filtrar vacíos
     for i, f in enumerate(filas, start=1):
         f['nro'] = i
+
+    # Ocultos también pueden “agregarse” de nuevo
+    disponibles_para_agregar = ocultos_labels + disponibles_para_agregar
+    disponibles_para_agregar.sort(key=lambda x: x['label'].lower())
 
     return {
         'anio': anio,
@@ -359,4 +472,6 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         'n_negativos': n_negativos,
         'cantidad': len(filas),
         'fecha_inicio_conteo': FECHA_INICIO_CONTEO_DEPTOS_OFICINA,
+        'ocultos': ocultos_labels,
+        'disponibles_para_agregar': disponibles_para_agregar,
     }

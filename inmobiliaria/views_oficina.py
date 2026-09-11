@@ -1209,10 +1209,11 @@ def oficina_reporte_deptos_mensual(request):
         return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
 
     from inmobiliaria.oficina_reporte_deptos import construir_reporte_mensual_deptos_oficina
+    from inmobiliaria.models import ReporteDeptosOficinaPreferencia
 
     today = timezone.localdate()
-    anio_s = (request.GET.get('anio') or '').strip()
-    mes_s = (request.GET.get('mes') or '').strip()
+    anio_s = (request.GET.get('anio') or request.POST.get('anio') or '').strip()
+    mes_s = (request.GET.get('mes') or request.POST.get('mes') or '').strip()
     try:
         anio = int(anio_s) if anio_s else today.year
         mes = int(mes_s) if mes_s else today.month
@@ -1220,6 +1221,35 @@ def oficina_reporte_deptos_mensual(request):
             raise ValueError
     except (TypeError, ValueError):
         anio, mes = today.year, today.month
+
+    if request.method == 'POST':
+        accion = (request.POST.get('accion') or '').strip()
+        prop_id = (request.POST.get('propiedad_id') or '').strip()
+        redirect_url = (
+            reverse('inmobiliaria:oficina_reporte_deptos_mensual')
+            + f'?anio={anio}&mes={mes}'
+        )
+        if accion in ('sacar', 'agregar') and prop_id:
+            if not _propiedad_en_cartera_oficina(request.user, prop_id)[1]:
+                messages.error(request, 'Esa propiedad no está en la cartera de oficina.')
+                return redirect(redirect_url)
+            pref, _ = ReporteDeptosOficinaPreferencia.objects.get_or_create(
+                sucursal=sucursal,
+                propiedad_id=prop_id,
+            )
+            if accion == 'sacar':
+                pref.oculto = True
+                pref.forzado = False
+                pref.save(update_fields=['oculto', 'forzado'])
+                messages.success(request, 'Departamento sacado del resumen.')
+            else:
+                pref.oculto = False
+                pref.forzado = True
+                pref.save(update_fields=['oculto', 'forzado'])
+                messages.success(request, 'Departamento agregado al resumen.')
+            return redirect(redirect_url)
+        messages.error(request, 'Acción no válida.')
+        return redirect(redirect_url)
 
     try:
         reporte = construir_reporte_mensual_deptos_oficina(sucursal, anio, mes)

@@ -507,3 +507,42 @@ class CuadroHonorariosTotalGral(models.Model):
 
     def __str__(self):
         return f'{self.sucursal_id} · total {self.vendedor_id}'
+
+
+class ReporteDeptosOficinaPreferencia(models.Model):
+    """
+    Preferencias del resumen mensual de departamentos de oficina por sucursal.
+    - oculto: no aparece en el resumen (aunque tenga movimientos).
+    - forzado: aparece aunque no tenga movimientos en el mes.
+    """
+
+    sucursal = models.ForeignKey(
+        'Sucursal',
+        on_delete=models.CASCADE,
+        related_name='prefs_reporte_deptos_oficina',
+    )
+    propiedad = models.ForeignKey(
+        'Propiedad',
+        on_delete=models.CASCADE,
+        related_name='prefs_reporte_deptos_oficina',
+    )
+    oculto = models.BooleanField(default=False)
+    forzado = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = 'Preferencia depto en reporte oficina'
+        verbose_name_plural = 'Preferencias depto en reporte oficina'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['sucursal', 'propiedad'],
+                name='uniq_pref_reporte_deptos_oficina_suc_prop',
+            ),
+        ]
+
+    def __str__(self):
+        flags = []
+        if self.oculto:
+            flags.append('oculto')
+        if self.forzado:
+            flags.append('forzado')
+        return f'{self.sucursal_id} · {self.propiedad_id} ({", ".join(flags) or "—"})'
