@@ -20796,6 +20796,45 @@ def mover_adelanto_cuota_contrato_super_admin(request, contrato_id):
 
 @login_required
 @require_POST
+@transaction.atomic
+def fijar_credito_cuota_contrato_super_admin(request, contrato_id):
+    """Fija el credito_aplicado (a favor) de una cuota; no toca montos ni otras cuotas."""
+    if not usuario_puede_eliminar_movimiento_caja(request.user):
+        messages.error(request, 'Solo el super administrador puede fijar el adelanto de una cuota.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato_id)
+
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    try:
+        numero = int((request.POST.get('numero_cuota') or '').strip())
+    except (TypeError, ValueError):
+        messages.error(request, 'Indicá el número de cuota.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+
+    monto = parse_decimal_monto(request.POST.get('monto_credito') or '')
+    if monto < 0:
+        messages.error(request, 'El monto a favor no puede ser negativo.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    cuota = contrato.cuotas.filter(numero_cuota=numero).first()
+    if not cuota:
+        messages.error(request, f'No existe la cuota {numero}.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    anterior = Decimal(str(cuota.credito_aplicado or 0))
+    cuota.credito_aplicado = monto
+    cuota.save(update_fields=['credito_aplicado'])
+    messages.success(
+        request,
+        f'Cuota {numero}: a favor ${anterior} → ${monto}. '
+        f'Saldo a cobrar: ${cuota.saldo_para_cobro()}.',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
 def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
     """Vuelve a calcular monto_base/monto_total de cuotas no pagadas según precio_mensual y precios_bloques del contrato."""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)

@@ -7,6 +7,7 @@ Uso:
   python manage.py reparar_cobranza_contrato 230 --mayo 525200
   python manage.py reparar_cobranza_contrato 230 --mover-adelanto 1 2
   python manage.py reparar_cobranza_contrato 230 --recibo-mes junio --numero-recibo 0001-150
+  python manage.py reparar_cobranza_contrato 230 --set-credito 5 23518
 """
 from decimal import Decimal
 
@@ -59,6 +60,12 @@ class Command(BaseCommand):
             default=None,
             help='Año de la cuota al usar --recibo-mes (opcional).',
         )
+        parser.add_argument(
+            '--set-credito',
+            nargs=2,
+            metavar=('CUOTA', 'MONTO'),
+            help='Solo fija credito_aplicado de la cuota N al monto (ej. 5 23518). No toca el resto.',
+        )
 
     def handle(self, *args, **options):
         cid = options['contrato_id']
@@ -84,6 +91,16 @@ class Command(BaseCommand):
 
         if options['dry_run']:
             self.stdout.write(self.style.WARNING('Dry-run: no se modificó nada.'))
+            return
+
+        # Solo fijar crédito: no limpia mora ni reimputa.
+        set_credito = options.get('set_credito')
+        if set_credito and not (
+            options.get('mayo')
+            or options.get('mover_adelanto')
+            or options.get('recibo_mes')
+        ):
+            self._fijar_credito(contrato, set_credito[0], set_credito[1])
             return
 
         n_mora = limpiar_mora_automatica_cuotas(contrato)
@@ -132,6 +149,9 @@ class Command(BaseCommand):
                 )
             )
 
+        if set_credito:
+            self._fijar_credito(contrato, set_credito[0], set_credito[1])
+
         self.stdout.write(
             self.style.SUCCESS(
                 f'Listo: mora limpiada en {n_mora} cuota(s), reimputados {n_reimp} cobro(s).'
@@ -144,6 +164,29 @@ class Command(BaseCommand):
                 f'base={c.monto_base} total={c.monto_total} crédito={c.credito_aplicado} '
                 f'saldo={c.saldo_para_cobro()}'
             )
+
+    def _fijar_credito(self, contrato, numero_raw, monto_raw):
+        from inmobiliaria.decimal_utils import parse_decimal_monto
+
+        try:
+            numero = int(str(numero_raw).strip())
+        except (TypeError, ValueError) as e:
+            raise CommandError('Número de cuota inválido.') from e
+        monto = parse_decimal_monto(str(monto_raw))
+        if monto < 0:
+            raise CommandError('El monto a favor no puede ser negativo.')
+        cuota = contrato.cuotas.filter(numero_cuota=numero).first()
+        if not cuota:
+            raise CommandError(f'No existe la cuota {numero}.')
+        anterior = Decimal(str(cuota.credito_aplicado or 0))
+        cuota.credito_aplicado = monto
+        cuota.save(update_fields=['credito_aplicado'])
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'Cuota {numero}: a favor ${anterior} → ${monto} '
+                f'(saldo a cobrar ${cuota.saldo_para_cobro()}). Nada más modificado.'
+            )
+        )
 
     def _buscar_movimiento(self, contrato, numero_recibo: str):
         from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum

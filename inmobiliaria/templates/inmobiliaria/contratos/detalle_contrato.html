@@ -360,6 +360,19 @@
                     <i class="fas fa-exchange-alt"></i> Aplicar
                 </button>
             </form>
+            <form method="post" action="{% url 'inmobiliaria:fijar_credito_cuota_contrato_super_admin' contrato.id %}"
+                  class="d-inline-flex align-items-center gap-1 flex-wrap border rounded px-2 py-1 bg-light"
+                  onsubmit="return confirm('¿Fijar el a favor de esa cuota al monto indicado? No modifica otras cuotas.');">
+                {% csrf_token %}
+                <span class="small text-muted">Fijar a favor</span>
+                <input type="number" name="numero_cuota" class="form-control form-control-sm" style="width:4.2rem"
+                       min="1" max="{{ contrato.duracion_meses }}" placeholder="Nº" title="Nº de cuota" required>
+                <input type="text" name="monto_credito" class="form-control form-control-sm" style="width:6.5rem"
+                       placeholder="Monto" title="Monto a favor" required>
+                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Solo cambia el crédito de esa cuota">
+                    <i class="fas fa-edit"></i> Aplicar
+                </button>
+            </form>
             {% endif %}
             </div>
         </div>
