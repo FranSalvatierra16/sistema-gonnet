@@ -853,12 +853,16 @@ def reimputar_desde_recibos_existentes(contrato, hoy=None) -> int:
     Si hay movimientos con concepto 1000/29/1290 apuntando a una cuota pendiente/vencida
     por el saldo completo, marca esa cuota pagada (recibo existe, plan no actualizado).
     También intenta por mes_alquiler_texto_recibo (recibos legacy sin cuota_objetivo_id).
+
+    No debe ejecutarse en cada GET del detalle: un pago a cuenta (parcial) ya cargado
+    como crédito se reinterpretaba como cobro total y dejaba la cuota «Pagada» otra vez.
     """
     from django.utils import timezone as tz
 
     from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 
     hoy = hoy or tz.now().date()
+    tol = Decimal('0.05')
     movs = list(
         MovimientoCaja.objects.filter(
             concepto__icontains=f'Contrato #{contrato.id}',
@@ -871,6 +875,9 @@ def reimputar_desde_recibos_existentes(contrato, hoy=None) -> int:
         return 0
     n = 0
     for cuota in contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota'):
+        # Si ya hay adelanto/crédito, no forzar «pagada» (evita deshacer correcciones).
+        if Decimal(str(cuota.credito_aplicado or 0)) > tol:
+            continue
         recibos = movimientos_recibo_por_cuota(cuota, movs)
         if not recibos:
             continue
@@ -881,19 +888,24 @@ def reimputar_desde_recibos_existentes(contrato, hoy=None) -> int:
             raw_qid = str(it.get('cuota_objetivo_id') or '').strip()
             if raw_qid.isdigit() and int(raw_qid) == int(cuota.id):
                 cubierto += parse_decimal_monto(it.get('importe'))
-        if cubierto <= Decimal('0.05'):
+        if cubierto <= tol:
             continue
         saldo = cuota.saldo_para_cobro()
-        if saldo <= Decimal('0.05'):
+        if saldo <= tol:
+            continue
+        # Pago parcial / a cuenta: no marcar pagada si no cubre el monto de la cuota.
+        monto_cuota = Decimal(str(cuota.monto_total or cuota.monto_base or 0))
+        if cubierto + tol < monto_cuota:
             continue
         try:
-            if cubierto + Decimal('0.05') >= saldo:
+            if cubierto + tol >= saldo:
                 marcar_cuota_pagada_con_excedente_a_favor(cuota, cubierto, mov, hoy)
                 n += 1
         except ValueError:
             continue
 
-    # Recibos legacy (1290 / «Alquiler a Cobrar») con mes en el JSON pero sin cuota_objetivo_id
+    # Recibos legacy (1290) con mes en el JSON: solo si la cuota no tiene adelanto
+    # y el importe del recibo cubre el monto completo del mes.
     for mov in movs:
         raw = (getattr(mov, 'concepto_detalle', None) or '').strip()
         if not raw.startswith('{'):
@@ -904,20 +916,43 @@ def reimputar_desde_recibos_existentes(contrato, hoy=None) -> int:
             continue
         mes_txt = str(data.get('mes_alquiler_texto_recibo') or '').strip()
         if not mes_txt:
-            # Heurística: si hay 1290 y un solo mes en conceptos
-            conceptos = list(data.get('conceptos') or [])
-            tiene_alquiler = False
-            for it in conceptos:
-                cid = _normalizar_codigo_concepto_caja(it.get('id') or it.get('codigo'))
-                nom = (it.get('nombre') or '').lower()
-                if cid in ('1000', '29', '1290') or 'alquiler a cobrar' in nom:
-                    tiene_alquiler = True
-                    break
-            if not tiene_alquiler:
-                continue
-            # Sin mes explícito: no adivinar
+            continue
+        # Estimar importe de alquiler del movimiento
+        cubierto = Decimal('0')
+        for it in list(data.get('conceptos') or []):
+            cid = _normalizar_codigo_concepto_caja(it.get('id') or it.get('codigo'))
+            nom = (it.get('nombre') or '').lower()
+            if cid in CODIGOS_IMPUTACION_ALQUILER_CUOTA or 'alquiler' in nom:
+                cubierto += parse_decimal_monto(it.get('importe'))
+        if cubierto <= tol:
             continue
         try:
+            meses_es = {
+                'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4, 'mayo': 5, 'junio': 6,
+                'julio': 7, 'agosto': 8, 'septiembre': 9, 'setiembre': 9, 'octubre': 10,
+                'noviembre': 11, 'diciembre': 12,
+            }
+            mes_n = None
+            mes_l = mes_txt.lower()
+            for nombre, num in meses_es.items():
+                if nombre in mes_l:
+                    mes_n = num
+                    break
+            if mes_n is None:
+                continue
+            cuota = None
+            for c in contrato.cuotas.filter(estado__in=['pendiente', 'vencida']).order_by('numero_cuota'):
+                if c.fecha_vencimiento and c.fecha_vencimiento.month == mes_n:
+                    cuota = c
+                    break
+            if cuota is None:
+                continue
+            if Decimal(str(cuota.credito_aplicado or 0)) > tol:
+                continue
+            monto_cuota = Decimal(str(cuota.monto_total or cuota.monto_base or 0))
+            if cubierto + tol < monto_cuota:
+                # Pago a cuenta / parcial: no marcar pagada
+                continue
             res = marcar_cuota_pagada_desde_recibo_mes(contrato, mov, mes_nombre=mes_txt)
             if res.get('estado') in ('pagada', 'pagada_con_mora'):
                 n += 1

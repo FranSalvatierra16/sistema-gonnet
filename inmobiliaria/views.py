@@ -20140,11 +20140,11 @@ def detalle_contrato(request, contrato_id):
     from inmobiliaria.cuotas_imputacion import (
         sincronizar_cuotas_totalmente_cubiertas_por_credito,
         limpiar_mora_automatica_cuotas,
-        reimputar_desde_recibos_existentes,
     )
 
+    # Solo limpia mora inventada. NO reimputar recibos acá: al abrir el detalle
+    # volvía a marcar como «Pagada» cuotas que están en adelanto (pago a cuenta).
     limpiar_mora_automatica_cuotas(contrato)
-    reimputar_desde_recibos_existentes(contrato, hoy)
     if sincronizar_cuotas_totalmente_cubiertas_por_credito(contrato, hoy):
         contrato.refresh_from_db()
     cuotas = contrato.cuotas.select_related('movimiento').order_by('numero_cuota')
