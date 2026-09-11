@@ -32913,10 +32913,10 @@ def editar_liquidacion(request, liquidacion_id):
         id=liquidacion_id,
         sucursal=request.user.sucursal,
     )
-    if (liquidacion.estado or '') not in ('pendiente', 'cerrada'):
+    if (liquidacion.estado or '') not in ('pendiente', 'cerrada', 'oficina', 'procesada'):
         messages.error(
             request,
-            'Solo se pueden editar liquidaciones pendientes o cerradas (no pagadas ni canceladas).',
+            'Solo se pueden editar liquidaciones pendientes, cerradas/confirmadas u oficina (no pagadas ni canceladas).',
         )
         return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
