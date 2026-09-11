@@ -15,6 +15,9 @@
                 Ingresos y gastos del libro por depto.
                 Los saldos negativos (entre paréntesis) <strong>no suman</strong> al total
                 y se arrastran en contra al mes siguiente.
+                {% if reporte.fecha_inicio_conteo %}
+                <br>Conteo desde el <strong>{{ reporte.fecha_inicio_conteo|date:"d/m/Y" }}</strong>; lo anterior no se considera ni genera arrastre.
+                {% endif %}
             </p>
         </div>
         <div class="d-flex gap-2">

@@ -1926,7 +1926,12 @@ def oficina_propiedad_libro(request, propiedad_id):
 
     # Corte duro: el libro de oficina arranca en la fecha de inicio de caja
     # de ese depto (nada anterior, ni ingresos ni gastos).
+    # Piso global: nada anterior al 8/6/2026.
+    from inmobiliaria.oficina_reporte_deptos import FECHA_INICIO_CONTEO_DEPTOS_OFICINA
+
     fecha_corte = getattr(inicio, 'fecha', None)
+    if fecha_corte is None or fecha_corte < FECHA_INICIO_CONTEO_DEPTOS_OFICINA:
+        fecha_corte = FECHA_INICIO_CONTEO_DEPTOS_OFICINA
     if fecha_corte and (dr_desde is None or dr_desde < fecha_corte):
         dr_desde = fecha_corte
         fecha_desde_s = fecha_corte.isoformat()

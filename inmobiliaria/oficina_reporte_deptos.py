@@ -5,6 +5,9 @@ Regla de saldos (como la planilla en papel):
 - Si el neto queda negativo: se muestra entre paréntesis, NO suma al total,
   y ese monto se arrastra en contra del mismo depto al mes siguiente.
 - Al total del mes solo entran los netos positivos.
+
+Conteo: solo movimientos desde FECHA_INICIO_CONTEO_DEPTOS_OFICINA (8/6/2026).
+Lo anterior no entra ni genera arrastre.
 """
 from __future__ import annotations
 
@@ -14,6 +17,9 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from django.utils import timezone
+
+# A partir de esta fecha cuenta el libro / arrastre de departamentos de oficina.
+FECHA_INICIO_CONTEO_DEPTOS_OFICINA = date(2026, 6, 8)
 
 MESES_ES = (
     '',
@@ -78,7 +84,10 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
 
     inicio = _obtener_inicio_caja_libro(propiedad)
     fecha_corte = getattr(inicio, 'fecha', None)
-    if fecha_corte and (dr_desde is None or dr_desde < fecha_corte):
+    # Piso global: nada anterior al 8/6/2026
+    if fecha_corte is None or fecha_corte < FECHA_INICIO_CONTEO_DEPTOS_OFICINA:
+        fecha_corte = FECHA_INICIO_CONTEO_DEPTOS_OFICINA
+    if dr_desde is None or dr_desde < fecha_corte:
         dr_desde = fecha_corte
 
     movimientos, reserva_ids, contrato_ids = _qs_movimientos_libro_propiedad(
@@ -289,9 +298,11 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     n_negativos = 0
 
     for prop in props:
-        # Traer desde un piso amplio: inicio de caja hasta fin del mes pedido
+        # Desde el 8/6/2026 (o inicio de caja si es posterior) hasta fin del mes pedido
         filas_libro, fecha_corte = _filas_libro_sin_inicio(
-            sucursal, prop, dr_desde=None, dr_hasta=fecha_hasta
+            sucursal, prop,
+            dr_desde=FECHA_INICIO_CONTEO_DEPTOS_OFICINA,
+            dr_hasta=fecha_hasta,
         )
         buckets = _buckets_mensuales(filas_libro)
         calc = _aplicar_arrastre(buckets, anio, mes, fecha_corte=fecha_corte)
@@ -347,4 +358,5 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         'n_positivos': n_positivos,
         'n_negativos': n_negativos,
         'cantidad': len(filas),
+        'fecha_inicio_conteo': FECHA_INICIO_CONTEO_DEPTOS_OFICINA,
     }
