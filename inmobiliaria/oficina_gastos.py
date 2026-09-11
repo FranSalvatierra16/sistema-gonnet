@@ -144,6 +144,8 @@ MAPA_CONCEPTOS_CAJA_A_OFICINA = {
     '130': ('Gastos generales', 'Veraz'),
     # Concepto 22 de caja → Ingresos › Gastos bancarios (combinado con carga manual de oficina).
     '22': ('Ingresos', 'Gastos bancarios'),
+    # Concepto 19: Comisión Gestión Cobranzas → Honorarios gestión cob.
+    '19': ('Ingresos', 'Honorarios gestión cob.'),
     # Concepto 24: ingresos y egresos de caja → Recaudación fondos.
     '24': ('Recaudación fondos', 'Ingreso boletas desc. dep. gtia'),
 }
@@ -152,6 +154,11 @@ MAPA_CONCEPTOS_CAJA_A_OFICINA = {
 MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
     'veraz': ('Gastos generales', 'Veraz'),
     'gastos bancarios': ('Ingresos', 'Gastos bancarios'),
+    'comision gestion cobranzas': ('Ingresos', 'Honorarios gestión cob.'),
+    'comision gestion cobranza': ('Ingresos', 'Honorarios gestión cob.'),
+    'gestion cobranzas': ('Ingresos', 'Honorarios gestión cob.'),
+    'gestion cobranza': ('Ingresos', 'Honorarios gestión cob.'),
+    'honorarios gestion cob.': ('Ingresos', 'Honorarios gestión cob.'),
     'ingreso boletas desc. dep. gtia': (
         'Recaudación fondos',
         'Ingreso boletas desc. dep. gtia',

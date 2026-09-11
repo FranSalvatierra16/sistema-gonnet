@@ -103,7 +103,9 @@
                             <th class="text-end">Ing. bruto</th>
                             <th class="text-end">Gastos</th>
                             <th class="text-end">Ing. neto</th>
-                            <th class="text-nowrap">Tarifas</th>
+                            <th class="text-end text-nowrap">Día</th>
+                            <th class="text-end text-nowrap">Invierno</th>
+                            <th class="text-end text-nowrap">24 meses</th>
                             <th class="no-print"></th>
                         </tr>
                     </thead>
@@ -129,16 +131,14 @@
                                 ${{ f.neto|format_price }}
                                 {% endif %}
                             </td>
-                            <td class="small text-nowrap">
-                                <div>Día:
-                                    {% if f.tarifa_por_dia %}${{ f.tarifa_por_dia|format_price }}{% else %}—{% endif %}
-                                </div>
-                                <div>Invierno:
-                                    {% if f.tarifa_invierno %}${{ f.tarifa_invierno|format_price }}/mes{% else %}—{% endif %}
-                                </div>
-                                <div>24 meses:
-                                    {% if f.tarifa_24_meses %}${{ f.tarifa_24_meses|format_price }}/mes{% else %}—{% endif %}
-                                </div>
+                            <td class="text-end text-nowrap">
+                                {% if f.tarifa_por_dia %}${{ f.tarifa_por_dia|format_price }}{% else %}—{% endif %}
+                            </td>
+                            <td class="text-end text-nowrap">
+                                {% if f.tarifa_invierno %}${{ f.tarifa_invierno|format_price }}{% else %}—{% endif %}
+                            </td>
+                            <td class="text-end text-nowrap">
+                                {% if f.tarifa_24_meses %}${{ f.tarifa_24_meses|format_price }}{% else %}—{% endif %}
                             </td>
                             <td class="no-print text-nowrap">
                                 <a class="btn btn-outline-primary btn-sm py-0"
@@ -159,7 +159,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">
+                            <td colspan="10" class="text-center text-muted py-4">
                                 No hay movimientos de departamentos de oficina en este mes.
                                 {% if reporte.disponibles_para_agregar %}
                                 Podés agregar uno con el selector de arriba.
@@ -177,7 +177,9 @@
                             <td class="text-end" style="background:#fff3cd">
                                 ${{ reporte.total_neto|format_price }}
                             </td>
-                            <td></td>
+                            <td class="text-end">${{ reporte.total_tarifa_dia|format_price }}</td>
+                            <td class="text-end">${{ reporte.total_tarifa_invierno|format_price }}</td>
+                            <td class="text-end">${{ reporte.total_tarifa_24|format_price }}</td>
                             <td class="no-print"></td>
                         </tr>
                     </tfoot>

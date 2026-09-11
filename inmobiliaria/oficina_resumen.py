@@ -165,6 +165,51 @@ def _honorarios_ventas_cerradas(sucursal, fecha_desde, fecha_hasta):
     return Decimal(str(total))
 
 
+def _es_concepto_gestion_cobranza(concepto_caja_id=None, descripcion=None):
+    """True si es el concepto de gestión de cobranza (catálogo ~19 o por nombre)."""
+    cid = str(concepto_caja_id or '').strip()
+    if cid == '19':
+        return True
+    n = _norm_nombre_cat(descripcion)
+    if not n:
+        return False
+    return 'gestion cobran' in n
+
+
+def _total_gestion_cobranza_liquidaciones(sucursal, fecha_desde, fecha_hasta):
+    """
+    Suma en ARS del concepto «gestión cobranza» cargado en liquidaciones
+    (GastoPropietario), que suele no generar MovimientoCaja.
+    """
+    from inmobiliaria.models import GastoPropietario
+
+    qs = GastoPropietario.objects.filter(sucursal=sucursal).filter(
+        Q(fecha_gasto__gte=fecha_desde, fecha_gasto__lte=fecha_hasta)
+        | Q(
+            fecha_gasto__isnull=True,
+            fecha_creacion__date__gte=fecha_desde,
+            fecha_creacion__date__lte=fecha_hasta,
+        )
+    ).filter(
+        Q(concepto_caja_id='19')
+        | Q(descripcion__icontains='gestion cobran')
+        | Q(descripcion__icontains='gestión cobran')
+    )
+
+    total = Decimal('0')
+    for g in qs.only('monto', 'moneda', 'concepto_caja_id', 'descripcion'):
+        if not _es_concepto_gestion_cobranza(g.concepto_caja_id, g.descripcion):
+            continue
+        moneda = (getattr(g, 'moneda', None) or 'ARS').upper()
+        if moneda in ('USD', 'U$S', 'DOLAR', 'DOLARES', 'DÓLAR', 'DÓLARES'):
+            continue
+        monto = Decimal(str(g.monto or 0)).quantize(Decimal('0.01'))
+        if monto <= 0:
+            continue
+        total += monto
+    return total.quantize(Decimal('0.01'))
+
+
 def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
     """
     Totales de comisiones de oficina por etiqueta de Ingresos, más fondo/cochera
@@ -213,6 +258,19 @@ def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
         ventas_ars = _honorarios_ventas_cerradas(sucursal, fecha_desde, fecha_hasta)
         if ventas_ars:
             totales[ETIQUETA_COMISION_VENTAS] += ventas_ars
+
+        # Gestión cobranza (concepto liquidación / catálogo 19)
+        try:
+            gestion = _total_gestion_cobranza_liquidaciones(
+                sucursal, fecha_desde, fecha_hasta
+            )
+            if gestion:
+                totales[ETIQUETA_GESTION_COB] += gestion
+        except Exception:
+            logger.exception(
+                'resumen_cierre: falló gestión cobranza (sucursal_id=%s)',
+                getattr(sucursal, 'pk', None),
+            )
 
         return dict(totales), total_fondo.quantize(Decimal('0.01')), total_cochera.quantize(
             Decimal('0.01')

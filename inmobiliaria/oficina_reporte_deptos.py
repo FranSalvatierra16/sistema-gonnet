@@ -391,6 +391,9 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     total_bruto = Decimal('0')
     total_gastos = Decimal('0')
     total_neto_positivos = Decimal('0')
+    total_tarifa_dia = Decimal('0')
+    total_tarifa_invierno = Decimal('0')
+    total_tarifa_24 = Decimal('0')
     n_positivos = 0
     n_negativos = 0
 
@@ -430,6 +433,12 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
             n_negativos += 1
 
         tarifas = tarifas_ingreso_propiedad(prop)
+        if tarifas['por_dia']:
+            total_tarifa_dia += tarifas['por_dia']
+        if tarifas['invierno']:
+            total_tarifa_invierno += tarifas['invierno']
+        if tarifas['meses_24']:
+            total_tarifa_24 += tarifas['meses_24']
         filas.append({
             'nro': len(filas) + 1,
             'propiedad': prop,
@@ -468,6 +477,9 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         'total_bruto': _q(total_bruto),
         'total_gastos': _q(total_gastos),
         'total_neto': _q(total_neto_positivos),
+        'total_tarifa_dia': _q(total_tarifa_dia),
+        'total_tarifa_invierno': _q(total_tarifa_invierno),
+        'total_tarifa_24': _q(total_tarifa_24),
         'n_positivos': n_positivos,
         'n_negativos': n_negativos,
         'cantidad': len(filas),
