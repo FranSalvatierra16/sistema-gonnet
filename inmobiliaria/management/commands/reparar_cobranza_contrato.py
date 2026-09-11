@@ -5,6 +5,7 @@ Uso:
   python manage.py reparar_cobranza_contrato 230 --dry-run
   python manage.py reparar_cobranza_contrato 230
   python manage.py reparar_cobranza_contrato 230 --mayo 525200
+  python manage.py reparar_cobranza_contrato 230 --mover-adelanto 1 2
 """
 from decimal import Decimal
 
@@ -14,12 +15,13 @@ from django.utils import timezone
 from inmobiliaria.models import ContratoAlquiler
 from inmobiliaria.cuotas_imputacion import (
     limpiar_mora_automatica_cuotas,
+    mover_credito_adelanto_entre_cuotas,
     reimputar_desde_recibos_existentes,
 )
 
 
 class Command(BaseCommand):
-    help = 'Limpia mora inventada y reimputa recibos a cuotas del contrato.'
+    help = 'Limpia mora inventada, reimputa recibos y puede mover adelantos entre cuotas.'
 
     def add_arguments(self, parser):
         parser.add_argument('contrato_id', type=int)
@@ -29,6 +31,13 @@ class Command(BaseCommand):
             type=str,
             default='',
             help='Si se indica, fija el monto_base de la cuota de mayo (ej. 525200).',
+        )
+        parser.add_argument(
+            '--mover-adelanto',
+            nargs=2,
+            type=int,
+            metavar=('DESDE', 'HACIA'),
+            help='Mueve credito_aplicado de la cuota DESDE a la cuota HACIA (ej. 1 2 = mayo→junio).',
         )
 
     def handle(self, *args, **options):
@@ -71,6 +80,16 @@ class Command(BaseCommand):
                     c.recargo_mora = Decimal('0')
                     c.actualizar_monto_total()
                     self.stdout.write(self.style.SUCCESS(f'Mayo (cuota {c.numero_cuota}) → {monto_mayo}'))
+
+        mover = options.get('mover_adelanto')
+        if mover:
+            res = mover_credito_adelanto_entre_cuotas(contrato, mover[0], mover[1])
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Adelanto ${res["monto"]} movido: cuota {res["desde"]} → {res["hacia"]} '
+                    f'(saldo destino ${res["saldo_destino"]})'
+                )
+            )
 
         self.stdout.write(
             self.style.SUCCESS(

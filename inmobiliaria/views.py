@@ -20763,6 +20763,39 @@ def reiniciar_plan_cuotas_contrato_super_admin(request, contrato_id):
 
 @login_required
 @require_POST
+@transaction.atomic
+def mover_adelanto_cuota_contrato_super_admin(request, contrato_id):
+    """Mueve el adelanto/crédito de una cuota a otra (ej. mayo → junio)."""
+    if not usuario_puede_eliminar_movimiento_caja(request.user):
+        messages.error(request, 'Solo el super administrador puede mover adelantos entre cuotas.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato_id)
+
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    try:
+        desde = int((request.POST.get('desde_numero') or '').strip())
+        hacia = int((request.POST.get('hacia_numero') or '').strip())
+    except (TypeError, ValueError):
+        messages.error(request, 'Indicá el número de cuota de origen y destino.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    from inmobiliaria.cuotas_imputacion import mover_credito_adelanto_entre_cuotas
+
+    try:
+        res = mover_credito_adelanto_entre_cuotas(contrato, desde, hacia)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    messages.success(
+        request,
+        f'Se movió el adelanto ${res["monto"]} de la cuota {res["desde"]} a la cuota {res["hacia"]}. '
+        f'Saldo a cobrar en destino: ${res["saldo_destino"]}.',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
 def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
     """Vuelve a calcular monto_base/monto_total de cuotas no pagadas según precio_mensual y precios_bloques del contrato."""
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
@@ -32356,12 +32389,16 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
     if propietario:
         titular = (propietario.cuenta_titular or '').strip()
         banco = (propietario.cuenta_banco or '').strip()
-        cuenta_cbu = (
-            (propietario.cuenta_cbu_alias or '').strip()
-            or (propietario.cuenta_numero or '').strip()
-        )
-        if not cuenta_cbu and (propietario.cuenta_bancaria or '').strip():
-            cuenta_cbu = propietario.cuenta_bancaria.strip()
+        # «N de cta o Cbu»: número de cuenta / CBU numérico — nunca el alias (ej. POLEAS.TEXTO.BALCON).
+        numero = (getattr(propietario, 'cuenta_numero', None) or '').strip()
+        legacy = (getattr(propietario, 'cuenta_bancaria', None) or '').strip()
+        alias_o_cbu = (getattr(propietario, 'cuenta_cbu_alias', None) or '').strip()
+        cuenta_cbu = numero or legacy
+        if not cuenta_cbu and alias_o_cbu:
+            solo_digitos = ''.join(ch for ch in alias_o_cbu if ch.isdigit())
+            # CBU/CVU típicos: ≥20 dígitos; un alias con letras/puntos no se imprime acá.
+            if len(solo_digitos) >= 20 and solo_digitos == alias_o_cbu.replace(' ', '').replace('-', ''):
+                cuenta_cbu = alias_o_cbu
         datos_pago = {
             'titular': titular.upper() if titular else '',
             'banco': banco.upper() if banco else '',

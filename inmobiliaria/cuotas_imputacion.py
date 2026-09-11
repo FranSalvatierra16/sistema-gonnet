@@ -575,6 +575,67 @@ def movimientos_recibo_por_cuota(cuota, movimientos_iterable) -> list:
     return result
 
 
+def mover_credito_adelanto_entre_cuotas(contrato, desde_numero: int, hacia_numero: int) -> dict:
+    """
+    Mueve credito_aplicado (adelanto / pago a cuenta) de una cuota a otra.
+    Útil cuando el cobro quedó imputado al mes equivocado (ej. mayo ↔ junio).
+    """
+    desde_n = int(desde_numero)
+    hacia_n = int(hacia_numero)
+    if desde_n == hacia_n:
+        raise ValueError('Elegí dos cuotas distintas.')
+
+    origen = contrato.cuotas.filter(numero_cuota=desde_n).first()
+    destino = contrato.cuotas.filter(numero_cuota=hacia_n).first()
+    if not origen or not destino:
+        raise ValueError('No se encontraron las cuotas indicadas.')
+    if origen.estado not in ('pendiente', 'vencida'):
+        raise ValueError(
+            f'La cuota {desde_n} está {origen.get_estado_display()}; solo se mueve adelanto de pendientes/vencidas.'
+        )
+    if destino.estado not in ('pendiente', 'vencida'):
+        raise ValueError(
+            f'La cuota {hacia_n} está {destino.get_estado_display()}; el destino debe estar pendiente o vencida.'
+        )
+
+    monto = Decimal(str(origen.credito_aplicado or 0))
+    if monto <= Decimal('0.05'):
+        raise ValueError(f'La cuota {desde_n} no tiene adelanto/crédito para mover.')
+
+    origen_num = origen.credito_origen_numero_cuota
+    origen.credito_aplicado = Decimal('0')
+    origen.credito_origen_numero_cuota = None
+    origen.save(update_fields=['credito_aplicado', 'credito_origen_numero_cuota'])
+
+    dest_tot = Decimal(str(destino.monto_total or 0))
+    dest_cred = Decimal(str(destino.credito_aplicado or 0))
+    nuevo_cred = dest_cred + monto
+    if dest_tot > 0 and nuevo_cred > dest_tot:
+        # Excedente vuelve a quedar en origen (no perder plata).
+        exceso = nuevo_cred - dest_tot
+        nuevo_cred = dest_tot
+        if exceso > Decimal('0.05'):
+            origen.credito_aplicado = exceso
+            origen.credito_origen_numero_cuota = origen_num
+            origen.save(update_fields=['credito_aplicado', 'credito_origen_numero_cuota'])
+
+    destino.credito_aplicado = nuevo_cred
+    if origen_num is not None:
+        destino.credito_origen_numero_cuota = origen_num
+    elif destino.credito_origen_numero_cuota is None:
+        destino.credito_origen_numero_cuota = desde_n
+    destino.save(update_fields=['credito_aplicado', 'credito_origen_numero_cuota'])
+
+    return {
+        'desde': desde_n,
+        'hacia': hacia_n,
+        'monto': monto,
+        'saldo_destino': destino.saldo_para_cobro(),
+        'credito_destino': Decimal(str(destino.credito_aplicado or 0)),
+        'credito_origen_restante': Decimal(str(origen.credito_aplicado or 0)),
+    }
+
+
 def limpiar_mora_automatica_cuotas(contrato) -> int:
     """
     Quita recargo_mora de cuotas pendientes/vencidas y recalcula monto_total = monto_base.

@@ -346,6 +346,20 @@
                     <i class="fas fa-undo"></i> Reiniciar plan de cuotas
                 </button>
             </form>
+            <form method="post" action="{% url 'inmobiliaria:mover_adelanto_cuota_contrato_super_admin' contrato.id %}"
+                  class="d-inline-flex align-items-center gap-1 flex-wrap border rounded px-2 py-1 bg-light"
+                  onsubmit="return confirm('¿Mover el adelanto de la cuota origen a la cuota destino?');">
+                {% csrf_token %}
+                <span class="small text-muted">Mover adelanto</span>
+                <input type="number" name="desde_numero" class="form-control form-control-sm" style="width:4.2rem"
+                       min="1" max="{{ contrato.duracion_meses }}" value="1" title="Cuota origen (ej. 1 = mayo)" required>
+                <span class="small">→</span>
+                <input type="number" name="hacia_numero" class="form-control form-control-sm" style="width:4.2rem"
+                       min="1" max="{{ contrato.duracion_meses }}" value="2" title="Cuota destino (ej. 2 = junio)" required>
+                <button type="submit" class="btn btn-sm btn-outline-primary" title="Pasa el crédito/adelanto al mes correcto">
+                    <i class="fas fa-exchange-alt"></i> Aplicar
+                </button>
+            </form>
             {% endif %}
             </div>
         </div>
