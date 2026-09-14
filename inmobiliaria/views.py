@@ -20875,7 +20875,7 @@ def dejar_adelanto_cuota_contrato_super_admin(request, contrato_id):
 @require_POST
 @transaction.atomic
 def corregir_saldos_julio_agosto_311(request, contrato_id):
-    """Contrato 311: julio falta $36.500; agosto falta $221.000."""
+    """Contrato 311: julio falta $36.500; agosto falta $495.500."""
     if not usuario_puede_eliminar_movimiento_caja(request.user):
         messages.error(request, 'Solo el super administrador puede corregir estos saldos.')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato_id)
@@ -20891,7 +20891,7 @@ def corregir_saldos_julio_agosto_311(request, contrato_id):
     try:
         # Cuota 4 = julio (05/07), cuota 5 = agosto (05/08)
         r_jul = dejar_cuota_con_saldo_a_cobrar(contrato, 4, parse_decimal_monto('36500'))
-        r_ago = dejar_cuota_con_saldo_a_cobrar(contrato, 5, parse_decimal_monto('221000'))
+        r_ago = dejar_cuota_con_saldo_a_cobrar(contrato, 5, parse_decimal_monto('495500'))
     except ValueError as e:
         messages.error(request, str(e))
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)

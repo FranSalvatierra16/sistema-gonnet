@@ -9,7 +9,7 @@ Uso:
   python manage.py reparar_cobranza_contrato 230 --recibo-mes junio --numero-recibo 0001-150
   python manage.py reparar_cobranza_contrato 230 --set-credito 5 23518
   python manage.py reparar_cobranza_contrato 230 --dejar-adelanto 5 568900 548718
-  python manage.py reparar_cobranza_contrato 311 --set-saldo 4 36500 --set-saldo 5 221000
+  python manage.py reparar_cobranza_contrato 311 --set-saldo 4 36500 --set-saldo 5 495500
   python manage.py reparar_cobranza_contrato 311 --reimputar-caja
 """
 from decimal import Decimal
