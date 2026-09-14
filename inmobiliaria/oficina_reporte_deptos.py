@@ -65,76 +65,70 @@ def etiqueta_propiedad_oficina(prop) -> str:
     return label or f'#{prop.id}'
 
 
-def _precio_dia_desde_precio_obj(precio_obj):
-    if not precio_obj:
-        return None
-    raw = precio_obj.precio_por_dia or precio_obj.precio_dia_toma
-    if raw is None:
-        return None
-    valor = Decimal(str(raw))
-    if valor <= 0:
-        return None
-    ajuste = precio_obj.ajuste_porcentaje or 0
-    if ajuste:
-        valor *= Decimal('1') - Decimal(str(ajuste)) / Decimal('100')
-    return _q(valor)
-
-
-def tarifas_ingreso_propiedad(prop) -> dict:
+def _modalidad_ocupacion_mes(prop, anio: int, mes: int) -> str | None:
     """
-    Tarifas de referencia del depto:
-    - por_dia: precio por día (temporada baja, o el primero disponible).
-    - invierno: canon mensual invierno.
-    - meses_24: canon mensual 24 meses.
+    Qué tipo de alquiler cubre el mes: 'invierno', '24', 'dia' o None.
+    Prioridad: contrato invierno / 24 meses vigente; si no, operaciones por día.
     """
-    from django.core.exceptions import ObjectDoesNotExist
-    from inmobiliaria.models import Precio, TipoPrecio
+    from inmobiliaria.models import ContratoAlquiler, Reserva
 
-    por_dia = None
-    precios = list(getattr(prop, '_prefetched_objects_cache', {}).get('precios') or [])
-    if not precios:
-        precios = list(Precio.objects.filter(propiedad_id=prop.id))
+    inicio = date(anio, mes, 1)
+    fin = date(anio, mes, calendar.monthrange(anio, mes)[1])
 
-    por_tipo = {p.tipo_precio: p for p in precios}
-    for tipo in (
-        TipoPrecio.TEMPORADA_BAJA,
-        TipoPrecio.VACACIONES_INVIERNO,
-        TipoPrecio.FINDE_LARGO,
-    ):
-        por_dia = _precio_dia_desde_precio_obj(por_tipo.get(tipo))
-        if por_dia is not None:
-            break
-    if por_dia is None:
-        for p in precios:
-            por_dia = _precio_dia_desde_precio_obj(p)
-            if por_dia is not None:
-                break
+    contratos = (
+        ContratoAlquiler.objects.filter(
+            propiedad_id=prop.id,
+            fecha_inicio__lte=fin,
+            fecha_fin__gte=inicio,
+        )
+        .exclude(estado='rescindido')
+        .order_by('-fecha_inicio', '-id')
+    )
+    for c in contratos:
+        try:
+            cat = c.categoria_tipo_operacion()
+        except Exception:
+            cat = None
+        dur = int(getattr(c, 'duracion_meses', 0) or 0)
+        if cat == 'invierno' or dur == 9:
+            return 'invierno'
+        if cat in ('24', '6') or dur >= 12:
+            return '24'
 
-    invierno = None
-    try:
-        info_inv = prop.info_invierno
-    except ObjectDoesNotExist:
-        info_inv = None
-    if info_inv and info_inv.precio_mensual:
-        invierno = _q(info_inv.precio_mensual)
-    elif getattr(prop, 'precio_invierno', None):
-        invierno = _q(prop.precio_invierno)
+    # Sin contrato largo: ¿hubo reserva/operación por día que toque el mes?
+    hay_dia = (
+        Reserva.objects.filter(
+            propiedad_id=prop.id,
+            fecha_inicio__lte=fin,
+            fecha_fin__gte=inicio,
+            eliminada=False,
+        )
+        .exclude(estado='cancelada')
+        .exists()
+    )
+    if hay_dia:
+        return 'dia'
+    return None
 
-    meses_24 = None
-    try:
-        info_meses = prop.info_meses
-    except ObjectDoesNotExist:
-        info_meses = None
-    if info_meses and info_meses.precio_mensual:
-        meses_24 = _q(info_meses.precio_mensual)
-    elif getattr(prop, 'precio_23_meses', None):
-        meses_24 = _q(prop.precio_23_meses)
 
-    return {
-        'por_dia': por_dia,
-        'invierno': invierno,
-        'meses_24': meses_24,
-    }
+def ingresos_realizados_por_modalidad(prop, anio: int, mes: int, bruto_mes) -> dict:
+    """
+    Imputa el ingreso bruto del mes a Día / Invierno / 24 meses según
+    la ocupación real (no las tarifas de la ficha).
+    Si no hubo ingreso, las tres quedan vacías.
+    """
+    bruto = _q(bruto_mes)
+    vacio = {'por_dia': None, 'invierno': None, 'meses_24': None}
+    if bruto <= Decimal('0.009'):
+        return vacio
+
+    mod = _modalidad_ocupacion_mes(prop, anio, mes)
+    if mod == 'invierno':
+        return {'por_dia': None, 'invierno': bruto, 'meses_24': None}
+    if mod == '24':
+        return {'por_dia': None, 'invierno': None, 'meses_24': bruto}
+    # Por día, o ingreso sin contrato claro → columna Día
+    return {'por_dia': bruto, 'invierno': None, 'meses_24': None}
 
 
 def preferencias_reporte_deptos(sucursal):
@@ -432,7 +426,7 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         elif calc['negativo']:
             n_negativos += 1
 
-        tarifas = tarifas_ingreso_propiedad(prop)
+        tarifas = ingresos_realizados_por_modalidad(prop, anio, mes, calc['bruto'])
         if tarifas['por_dia']:
             total_tarifa_dia += tarifas['por_dia']
         if tarifas['invierno']:
