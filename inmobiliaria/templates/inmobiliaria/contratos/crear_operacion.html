@@ -310,25 +310,25 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="monto_efectivo" class="form-label"><strong>💵 Efectivo:</strong></label>
-                                    <input type="text" class="form-control" id="monto_efectivo" name="monto_efectivo" 
-                                           placeholder="0" autocomplete="off">
+                                    <input type="text" class="form-control input-monto-ar" id="monto_efectivo" name="monto_efectivo" 
+                                           placeholder="0,00" inputmode="decimal" autocomplete="off">
                                 </div>
                                 <div class="mb-3">
                                     <label for="monto_cheque" class="form-label"><strong>🏦 Cheque:</strong></label>
-                                    <input type="text" class="form-control" id="monto_cheque" name="monto_cheque" 
-                                           placeholder="0" autocomplete="off">
+                                    <input type="text" class="form-control input-monto-ar" id="monto_cheque" name="monto_cheque" 
+                                           placeholder="0,00" inputmode="decimal" autocomplete="off">
                                 </div>
                                 <div class="mb-3" id="grupoMontoDolares">
                                     <label for="monto_dolares" class="form-label"><strong>💵 USD (efectivo):</strong></label>
-                                    <input type="text" class="form-control" id="monto_dolares" name="monto_dolares"
-                                           placeholder="0" autocomplete="off">
+                                    <input type="text" class="form-control input-monto-ar" id="monto_dolares" name="monto_dolares"
+                                           placeholder="0,00" inputmode="decimal" autocomplete="off">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="monto_tarjeta" class="form-label"><strong>💳 Tarjeta:</strong></label>
-                                    <input type="text" class="form-control" id="monto_tarjeta" name="monto_tarjeta" 
-                                           placeholder="0" autocomplete="off">
+                                    <input type="text" class="form-control input-monto-ar" id="monto_tarjeta" name="monto_tarjeta" 
+                                           placeholder="0,00" inputmode="decimal" autocomplete="off">
                                 </div>
                                 <div class="mb-3">
                                     <label for="fecha_transferencia" class="form-label"><strong>📅 Fecha de transferencia:</strong></label>
@@ -346,11 +346,11 @@
                                         <strong>{% if cuenta.tipo_cuenta == 'banco' %}🏛️{% else %}💰{% endif %}
                                         {{ cuenta.nombre_banco }}{% if cuenta.alias %} — {{ cuenta.alias }}{% endif %}:</strong>
                                     </label>
-                                    <input type="text" class="form-control cuenta-bancaria-dinamica"
+                                    <input type="text" class="form-control cuenta-bancaria-dinamica input-monto-ar"
                                            id="{{ cuenta.field_name }}" name="{{ cuenta.field_name }}"
-                                           placeholder="0" autocomplete="off"
+                                           placeholder="0,00" inputmode="decimal" autocomplete="off"
                                            data-cuenta-id="{{ cuenta.id }}">
-                                    <small class="text-muted">{{ cuenta.titular }}{% if cuenta.numero_cuenta %} · Cuenta {{ cuenta.numero_cuenta }}{% endif %}</small>
+                                    <small class="text-muted">{{ cuenta.titular|default:"Sin especificar" }}{% if cuenta.numero_cuenta %} · Cuenta {{ cuenta.numero_cuenta }}{% endif %}</small>
                                 </div>
                             </div>
                             {% empty %}
@@ -1033,7 +1033,7 @@ function importeConceptoANumero(importe) {
     return parseDecimalMontoJS(String(importe));
 }
 
-// Formato AR en vivo (usa parseDecimalMontoJS). En input: no forzar siempre 2 decimales (así se puede seguir escribiendo).
+// Formato AR en vivo. En input: conservar coma y decimales parciales (para poder escribir centavos).
 // En blur (strict): dos decimales fijos para alinear con el recibo.
 function formatearNumeroEnTiempoReal(input, opts) {
     opts = opts || {};
@@ -1044,21 +1044,58 @@ function formatearNumeroEnTiempoReal(input, opts) {
         input.value = '';
         return;
     }
+    if (strict) {
+        var numStrict = parseDecimalMontoJS(raw);
+        if (!Number.isFinite(numStrict)) return;
+        input.value = formatoMontoReciboAR(numStrict);
+        return;
+    }
+    // Mientras escribe: no usar toLocaleString (elimina ",0" y no deja cargar centavos).
+    if (typeof formatMontoARTyping === 'function') {
+        var selStart = input.selectionStart;
+        var nuevo = formatMontoARTyping(raw);
+        if (nuevo === input.value) return;
+        input.value = nuevo;
+        try {
+            if (typeof selStart === 'number') {
+                var digitsBefore = String(raw || '').slice(0, selStart).replace(/[^\d]/g, '').length;
+                var digitCount = 0;
+                var pos = nuevo.length;
+                for (var i = 0; i < nuevo.length; i++) {
+                    if (/\d/.test(nuevo.charAt(i))) {
+                        digitCount++;
+                        if (digitCount >= digitsBefore) {
+                            pos = i + 1;
+                            break;
+                        }
+                    }
+                }
+                input.setSelectionRange(pos, pos);
+            }
+        } catch (e) { /* ignore */ }
+        return;
+    }
     var endsWithDecimalSep = /[,.]$/.test(raw);
     var num = parseDecimalMontoJS(raw);
     if (!Number.isFinite(num)) return;
-    if (endsWithDecimalSep && !strict) {
+    if (endsWithDecimalSep) {
         var neg = num < 0;
         var absInt = Math.floor(Math.abs(num));
         var formatted = (neg ? '-' : '') + absInt.toLocaleString('es-AR');
         input.value = formatted + (raw.endsWith(',') ? ',' : '.');
         return;
     }
-    if (strict) {
-        input.value = formatoMontoReciboAR(num);
-    } else {
-        input.value = num.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    // Conservar decimales tipados (incl. ceros intermedios)
+    var m = raw.match(/[.,](\d{0,2})$/);
+    var decTipados = m ? m[1] : null;
+    if (decTipados !== null) {
+        var ent = Math.trunc(Math.abs(num));
+        var sign = num < 0 ? '-' : '';
+        var entFmt = ent.toLocaleString('es-AR');
+        input.value = sign + entFmt + ',' + decTipados;
+        return;
     }
+    input.value = num.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 window.formatearNumeroEnTiempoReal = formatearNumeroEnTiempoReal;
 
