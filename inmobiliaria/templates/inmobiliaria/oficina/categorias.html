@@ -119,7 +119,7 @@
                                     </button>
                                 </form>
                                 <form method="post" action="{% url 'inmobiliaria:oficina_categoria_eliminar' item.categoria.id %}" class="d-inline"
-                                      onsubmit="return confirm('¿Eliminar la categoría «{{ item.categoria.nombre }}» y todas sus subcategorías sin gastos?');">
+                                      onsubmit="return confirm('¿Eliminar «{{ item.categoria.nombre }}» y todas sus subcategorías?\n\nDesaparecen del listado (los gastos viejos se conservan).');">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-outline-danger" title="Eliminar">
                                         <i class="fas fa-trash"></i>
@@ -181,9 +181,9 @@
                                         </form>
                                         {% if not hijo.vendedor_id %}
                                         <form method="post" action="{% url 'inmobiliaria:oficina_categoria_eliminar' hijo.id %}" class="d-inline"
-                                              onsubmit="return confirm('¿Eliminar «{{ hijo.nombre }}»?');">
+                                              onsubmit="return confirm('¿Eliminar «{{ hijo.nombre }}»?\n\nDesaparece del listado (los gastos viejos se conservan).');">
                                             {% csrf_token %}
-                                            <button type="submit" class="btn btn-outline-danger" title="Eliminar" {% if hijo.num_gastos %}disabled{% endif %}>
+                                            <button type="submit" class="btn btn-outline-danger" title="Eliminar">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </form>

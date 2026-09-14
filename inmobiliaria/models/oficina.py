@@ -22,6 +22,10 @@ class CategoriaGastoOficina(models.Model):
     )
     nombre = models.CharField(max_length=120)
     activa = models.BooleanField(default=True)
+    eliminada = models.BooleanField(
+        default=False,
+        help_text='Borrada por el usuario; no se vuelve a crear al sincronizar el seed.',
+    )
     orden = models.PositiveSmallIntegerField(default=0)
     vendedor = models.ForeignKey(
         'Vendedor',

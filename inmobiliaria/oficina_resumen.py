@@ -313,7 +313,11 @@ def _monto_firmado_ingreso_extension(totales_por_cat, cat_id):
 
 
 def _hijos_activos(raiz):
-    hijos = [h for h in raiz.subcategorias.all() if h.activa]
+    hijos = [
+        h
+        for h in raiz.subcategorias.all()
+        if h.activa and not getattr(h, 'eliminada', False)
+    ]
     hijos.sort(key=lambda x: (x.orden, x.nombre))
     return hijos
 
@@ -631,6 +635,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
         sucursal=sucursal,
         parent__isnull=True,
         activa=True,
+        eliminada=False,
     ).prefetch_related('subcategorias').order_by('orden', 'nombre')
 
     for raiz in raices:

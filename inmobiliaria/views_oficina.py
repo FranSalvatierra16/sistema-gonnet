@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, ProtectedError, Sum
+from django.db.models import Count, Sum
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -524,7 +524,9 @@ def _puede_oficina(user):
 
 def _arbol_categorias(sucursal, solo_activas=True):
     raices = (
-        CategoriaGastoOficina.objects.filter(sucursal=sucursal, parent__isnull=True)
+        CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal, parent__isnull=True, eliminada=False
+        )
         .prefetch_related('subcategorias__vendedor')
         .order_by('orden', 'nombre')
     )
@@ -532,7 +534,7 @@ def _arbol_categorias(sucursal, solo_activas=True):
     for raiz in raices:
         if solo_activas and not raiz.activa:
             continue
-        hijos = list(raiz.subcategorias.order_by('orden', 'nombre'))
+        hijos = list(raiz.subcategorias.filter(eliminada=False).order_by('orden', 'nombre'))
         if solo_activas:
             hijos = [h for h in hijos if h.activa]
         arbol.append({'categoria': raiz, 'hijos': hijos})
@@ -540,9 +542,11 @@ def _arbol_categorias(sucursal, solo_activas=True):
 
 
 def _arbol_categorias_admin(sucursal):
-    """Árbol completo (activas e inactivas) con conteo de gastos."""
+    """Árbol completo (activas e inactivas) con conteo de gastos. Omite eliminadas."""
     raices = (
-        CategoriaGastoOficina.objects.filter(sucursal=sucursal, parent__isnull=True)
+        CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal, parent__isnull=True, eliminada=False
+        )
         .annotate(num_gastos=Count('gastos'))
         .prefetch_related('subcategorias__vendedor')
         .order_by('orden', 'nombre')
@@ -550,7 +554,8 @@ def _arbol_categorias_admin(sucursal):
     arbol = []
     for raiz in raices:
         hijos = list(
-            raiz.subcategorias.annotate(num_gastos=Count('gastos'))
+            raiz.subcategorias.filter(eliminada=False)
+            .annotate(num_gastos=Count('gastos'))
             .select_related('vendedor')
             .order_by('orden', 'nombre')
         )
@@ -723,7 +728,7 @@ def oficina_gastos(request):
     totales_por_categoria = _totales_gastos_por_raiz(qs)
 
     raices_filtro = CategoriaGastoOficina.objects.filter(
-        sucursal=sucursal, parent__isnull=True, activa=True
+        sucursal=sucursal, parent__isnull=True, activa=True, eliminada=False
     ).order_by('orden', 'nombre')
 
     caja_abierta = (
@@ -841,6 +846,7 @@ def oficina_categoria_mover(request, categoria_id):
         CategoriaGastoOficina.objects.filter(
             sucursal=cat.sucursal,
             parent=cat.parent,
+            eliminada=False,
         ).order_by('orden', 'nombre', 'id')
     )
     idx = next((i for i, c in enumerate(hermanos) if c.id == cat.id), None)
@@ -885,9 +891,21 @@ def oficina_categoria_crear(request):
             parent__isnull=True,
         )
 
-    if CategoriaGastoOficina.objects.filter(
+    existente = CategoriaGastoOficina.objects.filter(
         sucursal=sucursal, parent=parent, nombre__iexact=nombre
-    ).exists():
+    ).first()
+    if existente:
+        if existente.eliminada:
+            existente.eliminada = False
+            existente.activa = True
+            existente.orden = siguiente_orden_categoria(sucursal, parent)
+            existente.save(update_fields=['eliminada', 'activa', 'orden'])
+            propagar_categoria_oficina_a_espejos(existente, accion='upsert')
+            messages.success(
+                request,
+                'Subcategoría restaurada.' if parent else 'Categoría restaurada.',
+            )
+            return redirect('inmobiliaria:oficina_categorias')
         messages.error(request, 'Ya existe una categoría con ese nombre.')
         return redirect('inmobiliaria:oficina_categorias')
 
@@ -966,13 +984,23 @@ def oficina_categoria_editar(request, categoria_id):
         messages.error(request, 'El nombre es obligatorio.')
         return redirect('inmobiliaria:oficina_categorias')
 
-    if CategoriaGastoOficina.objects.filter(
-        sucursal=cat.sucursal,
-        parent=cat.parent,
-        nombre__iexact=nombre,
-    ).exclude(pk=cat.pk).exists():
-        messages.error(request, 'Ya existe otra categoría con ese nombre.')
-        return redirect('inmobiliaria:oficina_categorias')
+    conflicto = (
+        CategoriaGastoOficina.objects.filter(
+            sucursal=cat.sucursal,
+            parent=cat.parent,
+            nombre__iexact=nombre,
+        )
+        .exclude(pk=cat.pk)
+        .first()
+    )
+    if conflicto:
+        if conflicto.eliminada:
+            # Liberar el nombre de una categoría ya borrada.
+            conflicto.nombre = f'{conflicto.nombre[:100]} ·x{conflicto.id}'[:120]
+            conflicto.save(update_fields=['nombre'])
+        else:
+            messages.error(request, 'Ya existe otra categoría con ese nombre.')
+            return redirect('inmobiliaria:oficina_categorias')
 
     nombre_anterior = cat.nombre
     cat.nombre = nombre
@@ -994,6 +1022,7 @@ def oficina_categoria_eliminar(request, categoria_id):
         CategoriaGastoOficina.objects.select_related('parent'),
         id=categoria_id,
         sucursal=request.user.sucursal,
+        eliminada=False,
     )
     if _categoria_bloqueada_por_vendedor(cat):
         messages.error(
@@ -1003,27 +1032,13 @@ def oficina_categoria_eliminar(request, categoria_id):
         return redirect('inmobiliaria:oficina_categorias')
 
     nombre = cat.nombre_ruta()
-    num_gastos = cat.gastos.count()
+    # Soft-delete: queda fuera del listado y el seed no la vuelve a crear.
+    # Los gastos históricos siguen vinculados (PROTECT).
+    ids = [cat.id]
     if cat.parent_id is None:
-        num_gastos += GastoOficina.objects.filter(categoria__parent=cat).count()
-    if num_gastos:
-        messages.error(
-            request,
-            f'No se puede eliminar «{nombre}»: tiene {num_gastos} gasto(s) registrado(s). '
-            'Desactivarla en su lugar.',
-        )
-        return redirect('inmobiliaria:oficina_categorias')
-
-    # Propagar antes de borrar el local (necesita nombre/parent).
+        ids.extend(list(cat.subcategorias.values_list('id', flat=True)))
     propagar_categoria_oficina_a_espejos(cat, accion='delete')
-    try:
-        cat.delete()
-    except ProtectedError:
-        messages.error(
-            request,
-            f'No se puede eliminar «{nombre}» porque hay gastos vinculados.',
-        )
-        return redirect('inmobiliaria:oficina_categorias')
+    CategoriaGastoOficina.objects.filter(id__in=ids).update(eliminada=True, activa=False)
 
     messages.success(request, f'Eliminada: {nombre}.')
     return redirect('inmobiliaria:oficina_categorias')

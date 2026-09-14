@@ -5,7 +5,6 @@ from datetime import date
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 
 from django.db import IntegrityError
-from django.db.models import ProtectedError
 from django.utils import timezone
 
 from inmobiliaria.models import CategoriaGastoOficina, GastoOficina, Vendedor
@@ -1156,7 +1155,7 @@ def _asegurar_parent_espejo(cat, sucursal_destino):
         (parent.nombre or '').strip(),
         parent.orden,
     )
-    if parent_d.activa != parent.activa:
+    if parent_d.activa != parent.activa and not getattr(parent_d, 'eliminada', False):
         parent_d.activa = parent.activa
         parent_d.save(update_fields=['activa'])
     return parent_d
@@ -1185,7 +1184,7 @@ def propagar_categoria_oficina_a_espejos(
         if accion == 'upsert':
             if cat.parent_id:
                 parent_d = _asegurar_parent_espejo(cat, destino)
-                if not parent_d:
+                if not parent_d or getattr(parent_d, 'eliminada', False):
                     continue
                 hijo_d, created = _get_or_create_hijo(
                     destino,
@@ -1194,6 +1193,9 @@ def propagar_categoria_oficina_a_espejos(
                     cat.orden,
                 )
                 upd = []
+                if getattr(hijo_d, 'eliminada', False):
+                    hijo_d.eliminada = False
+                    upd.append('eliminada')
                 if hijo_d.activa != cat.activa:
                     hijo_d.activa = cat.activa
                     upd.append('activa')
@@ -1211,6 +1213,9 @@ def propagar_categoria_oficina_a_espejos(
                     cat.orden,
                 )
                 upd = []
+                if getattr(raiz_d, 'eliminada', False):
+                    raiz_d.eliminada = False
+                    upd.append('eliminada')
                 if raiz_d.activa != cat.activa:
                     raiz_d.activa = cat.activa
                     upd.append('activa')
@@ -1258,28 +1263,20 @@ def propagar_categoria_oficina_a_espejos(
             )
             if not espejo:
                 continue
-            num_gastos = espejo.gastos.count()
+            ids = [espejo.id]
             if espejo.parent_id is None:
-                num_gastos += GastoOficina.objects.filter(categoria__parent=espejo).count()
-            if num_gastos:
-                # No borrar si hay gastos: desactivar para no romper historial.
-                if espejo.activa:
-                    espejo.activa = False
-                    espejo.save(update_fields=['activa'])
-                    if espejo.parent_id is None:
+                ids.extend(
+                    list(
                         CategoriaGastoOficina.objects.filter(
                             sucursal=destino, parent=espejo
-                        ).update(activa=False)
-                    afectados += 1
-                continue
-            try:
-                espejo.delete()
+                        ).values_list('id', flat=True)
+                    )
+                )
+            n = CategoriaGastoOficina.objects.filter(id__in=ids).update(
+                eliminada=True, activa=False
+            )
+            if n:
                 afectados += 1
-            except ProtectedError:
-                if espejo.activa:
-                    espejo.activa = False
-                    espejo.save(update_fields=['activa'])
-                    afectados += 1
 
     return afectados
 
@@ -1310,7 +1307,9 @@ def sincronizar_categorias_gasto_oficina_desde_referencia(sucursal_destino, sucu
     creadas = 0
     actualizadas = 0
     raices_origen = list(
-        CategoriaGastoOficina.objects.filter(sucursal=sucursal_origen, parent__isnull=True)
+        CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal_origen, parent__isnull=True, eliminada=False
+        )
         .prefetch_related('subcategorias__vendedor')
         .order_by('orden', 'nombre')
     )
@@ -1322,6 +1321,9 @@ def sincronizar_categorias_gasto_oficina_desde_referencia(sucursal_destino, sucu
             continue
         nombres_raiz_espejo.add(nombre_raiz.lower())
         raiz_d, created = _get_or_create_raiz(sucursal_destino, nombre_raiz, raiz_o.orden)
+        if getattr(raiz_d, 'eliminada', False):
+            # Borrada a mano en destino: no resucitar ni tocar hijos.
+            continue
         if created:
             creadas += 1
         upd_raiz = []
@@ -1337,7 +1339,7 @@ def sincronizar_categorias_gasto_oficina_desde_referencia(sucursal_destino, sucu
                 actualizadas += 1
 
         hijos_vistos = set()
-        for hijo_o in raiz_o.subcategorias.all().order_by('orden', 'nombre'):
+        for hijo_o in raiz_o.subcategorias.filter(eliminada=False).order_by('orden', 'nombre'):
             vendedor_d = None
             if hijo_o.vendedor_id:
                 vendedor_d = _resolver_vendedor_espejo(sucursal_destino, hijo_o.vendedor)
@@ -1349,6 +1351,8 @@ def sincronizar_categorias_gasto_oficina_desde_referencia(sucursal_destino, sucu
                 hijo_o.orden,
                 vendedor=vendedor_d,
             )
+            if getattr(hijo_d, 'eliminada', False) and not hijo_o.vendedor_id:
+                continue
             hijos_vistos.add((hijo_d.vendedor_id or 0, nombre_hijo.lower()))
             if created_h:
                 creadas += 1
@@ -1367,18 +1371,24 @@ def sincronizar_categorias_gasto_oficina_desde_referencia(sucursal_destino, sucu
                 if not created_h:
                     actualizadas += 1
 
-        for hijo_d in CategoriaGastoOficina.objects.filter(sucursal=sucursal_destino, parent=raiz_d):
+        for hijo_d in CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal_destino, parent=raiz_d, eliminada=False
+        ):
             key = (hijo_d.vendedor_id or 0, (hijo_d.nombre or '').strip().lower())
             if key not in hijos_vistos and hijo_d.activa:
                 hijo_d.activa = False
                 hijo_d.save(update_fields=['activa'])
                 actualizadas += 1
 
-    for raiz_d in CategoriaGastoOficina.objects.filter(sucursal=sucursal_destino, parent__isnull=True):
+    for raiz_d in CategoriaGastoOficina.objects.filter(
+        sucursal=sucursal_destino, parent__isnull=True, eliminada=False
+    ):
         if (raiz_d.nombre or '').strip().lower() not in nombres_raiz_espejo and raiz_d.activa:
             raiz_d.activa = False
             raiz_d.save(update_fields=['activa'])
-            CategoriaGastoOficina.objects.filter(sucursal=sucursal_destino, parent=raiz_d).update(activa=False)
+            CategoriaGastoOficina.objects.filter(
+                sucursal=sucursal_destino, parent=raiz_d, eliminada=False
+            ).update(activa=False)
             actualizadas += 1
 
     return {'creadas': creadas, 'actualizadas': actualizadas, 'omitido': False}
@@ -1483,9 +1493,10 @@ def desactivar_categorias_legacy_oficina(sucursal):
                 continue
 
             if nombre_l == 'gastos oscar' and nombre_h_l in SUBCATEGORIAS_LEGACY_GASTOS_OSCAR:
-                if hijo.activa:
+                if not hijo.eliminada or hijo.activa:
+                    hijo.eliminada = True
                     hijo.activa = False
-                    hijo.save(update_fields=['activa'])
+                    hijo.save(update_fields=['eliminada', 'activa'])
                 continue
 
 def _nombre_vendedor_categoria(vendedor, nombres_usados=None):
@@ -1520,6 +1531,9 @@ def _get_or_create_raiz(sucursal, nombre, orden):
         nombre__iexact=nombre,
     ).first()
     if raiz:
+        # Si el usuario la borró, no la “resucitar” con el seed.
+        if getattr(raiz, 'eliminada', False):
+            return raiz, False
         # No pisar ``orden``: el usuario puede reordenar categorías a mano.
         return raiz, False
     try:
@@ -1549,6 +1563,9 @@ def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
     else:
         cat = qs.filter(nombre__iexact=nombre, vendedor__isnull=True).first()
     if cat:
+        # Borrada a mano: no reactivar ni recrear desde el seed.
+        if getattr(cat, 'eliminada', False) and not vendedor_id:
+            return cat, False
         updates = []
         nombre_final = nombre
         if cat.nombre != nombre:
@@ -1834,13 +1851,19 @@ def _raiz_es_vendedores(categoria):
 def categorias_opciones(sucursal):
     """Lista plana para selects: solo hojas (subcategorías) o raíces sin hijos."""
     raices = (
-        CategoriaGastoOficina.objects.filter(sucursal=sucursal, activa=True, parent__isnull=True)
+        CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal, activa=True, parent__isnull=True, eliminada=False
+        )
         .prefetch_related('subcategorias')
         .order_by('orden', 'nombre')
     )
     opciones = []
     for raiz in raices:
-        hijos = [s for s in raiz.subcategorias.all() if s.activa]
+        hijos = [
+            s
+            for s in raiz.subcategorias.all()
+            if s.activa and not getattr(s, 'eliminada', False)
+        ]
         if hijos:
             for hijo in sorted(hijos, key=lambda x: (x.orden, x.nombre)):
                 opciones.append({'id': hijo.id, 'label': hijo.nombre_ruta()})
