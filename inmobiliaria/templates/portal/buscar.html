@@ -133,84 +133,177 @@
 }
 .btn-outline:hover { background: #eef7ed; }
 .alert-warn {
-    background: #fff6e5; border: 1px solid #f0d9a5; color: #6a4b10;
-    padding: 0.85rem 1rem; border-radius: 12px; margin-bottom: 1rem;
-}
-.empty-fechas {
-    grid-column: 1 / -1;
-    background:
-        radial-gradient(ellipse 80% 70% at 20% 0%, rgba(63, 143, 59, 0.1), transparent 55%),
-        #fff;
+    background: #f4f7f3;
     border: 1px solid var(--g-line);
-    border-radius: 20px;
-    padding: 2.6rem 1.6rem;
-    text-align: center;
-    min-height: 320px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-.empty-fechas .icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    background: #eaf5e9;
-    color: var(--g-green-dark);
-    display: grid;
-    place-items: center;
+    color: var(--g-ink);
+    padding: 0.85rem 1rem;
+    border-radius: 12px;
     margin-bottom: 1rem;
 }
-.empty-fechas h3 {
-    margin: 0 0 0.45rem;
-    font-family: var(--display, "Fraunces", Georgia, serif);
-    font-size: clamp(1.35rem, 2.5vw, 1.7rem);
-    color: var(--g-ink);
-    font-weight: 650;
+.page.is-awaiting-dates {
+    width: min(1120px, calc(100% - 2rem));
 }
-.empty-fechas p {
-    margin: 0 0 1.35rem;
-    color: var(--g-muted);
-    max-width: 36ch;
-    line-height: 1.45;
+.page.is-awaiting-dates .layout {
+    grid-template-columns: 1fr;
 }
-.empty-fechas .date-cta {
+.page.is-awaiting-dates .filters { display: none; }
+.dates-gate {
     display: grid;
-    grid-template-columns: 1fr 1fr auto;
-    gap: 0.55rem;
-    align-items: end;
-    width: min(460px, 100%);
-    text-align: left;
-    background: #f7f9f6;
-    border: 1px solid rgba(18, 26, 18, 0.08);
-    border-radius: 14px;
-    padding: 0.85rem;
-}
-.empty-fechas .date-cta .field { margin: 0; }
-.empty-fechas .date-cta .field label {
-    font-size: 0.68rem;
-    margin-bottom: 0.25rem;
-    color: var(--g-muted);
-}
-.empty-fechas .date-cta .field input {
-    border-radius: 10px;
+    grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.1fr);
+    gap: 0;
     background: #fff;
-    border-color: #d7e3d6;
-    padding: 0.58rem 0.7rem;
+    border: 1px solid rgba(18, 26, 18, 0.08);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(18, 26, 18, 0.06);
+    min-height: 420px;
 }
-.empty-fechas .date-cta .btn {
-    height: 42px;
-    border-radius: 999px;
-    padding-inline: 1.15rem;
+.dates-gate-visual {
+    position: relative;
+    min-height: 100%;
+    background: #1a2b19;
 }
-.empty-fechas .hint {
-    margin-top: 1rem;
-    font-size: 0.82rem;
+.dates-gate-visual img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+    min-height: 420px;
+}
+.dates-gate-visual::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(160deg, rgba(12, 28, 14, 0.15), rgba(12, 28, 14, 0.55));
+}
+.dates-gate-visual .cap {
+    position: absolute;
+    left: 1.25rem;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 1;
+    color: #fff;
+}
+.dates-gate-visual .cap strong {
+    display: block;
+    font-family: var(--display, "Fraunces", Georgia, serif);
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+}
+.dates-gate-visual .cap span {
+    font-size: 0.88rem;
+    opacity: 0.88;
+}
+.dates-gate-body {
+    padding: clamp(1.6rem, 3vw, 2.6rem);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.dates-gate-body .kicker {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--g-green);
+    margin-bottom: 0.65rem;
+}
+.dates-gate-body h2 {
+    margin: 0 0 0.55rem;
+    font-family: var(--display, "Fraunces", Georgia, serif);
+    font-size: clamp(1.7rem, 3vw, 2.25rem);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    color: var(--g-ink);
+    line-height: 1.1;
+}
+.dates-gate-body .lead {
+    margin: 0 0 1.5rem;
     color: var(--g-muted);
+    font-size: 1rem;
+    line-height: 1.5;
+    max-width: 38ch;
+}
+.dates-gate-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+.dates-gate-form .field { margin: 0; }
+.dates-gate-form .field label {
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--g-muted);
+    margin-bottom: 0.35rem;
+}
+.dates-gate-form .field input {
+    border-radius: 12px;
+    border: 1px solid #d5ddd4;
+    background: #f7f9f6;
+    padding: 0.85rem 0.95rem;
+    font-size: 1rem;
+    font-weight: 500;
+}
+.dates-gate-form .field input:focus {
+    outline: 2px solid rgba(63, 143, 59, 0.22);
+    border-color: var(--g-green);
+    background: #fff;
+}
+.dates-gate-form .actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    margin-top: 0.35rem;
+}
+.dates-gate-form .actions .btn {
+    min-height: 48px;
+    padding-inline: 1.4rem;
+}
+.dates-gate-steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-top: 1.6rem;
+    padding-top: 1.35rem;
+    border-top: 1px solid var(--g-line);
+}
+.dates-gate-steps div {
+    text-align: left;
+}
+.dates-gate-steps .n {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--g-green);
+    margin-bottom: 0.3rem;
+}
+.dates-gate-steps strong {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 650;
+    color: var(--g-ink);
+    margin-bottom: 0.15rem;
+}
+.dates-gate-steps span {
+    font-size: 0.8rem;
+    color: var(--g-muted);
+    line-height: 1.35;
+}
+@media (max-width: 900px) {
+    .dates-gate { grid-template-columns: 1fr; }
+    .dates-gate-visual { min-height: 200px; }
+    .dates-gate-visual img { min-height: 200px; max-height: 220px; }
+    .dates-gate-steps { grid-template-columns: 1fr; gap: 0.9rem; }
 }
 @media (max-width: 560px) {
-    .empty-fechas .date-cta { grid-template-columns: 1fr; }
-    .empty-fechas .date-cta .btn { width: 100%; }
+    .dates-gate-form { grid-template-columns: 1fr; }
+    .dates-gate-form .actions .btn { width: 100%; }
 }
 .toolbar {
     display: flex;
@@ -478,7 +571,9 @@
             <div class="eyebrow">Gonnet Propiedades</div>
             <h1>{{ operacion_label }}</h1>
             <p class="sub">
-                {% if requiere_fechas %}
+                {% if falta_fechas %}
+                Disponibilidad real · primero elegí el período de estadía
+                {% elif requiere_fechas %}
                 Disponibilidad real por fechas · elegí check-in y check-out
                 {% else %}
                 Catálogo publicado con criterios del sistema interno
@@ -489,6 +584,7 @@
     </div>
 </section>
 
+{% if not falta_fechas %}
 <div class="quickbar">
     <form class="wrap" method="get" id="quick-form">
         {% for c in form_comodidades %}
@@ -529,8 +625,58 @@
         <button class="btn btn-soft mobile-filters-btn" type="button" id="toggle-filters">Más filtros</button>
     </form>
 </div>
+{% endif %}
 
-<div class="page wrap">
+<div class="page wrap{% if falta_fechas %} is-awaiting-dates{% endif %}">
+    {% if falta_fechas %}
+    <section class="dates-gate rise">
+        <div class="dates-gate-visual" aria-hidden="true">
+            <img src="{% url 'inmobiliaria:portal_hero' %}" alt="">
+            <div class="cap">
+                <strong>Alquiler temporario</strong>
+                <span>Mar del Plata · disponibilidad real</span>
+            </div>
+        </div>
+        <div class="dates-gate-body">
+            <div class="kicker">Paso 1 de 2</div>
+            <h2>Definí tu estadía</h2>
+            <p class="lead">Para mostrarte solo departamentos libres, necesitamos check-in y check-out. Después vas a ver listado y mapa.</p>
+            <form class="dates-gate-form" method="get" action="{% url 'inmobiliaria:portal_buscar' %}">
+                <input type="hidden" name="operacion" value="{{ form_operacion }}">
+                {% if form_ambientes %}<input type="hidden" name="ambientes" value="{{ form_ambientes }}">{% endif %}
+                <div class="field">
+                    <label for="empty_desde">Check-in</label>
+                    <input id="empty_desde" name="desde" type="date" value="{{ form_desde }}" required autofocus>
+                </div>
+                <div class="field">
+                    <label for="empty_hasta">Check-out</label>
+                    <input id="empty_hasta" name="hasta" type="date" value="{{ form_hasta }}" required>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-primary" type="submit">Ver disponibilidad</button>
+                    <a class="btn btn-soft" href="{% url 'inmobiliaria:portal_contacto' %}">Hablar con un asesor</a>
+                </div>
+            </form>
+            <div class="dates-gate-steps">
+                <div>
+                    <span class="n">01</span>
+                    <strong>Fechas</strong>
+                    <span>Elegís el período</span>
+                </div>
+                <div>
+                    <span class="n">02</span>
+                    <strong>Resultados</strong>
+                    <span>Listado + mapa</span>
+                </div>
+                <div>
+                    <span class="n">03</span>
+                    <strong>Consulta</strong>
+                    <span>Reservás con Gonnet</span>
+                </div>
+            </div>
+        </div>
+    </section>
+    {% else %}
     <div class="layout">
         <form class="filters" method="get" id="filtros-form">
             <h2>Filtros avanzados</h2>
@@ -633,32 +779,6 @@
 
             <div class="results-split">
             <div class="cards">
-                {% if falta_fechas %}
-                <div class="empty-fechas">
-                    <div class="icon" aria-hidden="true">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                            <rect x="3" y="5" width="18" height="16" rx="2"/>
-                            <path d="M3 10h18M8 3v4M16 3v4"/>
-                        </svg>
-                    </div>
-                    <h3>Elegí tus fechas</h3>
-                    <p>Para ver departamentos disponibles en alquiler temporario, indicá check-in y check-out.</p>
-                    <form class="date-cta" method="get" action="{% url 'inmobiliaria:portal_buscar' %}">
-                        <input type="hidden" name="operacion" value="{{ form_operacion }}">
-                        {% if form_ambientes %}<input type="hidden" name="ambientes" value="{{ form_ambientes }}">{% endif %}
-                        <div class="field">
-                            <label for="empty_desde">Check-in</label>
-                            <input id="empty_desde" name="desde" type="date" value="{{ form_desde }}" required>
-                        </div>
-                        <div class="field">
-                            <label for="empty_hasta">Check-out</label>
-                            <input id="empty_hasta" name="hasta" type="date" value="{{ form_hasta }}" required>
-                        </div>
-                        <button class="btn btn-primary" type="submit">Buscar</button>
-                    </form>
-                    <p class="hint">También podés usar las fechas de la barra de arriba.</p>
-                </div>
-                {% else %}
                 {% for r in resultados %}
                 <a class="card" id="card-{{ r.propiedad.id }}" data-ficha="{{ r.propiedad.id }}"
                    data-titulo="{{ r.titulo }}"
@@ -732,7 +852,6 @@
                 </div>
                 {% endif %}
                 {% endfor %}
-                {% endif %}
             </div>
             {% if not error and not falta_fechas %}
             <aside class="map-panel" id="portal-map-panel">
@@ -748,6 +867,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
 
