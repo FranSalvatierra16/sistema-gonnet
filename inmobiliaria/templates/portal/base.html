@@ -34,27 +34,27 @@
         .wrap { width: min(1180px, calc(100% - 2rem)); margin-inline: auto; }
         .site-header {
             position: sticky; top: 0; z-index: 40;
-            background: rgba(255,255,255,0.9);
-            backdrop-filter: blur(14px);
-            border-bottom: 1px solid var(--g-line);
+            background: rgba(255,255,255,0.86);
+            backdrop-filter: blur(16px) saturate(1.2);
+            border-bottom: 1px solid rgba(74, 154, 70, 0.1);
         }
         .nav {
             display: flex; align-items: center; justify-content: space-between;
-            gap: 1rem; padding: 0.7rem 0;
+            gap: 1rem; padding: 0.55rem 0;
         }
         .brand {
             display: flex; align-items: center;
             line-height: 0;
         }
         .brand-logo {
-            height: 52px;
+            height: 46px;
             width: auto;
-            max-width: min(280px, 58vw);
+            max-width: min(260px, 56vw);
             display: block;
             object-fit: contain;
         }
-        .nav-links { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-        .nav-links a { color: var(--g-muted); font-weight: 500; font-size: 0.94rem; }
+        .nav-links { display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--g-muted); font-weight: 500; font-size: 0.9rem; }
         .nav-links a:hover, .nav-links a.is-active { color: var(--g-green-dark); }
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
