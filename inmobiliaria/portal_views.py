@@ -141,12 +141,14 @@ def _enriquecer_resultados(resultados):
 @require_http_methods(['GET'])
 def portal_home(request):
     destacadas = []
-    for p in qs_destacadas_portal(12):
+    for p in qs_destacadas_portal(24):
         fotos = getattr(p, 'fotos_ordenadas', None) or []
+        if not fotos:
+            continue
         destacadas.append({
             'propiedad': p,
             'titulo': titulo_publico_propiedad(p),
-            'foto': fotos[0] if fotos else None,
+            'foto': fotos[0],
             'fotos': fotos[:6],
             'ubicacion': (
                 getattr(p, 'ubicacion', None)
@@ -154,6 +156,8 @@ def portal_home(request):
                 or ''
             ),
         })
+        if len(destacadas) >= 9:
+            break
     return render(request, 'portal/home.html', _ctx_base(
         destacadas=destacadas,
         form_ficha=request.GET.get('ficha', ''),

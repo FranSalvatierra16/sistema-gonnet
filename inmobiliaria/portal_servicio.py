@@ -100,7 +100,14 @@ def qs_propiedades_portal():
 
 
 def qs_destacadas_portal(limit=12):
-    return qs_propiedades_portal().filter(destacada_web=True).order_by('id')[:limit]
+    """Destacadas con al menos una foto (evita placeholders en el home)."""
+    return (
+        qs_propiedades_portal()
+        .filter(destacada_web=True)
+        .filter(imagenes__isnull=False)
+        .distinct()
+        .order_by('id')[:limit]
+    )
 
 
 def _vacaciones_invierno_sucursal(sucursal):
