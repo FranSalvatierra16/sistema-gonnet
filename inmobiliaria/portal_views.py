@@ -182,11 +182,12 @@ def portal_buscar(request):
     desde = parse_fecha_portal(request.GET.get('desde') or request.GET.get('fecha_inicio'))
     hasta = parse_fecha_portal(request.GET.get('hasta') or request.GET.get('fecha_fin'))
     error = ''
+    falta_fechas = False
     resultados = []
 
     if operacion == 'alquiler_temporario':
         if not desde or not hasta:
-            error = 'Indicá fechas Desde y Hasta para buscar disponibilidad.'
+            falta_fechas = True
         elif hasta <= desde:
             error = 'La fecha Hasta debe ser posterior a Desde.'
         else:
@@ -222,6 +223,7 @@ def portal_buscar(request):
     return render(request, 'portal/buscar.html', _ctx_base(
         resultados=resultados,
         error=error,
+        falta_fechas=falta_fechas,
         form_ficha=ficha,
         form_ambientes=ambientes,
         form_q=q,

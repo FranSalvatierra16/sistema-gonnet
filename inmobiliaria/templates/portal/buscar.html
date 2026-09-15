@@ -136,6 +136,82 @@
     background: #fff6e5; border: 1px solid #f0d9a5; color: #6a4b10;
     padding: 0.85rem 1rem; border-radius: 12px; margin-bottom: 1rem;
 }
+.empty-fechas {
+    grid-column: 1 / -1;
+    background:
+        radial-gradient(ellipse 80% 70% at 20% 0%, rgba(63, 143, 59, 0.1), transparent 55%),
+        #fff;
+    border: 1px solid var(--g-line);
+    border-radius: 20px;
+    padding: 2.6rem 1.6rem;
+    text-align: center;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.empty-fechas .icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: #eaf5e9;
+    color: var(--g-green-dark);
+    display: grid;
+    place-items: center;
+    margin-bottom: 1rem;
+}
+.empty-fechas h3 {
+    margin: 0 0 0.45rem;
+    font-family: var(--display, "Fraunces", Georgia, serif);
+    font-size: clamp(1.35rem, 2.5vw, 1.7rem);
+    color: var(--g-ink);
+    font-weight: 650;
+}
+.empty-fechas p {
+    margin: 0 0 1.35rem;
+    color: var(--g-muted);
+    max-width: 36ch;
+    line-height: 1.45;
+}
+.empty-fechas .date-cta {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.55rem;
+    align-items: end;
+    width: min(460px, 100%);
+    text-align: left;
+    background: #f7f9f6;
+    border: 1px solid rgba(18, 26, 18, 0.08);
+    border-radius: 14px;
+    padding: 0.85rem;
+}
+.empty-fechas .date-cta .field { margin: 0; }
+.empty-fechas .date-cta .field label {
+    font-size: 0.68rem;
+    margin-bottom: 0.25rem;
+    color: var(--g-muted);
+}
+.empty-fechas .date-cta .field input {
+    border-radius: 10px;
+    background: #fff;
+    border-color: #d7e3d6;
+    padding: 0.58rem 0.7rem;
+}
+.empty-fechas .date-cta .btn {
+    height: 42px;
+    border-radius: 999px;
+    padding-inline: 1.15rem;
+}
+.empty-fechas .hint {
+    margin-top: 1rem;
+    font-size: 0.82rem;
+    color: var(--g-muted);
+}
+@media (max-width: 560px) {
+    .empty-fechas .date-cta { grid-template-columns: 1fr; }
+    .empty-fechas .date-cta .btn { width: 100%; }
+}
 .toolbar {
     display: flex;
     justify-content: space-between;
@@ -455,10 +531,6 @@
 </div>
 
 <div class="page wrap">
-    {% if error %}
-    <div class="alert-warn">{{ error }}</div>
-    {% endif %}
-
     <div class="layout">
         <form class="filters" method="get" id="filtros-form">
             <h2>Filtros avanzados</h2>
@@ -544,7 +616,11 @@
         </form>
 
         <div>
-            {% if not error %}
+            {% if error %}
+            <div class="alert-warn">{{ error }}</div>
+            {% endif %}
+
+            {% if not error and not falta_fechas %}
             <div class="toolbar">
                 <p class="results-meta">
                     <strong>{{ total }}</strong> resultado{{ total|pluralize }}
@@ -557,6 +633,32 @@
 
             <div class="results-split">
             <div class="cards">
+                {% if falta_fechas %}
+                <div class="empty-fechas">
+                    <div class="icon" aria-hidden="true">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <rect x="3" y="5" width="18" height="16" rx="2"/>
+                            <path d="M3 10h18M8 3v4M16 3v4"/>
+                        </svg>
+                    </div>
+                    <h3>Elegí tus fechas</h3>
+                    <p>Para ver departamentos disponibles en alquiler temporario, indicá check-in y check-out.</p>
+                    <form class="date-cta" method="get" action="{% url 'inmobiliaria:portal_buscar' %}">
+                        <input type="hidden" name="operacion" value="{{ form_operacion }}">
+                        {% if form_ambientes %}<input type="hidden" name="ambientes" value="{{ form_ambientes }}">{% endif %}
+                        <div class="field">
+                            <label for="empty_desde">Check-in</label>
+                            <input id="empty_desde" name="desde" type="date" value="{{ form_desde }}" required>
+                        </div>
+                        <div class="field">
+                            <label for="empty_hasta">Check-out</label>
+                            <input id="empty_hasta" name="hasta" type="date" value="{{ form_hasta }}" required>
+                        </div>
+                        <button class="btn btn-primary" type="submit">Buscar</button>
+                    </form>
+                    <p class="hint">También podés usar las fechas de la barra de arriba.</p>
+                </div>
+                {% else %}
                 {% for r in resultados %}
                 <a class="card" id="card-{{ r.propiedad.id }}" data-ficha="{{ r.propiedad.id }}"
                    data-titulo="{{ r.titulo }}"
@@ -630,8 +732,9 @@
                 </div>
                 {% endif %}
                 {% endfor %}
+                {% endif %}
             </div>
-            {% if not error %}
+            {% if not error and not falta_fechas %}
             <aside class="map-panel" id="portal-map-panel">
                 <div class="map-hint">
                     <strong class="map-count">{{ total|default:0 }}</strong> propiedades de esta búsqueda en el mapa
@@ -701,7 +804,7 @@
 })();
 </script>
 {{ markers|json_script:"portal-markers" }}
-{% if not error %}
+{% if not error and not falta_fechas %}
 <script src="{% url 'inmobiliaria:portal_mapa_js' %}"></script>
 {% if google_maps_api_key %}
 <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initPortalMap" async defer></script>
