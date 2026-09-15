@@ -2,271 +2,216 @@
 {% load static custom_filters %}
 
 {% block title %}{{ portal_nombre }} · Mar del Plata{% endblock %}
+{% block body_class %}page-home{% endblock %}
 
 {% block extra_css %}
-.home-top {
-    background: #fff;
-}
+/* Header sólido y limpio; hero más corto con búsqueda integrada */
 .hero {
     position: relative;
-    height: clamp(240px, 30vh, 340px);
-    overflow: hidden;
+    min-height: clamp(340px, 46vh, 440px);
     color: #fff;
+    display: grid;
+    align-items: end;
+    overflow: hidden;
 }
-.hero-bg {
+.hero-media {
     position: absolute;
     inset: 0;
-    background:
-        url("{% url 'inmobiliaria:portal_hero' %}") center 40%/cover no-repeat;
-    transform: scale(1.02);
-    animation: heroDrift 22s ease-in-out infinite alternate;
     z-index: 0;
 }
-.hero-scrim {
+.hero-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 38%;
+    display: block;
+    transform: scale(1.03);
+    animation: heroKen 24s ease-in-out infinite alternate;
+}
+@keyframes heroKen {
+    from { transform: scale(1.03); }
+    to { transform: scale(1.08) translate3d(-0.8%, -0.4%, 0); }
+}
+.hero-shade {
     position: absolute;
     inset: 0;
     z-index: 1;
     background:
-        linear-gradient(90deg, rgba(12, 28, 14, 0.72) 0%, rgba(12, 28, 14, 0.38) 42%, rgba(12, 28, 14, 0.12) 100%);
+        linear-gradient(180deg, rgba(8,14,10,0.2) 0%, rgba(8,14,10,0.25) 35%, rgba(8,14,10,0.72) 78%, rgba(8,14,10,0.9) 100%);
 }
-@keyframes heroDrift {
-    from { transform: scale(1.02) translate3d(0, 0, 0); }
-    to { transform: scale(1.07) translate3d(-0.8%, -0.6%, 0); }
-}
-.hero-inner {
+.hero-content {
     position: relative;
     z-index: 2;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    width: min(1100px, calc(100% - 2rem));
-    margin-inline: auto;
-    padding: 1.5rem 0 3rem;
+    width: min(1120px, calc(100% - 2rem));
+    margin: 0 auto;
+    padding: 1.6rem 0 1.5rem;
 }
-.hero-brand {
-    font-size: 0.7rem;
+.hero-copy {
+    max-width: 16ch;
+    margin-bottom: 1.15rem;
+}
+.hero-copy .brand-line {
+    display: block;
+    font-size: 0.72rem;
     font-weight: 650;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: rgba(220, 236, 218, 0.95);
-    margin-bottom: 0.5rem;
+    color: rgba(210, 230, 208, 0.95);
+    margin-bottom: 0.55rem;
 }
-.hero h1 {
+.hero-copy h1 {
     margin: 0 0 0.45rem;
-    font-family: "Fraunces", Georgia, serif;
-    font-size: clamp(1.9rem, 4.2vw, 2.85rem);
-    line-height: 1.04;
-    font-weight: 700;
-    max-width: 13ch;
+    font-family: var(--display);
+    font-size: clamp(2.1rem, 4.8vw, 3.35rem);
+    line-height: 0.98;
+    font-weight: 650;
+    letter-spacing: -0.02em;
     text-wrap: balance;
 }
-.hero .lead {
+.hero-copy p {
     margin: 0;
-    font-size: 1rem;
-    color: rgba(255, 255, 255, 0.9);
-    max-width: 36ch;
-    line-height: 1.45;
-    font-weight: 400;
+    font-size: 0.98rem;
+    line-height: 1.4;
+    color: rgba(255,255,255,0.88);
+    max-width: 34ch;
 }
 
-.search-panel {
-    background: #fff;
-    border-bottom: 1px solid rgba(28, 42, 27, 0.06);
-    padding: 0 0 1.35rem;
+.search-glass {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.22);
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    border-radius: 18px;
+    padding: 0.55rem;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.22);
 }
-.search-shell {
-    position: relative;
-    z-index: 6;
-    margin-top: -2.35rem;
-    width: min(1100px, calc(100% - 2rem));
-    margin-inline: auto;
-}
-.search-float {
-    background: #fff;
-    color: var(--g-ink);
-    border-radius: 14px;
-    padding: 0.4rem;
-    border: 1px solid rgba(28, 42, 27, 0.1);
-    box-shadow: 0 12px 40px rgba(16, 32, 18, 0.12);
-}
-.search-float .row {
+.search-glass .row {
     display: grid;
-    grid-template-columns: 1.2fr 0.8fr 0.95fr 0.95fr auto;
+    grid-template-columns: 1.2fr 0.85fr 0.95fr 0.95fr auto;
     gap: 0;
     align-items: stretch;
 }
-.search-float .field {
+.search-glass .field {
     margin: 0;
-    padding: 0.55rem 0.95rem;
-    border-right: 1px solid #e8eee7;
-    min-width: 0;
+    padding: 0.55rem 0.9rem;
+    border-right: 1px solid rgba(255,255,255,0.18);
 }
-.search-float .field:last-of-type { border-right: 0; }
-.search-float .field label {
-    color: #6a7768;
-    margin-bottom: 0.18rem;
-    font-size: 0.65rem;
-    letter-spacing: 0.08em;
-    font-weight: 700;
+.search-glass .field:last-of-type { border-right: 0; }
+.search-glass .field label {
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 0.2rem;
+    font-size: 0.64rem;
+    letter-spacing: 0.1em;
 }
-.search-float .field input,
-.search-float .field select {
+.search-glass .field input,
+.search-glass .field select {
     border: 0;
-    border-radius: 0;
-    padding: 0.1rem 0;
     background: transparent;
-    font-size: 0.94rem;
-    color: var(--g-ink);
+    color: #fff;
+    padding: 0.1rem 0;
+    font-size: 0.95rem;
     font-weight: 500;
+    border-radius: 0;
     box-shadow: none;
 }
-.search-float .field input:focus,
-.search-float .field select:focus {
-    outline: none;
-}
-.search-float .btn-go {
+.search-glass .field select option { color: var(--g-ink); }
+.search-glass .field input:focus,
+.search-glass .field select:focus { outline: none; }
+.search-glass .field input::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.8; }
+.search-glass .btn-go {
     align-self: center;
+    height: 48px;
     margin-right: 0.15rem;
-    height: 46px;
-    padding-inline: 1.4rem;
-    border-radius: 10px;
-    font-size: 0.92rem;
-    letter-spacing: 0.01em;
-}
-.quick-ops {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.4rem;
-    margin: 1rem 0 0;
-}
-.quick-ops a {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.4rem 0.8rem;
-    border-radius: 8px;
-    background: #f4f7f3;
-    border: 1px solid transparent;
-    color: var(--g-green-dark);
-    font-size: 0.82rem;
-    font-weight: 600;
-    transition: background .2s ease, border-color .2s ease, color .2s ease;
-}
-.quick-ops a:hover {
+    padding-inline: 1.45rem;
+    border-radius: 999px;
     background: #fff;
-    border-color: rgba(74, 154, 70, 0.35);
+    color: var(--g-green-dark);
+    box-shadow: none;
+    font-weight: 700;
 }
-.search-hint {
-    margin: 0.7rem 0 0;
-    font-size: 0.78rem;
-    color: #7a8778;
-    text-align: center;
+.search-glass .btn-go:hover { background: #f2f7f1; }
+
+.ops-rail {
+    background: #fff;
+    border-bottom: 1px solid var(--g-line);
+}
+.ops-rail .wrap {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+}
+.ops-rail a {
+    display: block;
+    padding: 1.35rem 1.1rem;
+    border-right: 1px solid var(--g-line);
+    transition: background .2s ease;
+}
+.ops-rail a:last-child { border-right: 0; }
+.ops-rail a:hover { background: var(--g-mist); }
+.ops-rail .num {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 650;
+    letter-spacing: 0.14em;
+    color: var(--g-green);
+    margin-bottom: 0.45rem;
+}
+.ops-rail strong {
+    display: block;
+    font-family: var(--display);
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--g-ink);
+    margin-bottom: 0.2rem;
+}
+.ops-rail span {
+    display: block;
+    font-size: 0.86rem;
+    color: var(--g-muted);
+    line-height: 1.35;
 }
 
-.ops {
-    padding: 2.4rem 0 0.5rem;
-    background: #f7f9f6;
-}
 .section {
-    padding: 2.4rem 0 1rem;
-    background: #fff;
+    padding: 3.2rem 0 2.2rem;
 }
-.ops-head,
 .section-head {
     display: flex;
     justify-content: space-between;
     align-items: end;
     gap: 1rem;
-    margin-bottom: 1.2rem;
+    margin-bottom: 1.5rem;
 }
-.ops-head .eyebrow,
-.section .eyebrow {
-    color: var(--g-green-mid);
+.section-head .eyebrow {
     font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    margin-bottom: 0.35rem;
-}
-.ops-head h2,
-.section h2 {
-    margin: 0;
-    font-family: "Fraunces", Georgia, serif;
-    font-size: clamp(1.45rem, 2.5vw, 1.9rem);
-    color: #1a2b19;
-    letter-spacing: -0.01em;
-}
-.ops-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.85rem;
-}
-.op-tile {
-    position: relative;
-    display: block;
-    aspect-ratio: 5/4;
-    border-radius: 12px;
-    overflow: hidden;
-    color: #fff;
-    isolation: isolate;
-    box-shadow: 0 1px 2px rgba(16, 32, 18, 0.06);
-}
-.op-tile::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, transparent 35%, rgba(10, 22, 12, 0.9) 100%);
-    z-index: 1;
-}
-.op-tile img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform .55s ease;
-}
-.op-tile:hover img { transform: scale(1.05); }
-.op-tile .txt {
-    position: relative;
-    z-index: 2;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    padding: 1rem;
-}
-.op-tile strong {
-    font-family: "Fraunces", Georgia, serif;
-    font-size: 1.12rem;
-    margin-bottom: 0.12rem;
     font-weight: 650;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--g-green);
+    margin-bottom: 0.4rem;
 }
-.op-tile span { font-size: 0.78rem; opacity: 0.88; }
+.section-head h2 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: clamp(1.7rem, 3vw, 2.25rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--g-ink);
+}
 
 .cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
+    gap: 1.15rem;
 }
 .card-prop {
+    display: block;
     background: #fff;
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid rgba(28, 42, 27, 0.08);
-    transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
-}
-.card-prop:hover {
-    transform: translateY(-3px);
-    border-color: rgba(74, 154, 70, 0.28);
-    box-shadow: 0 14px 32px rgba(16, 32, 18, 0.1);
 }
 .card-prop .media {
     position: relative;
-    aspect-ratio: 16/10;
-    background: #e4ebe3;
+    aspect-ratio: 4/3;
     overflow: hidden;
+    border-radius: 14px;
+    background: #e6ebe4;
 }
 .card-prop .media img,
 .card-prop .media .ph {
@@ -274,112 +219,132 @@
     height: 100%;
     object-fit: cover;
     display: block;
-    transition: transform .5s ease;
+    transition: transform .6s cubic-bezier(.22,.8,.28,1);
 }
-.card-prop:hover .media img { transform: scale(1.04); }
-.card-prop .media .ph { background: linear-gradient(145deg, #dfe8de, #cfdccf); }
+.card-prop:hover .media img { transform: scale(1.05); }
+.card-prop .media .ph {
+    background: linear-gradient(145deg, #dfe6dd, #c9d4c7);
+}
 .card-prop .tag {
     position: absolute;
-    left: 0.65rem;
-    top: 0.65rem;
-    background: rgba(255, 255, 255, 0.96);
-    color: var(--g-green-dark);
-    font-size: 0.66rem;
+    left: 0.75rem;
+    top: 0.75rem;
+    background: rgba(255,255,255,0.95);
+    color: var(--g-ink);
+    font-size: 0.65rem;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    padding: 0.28rem 0.5rem;
-    border-radius: 6px;
+    padding: 0.32rem 0.55rem;
+    border-radius: 999px;
 }
-.card-prop .meta { padding: 0.9rem 0.95rem 1.05rem; }
+.card-prop .meta {
+    padding: 0.95rem 0.15rem 0;
+}
 .card-prop .meta .id {
     color: var(--g-red);
     font-weight: 700;
-    font-size: 0.74rem;
-    margin-bottom: 0.2rem;
-    letter-spacing: 0.02em;
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
 }
 .card-prop .meta strong {
     display: -webkit-box;
-    color: #1a2b19;
-    font-size: 0.95rem;
-    line-height: 1.35;
+    font-family: var(--display);
+    font-size: 1.12rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--g-ink);
     margin-bottom: 0.3rem;
-    font-weight: 650;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 .card-prop .meta .loc {
-    color: #6f7c6d;
-    font-size: 0.82rem;
+    color: var(--g-muted);
+    font-size: 0.88rem;
 }
 .empty-note {
-    color: #6f7c6d;
-    padding: 1.25rem;
-    border: 1px dashed rgba(28, 42, 27, 0.15);
-    border-radius: 12px;
-    background: #f7f9f6;
+    color: var(--g-muted);
+    padding: 1.4rem;
+    border: 1px dashed var(--g-line);
+    border-radius: 14px;
+    background: var(--g-mist);
 }
-.band {
-    margin: 0;
-    padding: 2.5rem 0;
-    background: #234f21;
+
+.cta-band {
+    margin: 1rem 0 0;
+    padding: 3.4rem 0;
+    background:
+        linear-gradient(120deg, rgba(18,26,18,0.92), rgba(36,87,34,0.88)),
+        url("{% url 'inmobiliaria:portal_hero' %}") center/cover;
     color: #fff;
 }
-.band .wrap {
+.cta-band .wrap {
     display: grid;
-    grid-template-columns: 1.5fr auto;
-    gap: 1.25rem;
+    grid-template-columns: 1.4fr auto;
+    gap: 1.5rem;
     align-items: center;
 }
-.band h2 {
-    margin: 0 0 0.4rem;
-    font-family: "Fraunces", Georgia, serif;
-    font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+.cta-band h2 {
+    margin: 0 0 0.45rem;
+    font-family: var(--display);
+    font-size: clamp(1.7rem, 3vw, 2.3rem);
+    font-weight: 600;
 }
-.band p { margin: 0; opacity: 0.88; max-width: 44ch; line-height: 1.45; }
-.band .actions { display: flex; gap: 0.55rem; flex-wrap: wrap; }
+.cta-band p {
+    margin: 0;
+    max-width: 40ch;
+    color: rgba(255,255,255,0.86);
+    line-height: 1.45;
+}
+.cta-band .actions { display: flex; gap: 0.65rem; flex-wrap: wrap; }
+.cta-band .btn-light {
+    background: #fff;
+    color: var(--g-ink);
+    box-shadow: none;
+}
 
-@media (max-width: 980px) {
-    .search-float .row { grid-template-columns: 1fr 1fr; }
-    .search-float .field {
-        border-right: 0;
-        border-bottom: 1px solid #e8eee7;
-    }
-    .search-float .btn-go {
+@media (max-width: 900px) {
+    .search-glass .row { grid-template-columns: 1fr 1fr; }
+    .search-glass .field { border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.14); }
+    .search-glass .btn-go {
         grid-column: 1 / -1;
         width: calc(100% - 0.3rem);
         margin: 0.4rem 0.15rem 0.15rem;
     }
-    .ops-grid, .cards { grid-template-columns: 1fr 1fr; }
-    .band .wrap { grid-template-columns: 1fr; }
+    .ops-rail .wrap { grid-template-columns: 1fr 1fr; }
+    .ops-rail a:nth-child(2) { border-right: 0; }
+    .ops-rail a:nth-child(1),
+    .ops-rail a:nth-child(2) { border-bottom: 1px solid var(--g-line); }
+    .cards { grid-template-columns: 1fr 1fr; }
+    .cta-band .wrap { grid-template-columns: 1fr; }
+    .hero { min-height: 400px; }
 }
 @media (max-width: 640px) {
-    .ops-grid, .cards { grid-template-columns: 1fr; }
-    .hero { height: 220px; }
-    .hero-inner { padding: 1.1rem 0 2.6rem; }
-    .hero h1 { max-width: none; }
-    .search-shell { margin-top: -1.9rem; }
-    .search-float .row { grid-template-columns: 1fr; }
+    .hero { min-height: 430px; }
+    .hero-copy { max-width: none; }
+    .search-glass .row { grid-template-columns: 1fr; }
+    .ops-rail .wrap { grid-template-columns: 1fr; }
+    .ops-rail a { border-right: 0; border-bottom: 1px solid var(--g-line); }
+    .ops-rail a:last-child { border-bottom: 0; }
+    .cards { grid-template-columns: 1fr; }
 }
 {% endblock %}
 
 {% block content %}
-<div class="home-top">
 <section class="hero">
-    <div class="hero-bg" aria-hidden="true"></div>
-    <div class="hero-scrim" aria-hidden="true"></div>
-    <div class="hero-inner">
-        <div class="hero-brand rise">Gonnet Propiedades</div>
-        <h1 class="rise rise-2">Viví Mar del Plata.</h1>
-        <p class="lead rise rise-3">Temporada, invierno, 24 meses y ventas.</p>
+    <div class="hero-media" aria-hidden="true">
+        <img src="{% url 'inmobiliaria:portal_hero' %}" alt="">
     </div>
-</section>
+    <div class="hero-shade" aria-hidden="true"></div>
+    <div class="hero-content">
+        <div class="hero-copy rise">
+            <span class="brand-line">Gonnet Propiedades</span>
+            <h1 class="rise rise-2">Viví Mar del Plata.</h1>
+            <p class="rise rise-3">Temporada, invierno, 24 meses y ventas — con la trayectoria que respalda cada operación.</p>
+        </div>
 
-<div class="search-panel">
-    <div class="search-shell">
-        <form class="search-float rise rise-4" method="get" action="{% url 'inmobiliaria:portal_buscar' %}">
+        <form class="search-glass rise rise-4" method="get" action="{% url 'inmobiliaria:portal_buscar' %}">
             <div class="row">
                 <div class="field">
                     <label for="operacion">Operación</label>
@@ -406,49 +371,36 @@
                     <label for="hasta">Check-out</label>
                     <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}">
                 </div>
-                <button class="btn btn-primary btn-go" type="submit">Buscar</button>
+                <button class="btn btn-go" type="submit">Buscar</button>
             </div>
         </form>
-        <div class="quick-ops">
-            <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=alquiler_temporario">Temporario</a>
-            <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=venta">Venta</a>
-            <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=24_meses">24 meses</a>
-            <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=invierno">Invierno</a>
-        </div>
-        <p class="search-hint">Listado + mapa para recorrer cada zona de Mar del Plata.</p>
-    </div>
-</div>
-</div>
-
-<section class="ops">
-    <div class="wrap">
-        <div class="ops-head">
-            <div>
-                <div class="eyebrow">Explorá</div>
-                <h2>Todo lo que ofrecemos</h2>
-            </div>
-            <a class="btn btn-soft" href="{% url 'inmobiliaria:portal_buscar' %}?operacion=alquiler_temporario">Ver temporario</a>
-        </div>
-        <div class="ops-grid">
-            <a class="op-tile rise" href="{% url 'inmobiliaria:portal_buscar' %}?operacion=alquiler_temporario">
-                <img src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=900&q=80" alt="">
-                <div class="txt"><strong>Alquiler temporario</strong><span>Disponibilidad real por fechas</span></div>
-            </a>
-            <a class="op-tile rise rise-2" href="{% url 'inmobiliaria:portal_buscar' %}?operacion=venta">
-                <img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=900&q=80" alt="">
-                <div class="txt"><strong>Ventas</strong><span>Oportunidades para invertir</span></div>
-            </a>
-            <a class="op-tile rise rise-3" href="{% url 'inmobiliaria:portal_buscar' %}?operacion=24_meses">
-                <img src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=900&q=80" alt="">
-                <div class="txt"><strong>24 meses</strong><span>Contratos de largo plazo</span></div>
-            </a>
-            <a class="op-tile rise rise-4" href="{% url 'inmobiliaria:portal_buscar' %}?operacion=invierno">
-                <img src="https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=900&q=80" alt="">
-                <div class="txt"><strong>Invierno</strong><span>Temporada estudiantil</span></div>
-            </a>
-        </div>
     </div>
 </section>
+
+<nav class="ops-rail" aria-label="Tipos de operación">
+    <div class="wrap">
+        <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=alquiler_temporario">
+            <span class="num">01</span>
+            <strong>Temporario</strong>
+            <span>Disponibilidad real por fechas</span>
+        </a>
+        <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=venta">
+            <span class="num">02</span>
+            <strong>Ventas</strong>
+            <span>Oportunidades para invertir</span>
+        </a>
+        <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=24_meses">
+            <span class="num">03</span>
+            <strong>24 meses</strong>
+            <span>Contratos de largo plazo</span>
+        </a>
+        <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=invierno">
+            <span class="num">04</span>
+            <strong>Invierno</strong>
+            <span>Temporada estudiantil</span>
+        </a>
+    </div>
+</nav>
 
 <section class="section" id="destacadas">
     <div class="wrap">
@@ -457,7 +409,7 @@
                 <div class="eyebrow">Selección Gonnet</div>
                 <h2>Propiedades destacadas</h2>
             </div>
-            <a class="btn btn-soft" href="{% url 'inmobiliaria:portal_contacto' %}">Consultar</a>
+            <a class="btn btn-soft" href="{% url 'inmobiliaria:portal_buscar' %}">Ver todas</a>
         </div>
         {% if destacadas %}
         <div class="cards">
@@ -488,14 +440,14 @@
     </div>
 </section>
 
-<section class="band">
+<section class="cta-band">
     <div class="wrap">
         <div>
             <h2>¿Querés vender o alquilar tu propiedad?</h2>
-            <p>Nuestro equipo comercial te acompaña en tasación, publicación y gestión completa.</p>
+            <p>Tasación, publicación y gestión completa con el equipo comercial de Gonnet.</p>
         </div>
         <div class="actions">
-            <a class="btn btn-primary" href="{% url 'inmobiliaria:portal_quiero_vender' %}" style="background:#fff;color:var(--g-green-dark);box-shadow:none">Quiero vender</a>
+            <a class="btn btn-light" href="{% url 'inmobiliaria:portal_quiero_vender' %}">Quiero vender</a>
             <a class="btn btn-ghost" href="{% url 'inmobiliaria:portal_contacto' %}">Contáctenos</a>
         </div>
     </div>
