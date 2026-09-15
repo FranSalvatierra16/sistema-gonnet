@@ -4,49 +4,34 @@
 {% block title %}{{ portal_nombre }} · Mar del Plata{% endblock %}
 
 {% block extra_css %}
-/* —— Home moderno: hero corto + buscador protagonista —— */
 .home-top {
-    background:
-        radial-gradient(900px 320px at 12% -10%, rgba(74, 154, 70, 0.12), transparent 60%),
-        #f7faf6;
-    padding-bottom: 0.25rem;
+    background: #fff;
 }
 .hero {
     position: relative;
-    height: clamp(220px, 28vh, 320px);
+    height: clamp(240px, 30vh, 340px);
     overflow: hidden;
     color: #fff;
-    isolation: isolate;
 }
 .hero-bg {
     position: absolute;
-    inset: -4%;
+    inset: 0;
     background:
-        url("{% url 'inmobiliaria:portal_hero' %}") center 42%/cover no-repeat;
-    transform: scale(1.04);
-    animation: heroDrift 18s ease-in-out infinite alternate;
+        url("{% url 'inmobiliaria:portal_hero' %}") center 40%/cover no-repeat;
+    transform: scale(1.02);
+    animation: heroDrift 22s ease-in-out infinite alternate;
     z-index: 0;
 }
-.hero::before {
-    content: "";
+.hero-scrim {
     position: absolute;
     inset: 0;
     z-index: 1;
     background:
-        linear-gradient(100deg, rgba(14, 32, 16, 0.78) 0%, rgba(14, 32, 16, 0.42) 48%, rgba(14, 32, 16, 0.18) 100%);
-}
-.hero::after {
-    content: "";
-    position: absolute;
-    inset: auto 0 0;
-    height: 55%;
-    z-index: 1;
-    background: linear-gradient(180deg, transparent, rgba(247, 250, 246, 0.97));
-    pointer-events: none;
+        linear-gradient(90deg, rgba(12, 28, 14, 0.72) 0%, rgba(12, 28, 14, 0.38) 42%, rgba(12, 28, 14, 0.12) 100%);
 }
 @keyframes heroDrift {
-    from { transform: scale(1.04) translate3d(0, 0, 0); }
-    to { transform: scale(1.1) translate3d(-1.2%, -1%, 0); }
+    from { transform: scale(1.02) translate3d(0, 0, 0); }
+    to { transform: scale(1.07) translate3d(-0.8%, -0.6%, 0); }
 }
 .hero-inner {
     position: relative;
@@ -55,79 +40,85 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    width: min(1120px, calc(100% - 2rem));
+    width: min(1100px, calc(100% - 2rem));
     margin-inline: auto;
-    padding: 1.35rem 0 2.4rem;
+    padding: 1.5rem 0 3rem;
 }
 .hero-brand {
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.16em;
+    font-size: 0.7rem;
+    font-weight: 650;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: #d4edd1;
-    margin-bottom: 0.45rem;
+    color: rgba(220, 236, 218, 0.95);
+    margin-bottom: 0.5rem;
 }
 .hero h1 {
-    margin: 0 0 0.4rem;
+    margin: 0 0 0.45rem;
     font-family: "Fraunces", Georgia, serif;
-    font-size: clamp(1.85rem, 4vw, 2.75rem);
-    line-height: 1.05;
+    font-size: clamp(1.9rem, 4.2vw, 2.85rem);
+    line-height: 1.04;
     font-weight: 700;
-    max-width: 14ch;
+    max-width: 13ch;
     text-wrap: balance;
-    text-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 }
 .hero .lead {
     margin: 0;
-    font-size: 0.98rem;
-    opacity: 0.92;
-    max-width: 34ch;
-    line-height: 1.4;
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.9);
+    max-width: 36ch;
+    line-height: 1.45;
+    font-weight: 400;
 }
 
+.search-panel {
+    background: #fff;
+    border-bottom: 1px solid rgba(28, 42, 27, 0.06);
+    padding: 0 0 1.35rem;
+}
 .search-shell {
     position: relative;
     z-index: 6;
-    margin-top: -2.6rem;
-    width: min(1120px, calc(100% - 2rem));
+    margin-top: -2.35rem;
+    width: min(1100px, calc(100% - 2rem));
     margin-inline: auto;
 }
 .search-float {
     background: #fff;
     color: var(--g-ink);
-    border-radius: 20px;
-    padding: 0.55rem;
-    border: 1px solid rgba(47, 107, 44, 0.12);
-    box-shadow:
-        0 4px 16px rgba(28, 42, 27, 0.06),
-        0 22px 50px rgba(28, 42, 27, 0.1);
+    border-radius: 14px;
+    padding: 0.4rem;
+    border: 1px solid rgba(28, 42, 27, 0.1);
+    box-shadow: 0 12px 40px rgba(16, 32, 18, 0.12);
 }
 .search-float .row {
     display: grid;
-    grid-template-columns: 1.25fr 0.85fr 0.95fr 0.95fr auto;
+    grid-template-columns: 1.2fr 0.8fr 0.95fr 0.95fr auto;
     gap: 0;
     align-items: stretch;
 }
 .search-float .field {
     margin: 0;
-    padding: 0.55rem 0.9rem;
-    border-right: 1px solid #e6eee5;
+    padding: 0.55rem 0.95rem;
+    border-right: 1px solid #e8eee7;
     min-width: 0;
 }
 .search-float .field:last-of-type { border-right: 0; }
 .search-float .field label {
-    color: var(--g-ink);
-    margin-bottom: 0.2rem;
-    font-size: 0.68rem;
-    letter-spacing: 0.04em;
+    color: #6a7768;
+    margin-bottom: 0.18rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    font-weight: 700;
 }
 .search-float .field input,
 .search-float .field select {
     border: 0;
     border-radius: 0;
-    padding: 0.15rem 0;
+    padding: 0.1rem 0;
     background: transparent;
-    font-size: 0.95rem;
+    font-size: 0.94rem;
+    color: var(--g-ink);
+    font-weight: 500;
     box-shadow: none;
 }
 .search-float .field input:focus,
@@ -136,47 +127,50 @@
 }
 .search-float .btn-go {
     align-self: center;
-    margin-right: 0.2rem;
-    height: 48px;
-    min-width: 48px;
-    padding-inline: 1.35rem;
-    border-radius: 14px;
-    font-size: 0.95rem;
+    margin-right: 0.15rem;
+    height: 46px;
+    padding-inline: 1.4rem;
+    border-radius: 10px;
+    font-size: 0.92rem;
+    letter-spacing: 0.01em;
 }
-.search-hint {
-    margin: 0.75rem 0 0;
-    font-size: 0.8rem;
-    color: var(--g-muted);
-    text-align: center;
-}
-
 .quick-ops {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.45rem;
-    margin: 1rem 0 0.25rem;
+    gap: 0.4rem;
+    margin: 1rem 0 0;
 }
 .quick-ops a {
     display: inline-flex;
     align-items: center;
-    padding: 0.45rem 0.85rem;
-    border-radius: 12px;
-    background: #fff;
-    border: 1px solid var(--g-line);
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    background: #f4f7f3;
+    border: 1px solid transparent;
     color: var(--g-green-dark);
-    font-size: 0.84rem;
+    font-size: 0.82rem;
     font-weight: 600;
-    transition: background .2s ease, border-color .2s ease, transform .2s ease;
+    transition: background .2s ease, border-color .2s ease, color .2s ease;
 }
 .quick-ops a:hover {
-    background: #eaf5e9;
+    background: #fff;
     border-color: rgba(74, 154, 70, 0.35);
-    transform: translateY(-1px);
+}
+.search-hint {
+    margin: 0.7rem 0 0;
+    font-size: 0.78rem;
+    color: #7a8778;
+    text-align: center;
 }
 
 .ops {
-    padding: 2rem 0 0.35rem;
+    padding: 2.4rem 0 0.5rem;
+    background: #f7f9f6;
+}
+.section {
+    padding: 2.4rem 0 1rem;
+    background: #fff;
 }
 .ops-head,
 .section-head {
@@ -184,44 +178,45 @@
     justify-content: space-between;
     align-items: end;
     gap: 1rem;
-    margin-bottom: 1.05rem;
+    margin-bottom: 1.2rem;
 }
 .ops-head .eyebrow,
 .section .eyebrow {
-    color: var(--g-green);
-    font-size: 0.72rem;
+    color: var(--g-green-mid);
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.35rem;
 }
 .ops-head h2,
 .section h2 {
     margin: 0;
     font-family: "Fraunces", Georgia, serif;
-    font-size: clamp(1.45rem, 2.6vw, 1.95rem);
-    color: var(--g-green-dark);
+    font-size: clamp(1.45rem, 2.5vw, 1.9rem);
+    color: #1a2b19;
+    letter-spacing: -0.01em;
 }
 .ops-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 0.75rem;
+    gap: 0.85rem;
 }
 .op-tile {
     position: relative;
     display: block;
-    aspect-ratio: 4/3;
-    min-height: 0;
-    border-radius: 16px;
+    aspect-ratio: 5/4;
+    border-radius: 12px;
     overflow: hidden;
     color: #fff;
     isolation: isolate;
+    box-shadow: 0 1px 2px rgba(16, 32, 18, 0.06);
 }
 .op-tile::before {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, transparent 30%, rgba(12, 28, 14, 0.88) 100%);
+    background: linear-gradient(180deg, transparent 35%, rgba(10, 22, 12, 0.9) 100%);
     z-index: 1;
 }
 .op-tile img {
@@ -232,7 +227,7 @@
     object-fit: cover;
     transition: transform .55s ease;
 }
-.op-tile:hover img { transform: scale(1.06); }
+.op-tile:hover img { transform: scale(1.05); }
 .op-tile .txt {
     position: relative;
     z-index: 2;
@@ -240,36 +235,37 @@
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    padding: 0.95rem;
+    padding: 1rem;
 }
 .op-tile strong {
     font-family: "Fraunces", Georgia, serif;
     font-size: 1.12rem;
-    margin-bottom: 0.1rem;
+    margin-bottom: 0.12rem;
+    font-weight: 650;
 }
-.op-tile span { font-size: 0.8rem; opacity: 0.9; }
+.op-tile span { font-size: 0.78rem; opacity: 0.88; }
 
-.section { padding: 2.1rem 0 0.75rem; }
 .cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 0.95rem;
+    gap: 1rem;
 }
 .card-prop {
     background: #fff;
-    border-radius: 16px;
+    border-radius: 12px;
     overflow: hidden;
-    border: 1px solid var(--g-line);
-    transition: transform .25s ease, box-shadow .25s ease;
+    border: 1px solid rgba(28, 42, 27, 0.08);
+    transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
 }
 .card-prop:hover {
     transform: translateY(-3px);
-    box-shadow: 0 16px 36px rgba(47, 107, 44, 0.12);
+    border-color: rgba(74, 154, 70, 0.28);
+    box-shadow: 0 14px 32px rgba(16, 32, 18, 0.1);
 }
 .card-prop .media {
     position: relative;
     aspect-ratio: 16/10;
-    background: #d7e0db;
+    background: #e4ebe3;
     overflow: hidden;
 }
 .card-prop .media img,
@@ -281,86 +277,90 @@
     transition: transform .5s ease;
 }
 .card-prop:hover .media img { transform: scale(1.04); }
-.card-prop .media .ph { background: linear-gradient(145deg, #d9e8d8, #c5d8c4); }
+.card-prop .media .ph { background: linear-gradient(145deg, #dfe8de, #cfdccf); }
 .card-prop .tag {
     position: absolute;
     left: 0.65rem;
     top: 0.65rem;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.96);
     color: var(--g-green-dark);
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     font-weight: 700;
-    padding: 0.24rem 0.48rem;
-    border-radius: 8px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.28rem 0.5rem;
+    border-radius: 6px;
 }
-.card-prop .meta { padding: 0.85rem 0.95rem 1rem; }
+.card-prop .meta { padding: 0.9rem 0.95rem 1.05rem; }
 .card-prop .meta .id {
     color: var(--g-red);
     font-weight: 700;
-    font-size: 0.76rem;
-    margin-bottom: 0.18rem;
+    font-size: 0.74rem;
+    margin-bottom: 0.2rem;
+    letter-spacing: 0.02em;
 }
 .card-prop .meta strong {
     display: -webkit-box;
-    color: var(--g-ink);
-    font-size: 0.96rem;
-    line-height: 1.3;
-    margin-bottom: 0.28rem;
+    color: #1a2b19;
+    font-size: 0.95rem;
+    line-height: 1.35;
+    margin-bottom: 0.3rem;
+    font-weight: 650;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 .card-prop .meta .loc {
-    color: var(--g-muted);
-    font-size: 0.84rem;
+    color: #6f7c6d;
+    font-size: 0.82rem;
 }
 .empty-note {
-    color: var(--g-muted);
+    color: #6f7c6d;
     padding: 1.25rem;
-    border: 1px dashed var(--g-line);
-    border-radius: 14px;
-    background: #fff;
+    border: 1px dashed rgba(28, 42, 27, 0.15);
+    border-radius: 12px;
+    background: #f7f9f6;
 }
 .band {
-    margin: 2.2rem 0 0;
-    padding: 2.1rem 0;
-    background: linear-gradient(115deg, #2f6b2c, #4a9a46);
+    margin: 0;
+    padding: 2.5rem 0;
+    background: #234f21;
     color: #fff;
 }
 .band .wrap {
     display: grid;
-    grid-template-columns: 1.45fr auto;
-    gap: 1rem;
+    grid-template-columns: 1.5fr auto;
+    gap: 1.25rem;
     align-items: center;
 }
 .band h2 {
-    margin: 0 0 0.35rem;
+    margin: 0 0 0.4rem;
     font-family: "Fraunces", Georgia, serif;
-    font-size: clamp(1.4rem, 2.5vw, 1.95rem);
+    font-size: clamp(1.4rem, 2.4vw, 1.9rem);
 }
-.band p { margin: 0; opacity: 0.92; max-width: 42ch; }
+.band p { margin: 0; opacity: 0.88; max-width: 44ch; line-height: 1.45; }
 .band .actions { display: flex; gap: 0.55rem; flex-wrap: wrap; }
 
 @media (max-width: 980px) {
     .search-float .row { grid-template-columns: 1fr 1fr; }
     .search-float .field {
         border-right: 0;
-        border-bottom: 1px solid #e6eee5;
+        border-bottom: 1px solid #e8eee7;
     }
     .search-float .btn-go {
         grid-column: 1 / -1;
-        width: calc(100% - 0.4rem);
-        margin: 0.35rem 0.2rem 0.2rem;
+        width: calc(100% - 0.3rem);
+        margin: 0.4rem 0.15rem 0.15rem;
     }
     .ops-grid, .cards { grid-template-columns: 1fr 1fr; }
     .band .wrap { grid-template-columns: 1fr; }
-    .search-shell { margin-top: -2rem; }
 }
 @media (max-width: 640px) {
     .ops-grid, .cards { grid-template-columns: 1fr; }
-    .hero { height: 210px; }
-    .hero-inner { padding: 1rem 0 2rem; }
-    .hero h1 { max-width: none; font-size: clamp(1.7rem, 7.5vw, 2.15rem); }
+    .hero { height: 220px; }
+    .hero-inner { padding: 1.1rem 0 2.6rem; }
+    .hero h1 { max-width: none; }
+    .search-shell { margin-top: -1.9rem; }
     .search-float .row { grid-template-columns: 1fr; }
 }
 {% endblock %}
@@ -369,6 +369,7 @@
 <div class="home-top">
 <section class="hero">
     <div class="hero-bg" aria-hidden="true"></div>
+    <div class="hero-scrim" aria-hidden="true"></div>
     <div class="hero-inner">
         <div class="hero-brand rise">Gonnet Propiedades</div>
         <h1 class="rise rise-2">Viví Mar del Plata.</h1>
@@ -376,44 +377,46 @@
     </div>
 </section>
 
-<div class="search-shell">
-    <form class="search-float rise rise-4" method="get" action="{% url 'inmobiliaria:portal_buscar' %}">
-        <div class="row">
-            <div class="field">
-                <label for="operacion">Operación</label>
-                <select id="operacion" name="operacion">
-                    {% for val, label in operaciones_portal %}
-                    <option value="{{ val }}" {% if form_operacion == val %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
+<div class="search-panel">
+    <div class="search-shell">
+        <form class="search-float rise rise-4" method="get" action="{% url 'inmobiliaria:portal_buscar' %}">
+            <div class="row">
+                <div class="field">
+                    <label for="operacion">Operación</label>
+                    <select id="operacion" name="operacion">
+                        {% for val, label in operaciones_portal %}
+                        <option value="{{ val }}" {% if form_operacion == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="ambientes">Ambientes</label>
+                    <select id="ambientes" name="ambientes">
+                        <option value="">Todos</option>
+                        {% for n in "123456"|make_list %}
+                        <option value="{{ n }}" {% if form_ambientes == n %}selected{% endif %}>{{ n }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field" data-fechas>
+                    <label for="desde">Check-in</label>
+                    <input id="desde" name="desde" type="date" value="{{ form_desde }}">
+                </div>
+                <div class="field" data-fechas>
+                    <label for="hasta">Check-out</label>
+                    <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}">
+                </div>
+                <button class="btn btn-primary btn-go" type="submit">Buscar</button>
             </div>
-            <div class="field">
-                <label for="ambientes">Ambientes</label>
-                <select id="ambientes" name="ambientes">
-                    <option value="">Todos</option>
-                    {% for n in "123456"|make_list %}
-                    <option value="{{ n }}" {% if form_ambientes == n %}selected{% endif %}>{{ n }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="field" data-fechas>
-                <label for="desde">Check-in</label>
-                <input id="desde" name="desde" type="date" value="{{ form_desde }}">
-            </div>
-            <div class="field" data-fechas>
-                <label for="hasta">Check-out</label>
-                <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}">
-            </div>
-            <button class="btn btn-primary btn-go" type="submit">Buscar</button>
+        </form>
+        <div class="quick-ops">
+            <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=alquiler_temporario">Temporario</a>
+            <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=venta">Venta</a>
+            <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=24_meses">24 meses</a>
+            <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=invierno">Invierno</a>
         </div>
-    </form>
-    <div class="quick-ops">
-        <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=alquiler_temporario">Temporario</a>
-        <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=venta">Venta</a>
-        <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=24_meses">24 meses</a>
-        <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=invierno">Invierno</a>
+        <p class="search-hint">Listado + mapa para recorrer cada zona de Mar del Plata.</p>
     </div>
-    <p class="search-hint">Listado + mapa para recorrer cada zona de Mar del Plata.</p>
 </div>
 </div>
 
@@ -492,7 +495,7 @@
             <p>Nuestro equipo comercial te acompaña en tasación, publicación y gestión completa.</p>
         </div>
         <div class="actions">
-            <a class="btn btn-primary" href="{% url 'inmobiliaria:portal_quiero_vender' %}" style="background:#fff;color:var(--g-green-dark)">Quiero vender</a>
+            <a class="btn btn-primary" href="{% url 'inmobiliaria:portal_quiero_vender' %}" style="background:#fff;color:var(--g-green-dark);box-shadow:none">Quiero vender</a>
             <a class="btn btn-ghost" href="{% url 'inmobiliaria:portal_contacto' %}">Contáctenos</a>
         </div>
     </div>
