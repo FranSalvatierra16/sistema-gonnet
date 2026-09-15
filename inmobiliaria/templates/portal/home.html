@@ -2,156 +2,197 @@
 {% load static custom_filters %}
 
 {% block title %}{{ portal_nombre }} · Mar del Plata{% endblock %}
+{% block body_class %}page-home{% endblock %}
 
 {% block extra_css %}
-/* Home search-first: la foto no domina; el buscador sí */
-.home-hero {
+/* Landing principal: fondo con atmósfera + buscador limpio */
+.page-home .site-header {
+    position: absolute;
+    inset: 0 0 auto;
+    background: transparent;
+    border-bottom: 0;
+    backdrop-filter: none;
+}
+.page-home .site-header.is-solid {
+    position: sticky;
+    background: rgba(255,255,255,0.94);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--g-line);
+}
+.page-home .site-header:not(.is-solid) .nav-links a {
+    color: rgba(255,255,255,0.9);
+    text-shadow: 0 1px 8px rgba(0,0,0,0.25);
+}
+.page-home .site-header:not(.is-solid) .nav-links a:hover,
+.page-home .site-header:not(.is-solid) .nav-links a.is-active { color: #fff; }
+.page-home .site-header:not(.is-solid) .btn-primary {
+    background: #fff;
+    color: var(--g-green-dark);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+}
+.page-home .site-header:not(.is-solid) .brand {
+    background: rgba(255,255,255,0.95);
+    border-radius: 10px;
+    padding: 0.35rem 0.55rem;
+}
+
+.landing {
     position: relative;
-    background:
-        radial-gradient(ellipse 80% 60% at 85% -10%, rgba(63, 143, 59, 0.14), transparent 55%),
-        radial-gradient(ellipse 60% 50% at 0% 100%, rgba(63, 143, 59, 0.08), transparent 50%),
-        #f7f9f6;
-    padding: 2.4rem 0 2rem;
-    overflow: hidden;
-}
-.home-hero .wrap {
+    min-height: min(92vh, 780px);
     display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-    gap: 2rem;
     align-items: center;
+    overflow: hidden;
+    color: #fff;
 }
-.home-copy .eyebrow {
+.landing-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+.landing-bg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 42%;
+    display: block;
+    transform: scale(1.04);
+    animation: bgDrift 28s ease-in-out infinite alternate;
+}
+@keyframes bgDrift {
+    from { transform: scale(1.04) translate3d(0, 0, 0); }
+    to { transform: scale(1.1) translate3d(-1.5%, -1%, 0); }
+}
+.landing-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+        radial-gradient(ellipse 70% 55% at 50% 40%, rgba(10, 22, 14, 0.25), transparent 70%),
+        linear-gradient(180deg, rgba(8,14,10,0.55) 0%, rgba(8,14,10,0.35) 40%, rgba(8,14,10,0.72) 100%);
+}
+.landing-glow {
+    position: absolute;
+    width: 55vw;
+    height: 55vw;
+    max-width: 640px;
+    max-height: 640px;
+    left: 50%;
+    top: 35%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(74, 154, 70, 0.28), transparent 68%);
+    z-index: 1;
+    pointer-events: none;
+    animation: glowPulse 8s ease-in-out infinite alternate;
+}
+@keyframes glowPulse {
+    from { opacity: 0.55; transform: translate(-50%, -50%) scale(0.95); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+}
+.landing-inner {
+    position: relative;
+    z-index: 2;
+    width: min(720px, calc(100% - 2rem));
+    margin: 0 auto;
+    padding: 6.5rem 0 3rem;
+    text-align: center;
+}
+.landing-brand {
     display: inline-block;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: var(--g-green);
-    margin-bottom: 0.75rem;
+    color: #d8efd4;
+    margin-bottom: 1rem;
 }
-.home-copy h1 {
+.landing h1 {
     margin: 0 0 0.75rem;
     font-family: var(--display);
-    font-size: clamp(2.2rem, 4.5vw, 3.4rem);
-    line-height: 1.02;
+    font-size: clamp(2.6rem, 7vw, 4.4rem);
+    line-height: 0.98;
     font-weight: 650;
-    letter-spacing: -0.025em;
-    color: var(--g-ink);
-    max-width: 11ch;
+    letter-spacing: -0.03em;
     text-wrap: balance;
+    text-shadow: 0 12px 40px rgba(0,0,0,0.3);
 }
-.home-copy .lead {
-    margin: 0 0 1.5rem;
-    font-size: 1.05rem;
+.landing .lead {
+    margin: 0 auto 1.75rem;
+    font-size: clamp(1rem, 2vw, 1.15rem);
     line-height: 1.5;
-    color: var(--g-muted);
-    max-width: 36ch;
+    color: rgba(255,255,255,0.9);
+    max-width: 34ch;
 }
+
 .search-card {
     background: #fff;
-    border: 1px solid rgba(18, 26, 18, 0.08);
-    border-radius: 16px;
-    padding: 1rem;
-    box-shadow: 0 18px 50px rgba(18, 26, 18, 0.08);
+    color: var(--g-ink);
+    border-radius: 18px;
+    padding: 0.85rem;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.28);
+    text-align: left;
 }
 .search-card .row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    grid-template-columns: 1.15fr 0.85fr 0.95fr 0.95fr auto;
+    gap: 0.55rem;
+    align-items: end;
 }
 .search-card .field { margin: 0; }
 .search-card .field label {
     color: var(--g-muted);
-    font-size: 0.66rem;
-    margin-bottom: 0.28rem;
+    font-size: 0.65rem;
+    margin-bottom: 0.25rem;
 }
 .search-card .field input,
 .search-card .field select {
-    border-radius: 10px;
-    background: #f7f9f6;
-    border-color: #dce4da;
-    padding: 0.65rem 0.75rem;
+    border-radius: 11px;
+    background: #f4f7f3;
+    border-color: #d7e0d5;
+    padding: 0.62rem 0.75rem;
     font-weight: 500;
 }
 .search-card .btn-go {
-    grid-column: 1 / -1;
-    width: 100%;
-    height: 48px;
+    height: 46px;
+    padding-inline: 1.4rem;
     border-radius: 999px;
-    margin-top: 0.15rem;
-    font-size: 1rem;
+    white-space: nowrap;
+    font-weight: 700;
 }
 .quick-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.45rem;
-    margin-top: 1rem;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.15rem;
 }
 .quick-row a {
-    padding: 0.42rem 0.85rem;
+    padding: 0.45rem 0.95rem;
     border-radius: 999px;
-    border: 1px solid rgba(18, 26, 18, 0.12);
-    background: rgba(255,255,255,0.7);
-    color: var(--g-ink);
-    font-size: 0.84rem;
+    border: 1px solid rgba(255,255,255,0.35);
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    font-size: 0.86rem;
     font-weight: 600;
-    transition: background .2s ease, border-color .2s ease, color .2s ease;
+    backdrop-filter: blur(8px);
+    transition: background .2s ease, border-color .2s ease, transform .2s ease;
 }
 .quick-row a:hover {
-    background: #fff;
-    border-color: rgba(63, 143, 59, 0.45);
-    color: var(--g-green-dark);
-}
-
-.home-visual {
-    position: relative;
-    border-radius: 20px;
-    overflow: hidden;
-    aspect-ratio: 4/5;
-    max-height: 460px;
-    box-shadow: 0 24px 60px rgba(18, 26, 18, 0.14);
-}
-.home-visual img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center 40%;
-    display: block;
-    transform: scale(1.02);
-    animation: visualDrift 20s ease-in-out infinite alternate;
-}
-@keyframes visualDrift {
-    from { transform: scale(1.02); }
-    to { transform: scale(1.08) translate3d(-1%, -1%, 0); }
-}
-.home-visual::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, transparent 55%, rgba(12, 22, 14, 0.45));
-    pointer-events: none;
-}
-.home-visual .caption {
-    position: absolute;
-    left: 1rem;
-    right: 1rem;
-    bottom: 1rem;
-    z-index: 1;
-    color: #fff;
-    font-size: 0.88rem;
-    font-weight: 500;
-    letter-spacing: 0.02em;
+    background: rgba(255,255,255,0.22);
+    border-color: rgba(255,255,255,0.55);
+    transform: translateY(-1px);
 }
 
 .section {
-    padding: 2.8rem 0 1.5rem;
+    padding: 3rem 0 1.75rem;
+    background: #fff;
 }
 .section-head {
     display: flex;
     justify-content: space-between;
     align-items: end;
     gap: 1rem;
-    margin-bottom: 1.35rem;
+    margin-bottom: 1.4rem;
 }
 .section-head .eyebrow {
     font-size: 0.7rem;
@@ -164,12 +205,11 @@
 .section-head h2 {
     margin: 0;
     font-family: var(--display);
-    font-size: clamp(1.55rem, 2.8vw, 2.1rem);
+    font-size: clamp(1.6rem, 2.8vw, 2.15rem);
     font-weight: 650;
     letter-spacing: -0.02em;
     color: var(--g-ink);
 }
-
 .cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -235,9 +275,11 @@
 }
 
 .cta-band {
-    margin-top: 2rem;
-    padding: 2.8rem 0;
-    background: var(--g-ink);
+    margin-top: 1.5rem;
+    padding: 3rem 0;
+    background:
+        linear-gradient(120deg, rgba(18,26,18,0.92), rgba(36,87,34,0.85)),
+        url("{% url 'inmobiliaria:portal_hero' %}") center/cover;
     color: #fff;
 }
 .cta-band .wrap {
@@ -249,12 +291,12 @@
 .cta-band h2 {
     margin: 0 0 0.4rem;
     font-family: var(--display);
-    font-size: clamp(1.5rem, 2.6vw, 2rem);
+    font-size: clamp(1.5rem, 2.6vw, 2.05rem);
     font-weight: 650;
 }
 .cta-band p {
     margin: 0;
-    color: rgba(255,255,255,0.78);
+    color: rgba(255,255,255,0.82);
     max-width: 40ch;
     line-height: 1.45;
 }
@@ -266,76 +308,72 @@
 }
 
 @media (max-width: 900px) {
-    .home-hero .wrap {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
-    }
-    .home-visual {
-        aspect-ratio: 16/10;
-        max-height: 280px;
-        order: -1;
-    }
-    .home-copy h1 { max-width: none; }
+    .search-card .row { grid-template-columns: 1fr 1fr; }
+    .search-card .btn-go { grid-column: 1 / -1; width: 100%; }
     .cards { grid-template-columns: 1fr 1fr; }
     .cta-band .wrap { grid-template-columns: 1fr; }
+    .landing { min-height: min(88vh, 720px); }
 }
 @media (max-width: 640px) {
-    .home-hero { padding: 1.5rem 0 1.4rem; }
+    .landing-inner { padding: 5.5rem 0 2.4rem; }
     .search-card .row { grid-template-columns: 1fr; }
     .cards { grid-template-columns: 1fr; }
+    .page-home .site-header:not(.is-solid) {
+        background: rgba(8,14,10,0.28);
+        backdrop-filter: blur(8px);
+    }
 }
 {% endblock %}
 
 {% block content %}
-<section class="home-hero">
-    <div class="wrap">
-        <div class="home-copy rise">
-            <div class="eyebrow">Gonnet Propiedades · Mar del Plata</div>
-            <h1 class="rise rise-2">Encontrá tu lugar.</h1>
-            <p class="lead rise rise-3">Alquiler temporario, invierno, 24 meses y ventas — con la trayectoria que respalda cada operación.</p>
+<section class="landing">
+    <div class="landing-bg" aria-hidden="true">
+        <img src="{% url 'inmobiliaria:portal_hero' %}" alt="">
+    </div>
+    <div class="landing-veil" aria-hidden="true"></div>
+    <div class="landing-glow" aria-hidden="true"></div>
 
-            <form class="search-card rise rise-4" method="get" action="{% url 'inmobiliaria:portal_buscar' %}">
-                <div class="row">
-                    <div class="field">
-                        <label for="operacion">Operación</label>
-                        <select id="operacion" name="operacion">
-                            {% for val, label in operaciones_portal %}
-                            <option value="{{ val }}" {% if form_operacion == val %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="ambientes">Ambientes</label>
-                        <select id="ambientes" name="ambientes">
-                            <option value="">Todos</option>
-                            {% for n in "123456"|make_list %}
-                            <option value="{{ n }}" {% if form_ambientes == n %}selected{% endif %}>{{ n }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="field" data-fechas>
-                        <label for="desde">Check-in</label>
-                        <input id="desde" name="desde" type="date" value="{{ form_desde }}">
-                    </div>
-                    <div class="field" data-fechas>
-                        <label for="hasta">Check-out</label>
-                        <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}">
-                    </div>
-                    <button class="btn btn-primary btn-go" type="submit">Buscar propiedades</button>
+    <div class="landing-inner">
+        <div class="landing-brand rise">Gonnet Propiedades</div>
+        <h1 class="rise rise-2">Viví Mar del Plata.</h1>
+        <p class="lead rise rise-3">Temporada, invierno, 24 meses y ventas — con la trayectoria que respalda cada operación.</p>
+
+        <form class="search-card rise rise-4" method="get" action="{% url 'inmobiliaria:portal_buscar' %}">
+            <div class="row">
+                <div class="field">
+                    <label for="operacion">Operación</label>
+                    <select id="operacion" name="operacion">
+                        {% for val, label in operaciones_portal %}
+                        <option value="{{ val }}" {% if form_operacion == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-            </form>
-
-            <div class="quick-row">
-                <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=alquiler_temporario">Temporario</a>
-                <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=venta">Venta</a>
-                <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=24_meses">24 meses</a>
-                <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=invierno">Invierno</a>
+                <div class="field">
+                    <label for="ambientes">Ambientes</label>
+                    <select id="ambientes" name="ambientes">
+                        <option value="">Todos</option>
+                        {% for n in "123456"|make_list %}
+                        <option value="{{ n }}" {% if form_ambientes == n %}selected{% endif %}>{{ n }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field" data-fechas>
+                    <label for="desde">Check-in</label>
+                    <input id="desde" name="desde" type="date" value="{{ form_desde }}">
+                </div>
+                <div class="field" data-fechas>
+                    <label for="hasta">Check-out</label>
+                    <input id="hasta" name="hasta" type="date" value="{{ form_hasta }}">
+                </div>
+                <button class="btn btn-primary btn-go" type="submit">Buscar</button>
             </div>
-        </div>
+        </form>
 
-        <div class="home-visual rise rise-2" aria-hidden="true">
-            <img src="{% url 'inmobiliaria:portal_hero' %}" alt="">
-            <div class="caption">Mar del Plata</div>
+        <div class="quick-row rise rise-4">
+            <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=alquiler_temporario">Temporario</a>
+            <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=venta">Venta</a>
+            <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=24_meses">24 meses</a>
+            <a href="{% url 'inmobiliaria:portal_buscar' %}?operacion=invierno">Invierno</a>
         </div>
     </div>
 </section>
@@ -403,6 +441,15 @@
   }
   if (op) op.addEventListener('change', sync);
   sync();
+
+  var header = document.querySelector('.page-home .site-header');
+  if (header) {
+    var onScroll = function () {
+      header.classList.toggle('is-solid', window.scrollY > 48);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
 })();
 </script>
 {% endblock %}
