@@ -538,6 +538,11 @@ urlpatterns = [
         views.procesar_pago_cuota_operacion,
         name='procesar_pago_cuota_operacion',
     ),
+    path(
+        'contratos/gastos-pendientes-inquilino/descartar/',
+        views.descartar_gasto_pendiente_inquilino,
+        name='descartar_gasto_pendiente_inquilino',
+    ),
     path('contratos/<int:contrato_id>/cancelar/', views.cancelar_contrato, name='cancelar_contrato'),
     path('contratos/<int:contrato_id>/recibo/', views.recibo_contrato_24, name='recibo_contrato_24'),
     path('contratos/<int:contrato_id>/comodato-invierno/', views.ver_comodato_invierno, name='ver_comodato_invierno'),

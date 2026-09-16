@@ -550,9 +550,11 @@ class ObservacionCobroInquilino(models.Model):
 
     ESTADO_PENDIENTE = 'pendiente'
     ESTADO_COBRADO = 'cobrado'
+    ESTADO_DESCARTADO = 'descartado'
     ESTADO_CHOICES = (
         (ESTADO_PENDIENTE, 'Pendiente'),
         (ESTADO_COBRADO, 'Cobrado'),
+        (ESTADO_DESCARTADO, 'Descartado (no cobrar)'),
     )
     MONEDA_CHOICES = (
         ('ARS', 'Pesos (ARS)'),

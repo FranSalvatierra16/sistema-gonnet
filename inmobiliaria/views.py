@@ -23854,6 +23854,7 @@ def crear_pago_cuota_operacion(request, cuota_id):
         'cuota_saldo_cobro': float(cuota.saldo_para_cobro()),
         'cuota_credito_aplicado': float(cuota.credito_aplicado or 0),
         'procesar_pago_cuota_url': reverse('inmobiliaria:procesar_pago_cuota_operacion', args=[cuota.id]),
+        'descartar_gasto_inquilino_url': reverse('inmobiliaria:descartar_gasto_pendiente_inquilino'),
         'cuotas_pendientes': cuotas_pendientes_cfg,
         'cuotas_selector': cuotas_selector_cfg,
         'moneda_cuotas': getattr(contrato, 'moneda', 'ARS') or 'ARS',
@@ -30509,6 +30510,7 @@ def _egresos_caja_pendientes_para_liquidacion(propiedad, sucursal):
 
 
 MARKER_COBRADO_INQUILINO = 'cobrado_inquilino_movimiento:'
+MARKER_DESCARTADO_COBRO_INQUILINO = 'descartado_cobro_inquilino'
 
 
 def _monto_cargo_inquilino_egreso_caja(egreso) -> Decimal:
@@ -30554,6 +30556,8 @@ def _egresos_caja_pendientes_inquilino(propiedad, sucursal):
             )
             .exclude(concepto_detalle__icontains=MARKER_COBRADO_INQUILINO)
             .exclude(concepto__icontains=MARKER_COBRADO_INQUILINO)
+            .exclude(concepto_detalle__icontains=MARKER_DESCARTADO_COBRO_INQUILINO)
+            .exclude(concepto__icontains=MARKER_DESCARTADO_COBRO_INQUILINO)
             .exclude(concepto__icontains='Liquidación Propietario')
             .order_by('-fecha', '-id')
         )
@@ -30661,6 +30665,89 @@ def _marcar_egresos_inquilino_cobrados(egreso_ids, movimiento_ingreso, sucursal)
         egreso.save(update_fields=['concepto_detalle'])
         actualizados += 1
     return actualizados
+
+
+def _descartar_egreso_pendiente_inquilino(egreso_id, sucursal, usuario=None):
+    """
+    Marca un egreso de caja para que no vuelva a proponerse como cobro al inquilino.
+    No elimina el movimiento de caja.
+    """
+    try:
+        eid = int(egreso_id)
+    except (TypeError, ValueError):
+        return False
+    egreso = (
+        MovimientoCaja.objects.filter(
+            id=eid,
+            sucursal=sucursal,
+            tipo=TipoMovimientoCajaEnum.EGRESO,
+            fecha_eliminacion__isnull=True,
+        )
+        .filter(Q(a_descontar='inquilino') | Q(monto_a_inquilino__gt=0))
+        .first()
+    )
+    if not egreso:
+        return False
+    detalle = (egreso.concepto_detalle or '').strip()
+    concepto = (egreso.concepto or '').strip()
+    if (
+        MARKER_DESCARTADO_COBRO_INQUILINO in detalle
+        or MARKER_DESCARTADO_COBRO_INQUILINO in concepto
+        or MARKER_COBRADO_INQUILINO in detalle
+        or MARKER_COBRADO_INQUILINO in concepto
+    ):
+        return True
+    quien = ''
+    if usuario is not None:
+        quien = f' por {getattr(usuario, "username", "") or usuario}'
+    marker = f'{MARKER_DESCARTADO_COBRO_INQUILINO}{quien}'.strip()
+    egreso.concepto_detalle = f'{detalle}\n{marker}'.strip() if detalle else marker
+    egreso.save(update_fields=['concepto_detalle'])
+    return True
+
+
+def _descartar_observacion_pendiente_inquilino(observacion_id, sucursal):
+    from inmobiliaria.models import ObservacionCobroInquilino
+
+    try:
+        oid = int(observacion_id)
+    except (TypeError, ValueError):
+        return False
+    obs = ObservacionCobroInquilino.objects.filter(
+        id=oid,
+        sucursal=sucursal,
+        estado=ObservacionCobroInquilino.ESTADO_PENDIENTE,
+    ).first()
+    if not obs:
+        return False
+    obs.estado = ObservacionCobroInquilino.ESTADO_DESCARTADO
+    obs.save(update_fields=['estado'])
+    return True
+
+
+@login_required
+@require_POST
+def descartar_gasto_pendiente_inquilino(request):
+    """Descarta egreso de caja u observación para que no se cobre nunca al inquilino."""
+    from django.http import JsonResponse
+
+    sucursal = getattr(request.user, 'sucursal', None)
+    if not sucursal:
+        return JsonResponse({'ok': False, 'error': 'Sin sucursal'}, status=403)
+
+    mid = (request.POST.get('movimiento_id') or '').strip()
+    oid = (request.POST.get('observacion_id') or '').strip()
+    ok = False
+    if mid:
+        ok = _descartar_egreso_pendiente_inquilino(mid, sucursal, usuario=request.user)
+    elif oid:
+        ok = _descartar_observacion_pendiente_inquilino(oid, sucursal)
+    else:
+        return JsonResponse({'ok': False, 'error': 'Falta movimiento_id u observacion_id'}, status=400)
+
+    if not ok:
+        return JsonResponse({'ok': False, 'error': 'No se encontró el gasto pendiente'}, status=404)
+    return JsonResponse({'ok': True})
 
 
 def _observaciones_pendientes_inquilino(contrato, cuota=None):
