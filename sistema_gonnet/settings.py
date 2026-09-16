@@ -52,7 +52,7 @@ CSRF_TRUSTED_ORIGINS = _get_env_list(
 )
 
 # Configuración de sesión
-SESSION_COOKIE_AGE = 3600  # 1 hora en segundos
+SESSION_COOKIE_AGE = 7200  # 2 horas en segundos
 # False: no reescribe la sesión en DB en cada request (el timeout usa last_activity con throttle).
 SESSION_SAVE_EVERY_REQUEST = False
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
