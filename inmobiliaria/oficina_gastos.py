@@ -74,6 +74,7 @@ ESTRUCTURA_CIERRE_OFICINA = [
         [
             'Ingreso boletas desc. dep. gtia',
             'Fondo mantenimiento',
+            'Fondos cochera',
         ],
     ),
     (

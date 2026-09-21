@@ -109,6 +109,23 @@
                         <span>SALDO</span>
                         <span>${{ saldo|format_price }}</span>
                     </div>
+                    <div class="d-flex justify-content-between px-2 pt-2 mt-1 border-top">
+                        <span>% sobre ingresos</span>
+                        <span class="fw-semibold">
+                            {% if porcentaje_saldo is not None %}{{ porcentaje_saldo|format_price }} %{% else %}—{% endif %}
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between px-2 pt-1">
+                        <span>
+                            SALDO U$S
+                            {% if cotizacion_cierre %}
+                            <span class="text-muted small fw-normal">(TC ${{ cotizacion_cierre|format_price }})</span>
+                            {% endif %}
+                        </span>
+                        <span class="fw-semibold">
+                            {% if saldo_usd is not None %}U$S {{ saldo_usd|format_price }}{% else %}—{% endif %}
+                        </span>
+                    </div>
                 </div>
 
                 {% if bloque_recaudacion %}

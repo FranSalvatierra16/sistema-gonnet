@@ -38,6 +38,40 @@ MESES_ES = (
     'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
 )
 
+
+def _cotizacion_dolar_ultimo_dia_mes(sucursal, fecha_hasta):
+    """
+    Cotización ARS/USD de la caja del último día del mes.
+    Toma la última caja de ese día con cotización cargada; si no hay,
+    la última del mes con cotización.
+    """
+    from inmobiliaria.models import Caja
+
+    if not sucursal or not fecha_hasta:
+        return None
+    base = (
+        Caja.objects.filter(
+            sucursal=sucursal,
+            cotizacion_dolar__isnull=False,
+            cotizacion_dolar__gt=0,
+        )
+        .order_by('-fecha_apertura', '-numero')
+    )
+    caja = base.filter(fecha_apertura__date=fecha_hasta).first()
+    if caja is None:
+        inicio_mes = date(fecha_hasta.year, fecha_hasta.month, 1)
+        caja = base.filter(
+            fecha_apertura__date__gte=inicio_mes,
+            fecha_apertura__date__lte=fecha_hasta,
+        ).first()
+    if caja is None:
+        return None
+    try:
+        cotiz = Decimal(str(caja.cotizacion_dolar))
+    except Exception:
+        return None
+    return cotiz if cotiz > 0 else None
+
 # Subcategorías de Ingresos (seed PDF) alimentadas desde honorarios/liquidaciones.
 ETIQUETA_COMISION_VENTAS = 'Comisión por ventas'
 ETIQUETA_24 = '24 meses'
@@ -83,13 +117,13 @@ def _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta):
 def _etiqueta_ingreso_desde_fila_honorario(fila):
     """
     Asigna una fila de honorarios a la subcategoría de Ingresos del cierre.
-    Fondo y cochera no van acá: el fondo va a «Recaudación fondos».
+    Fondo y cochera no van acá: van a «Recaudación fondos».
     Tasación / Gastos bancarios / Honorarios Marbella quedan para carga manual.
     """
     tipo = (fila.get('tipo') or '').strip()
     cat = (fila.get('categoria_operacion') or '').strip().lower()
 
-    # Fondo → Recaudación fondos; cochera no es ingreso de comisión de oficina.
+    # Fondo / cochera → Recaudación fondos (no son comisión de oficina).
     if tipo in ('fondo', 'cochera'):
         return None
 
@@ -591,7 +625,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
             getattr(sucursal, 'pk', None),
         )
         comisiones_pagadas = {}
-    honorarios_map, total_fondo_mant, _total_cochera = _honorarios_por_etiqueta(
+    honorarios_map, total_fondo_mant, total_fondos_cochera = _honorarios_por_etiqueta(
         sucursal, fecha_desde, fecha_hasta
     )
 
@@ -650,6 +684,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
                     titulo='RECAUDACIÓN FONDOS',
                     extras_por_nombre={
                         'Fondo mantenimiento': total_fondo_mant,
+                        'Fondos cochera': total_fondos_cochera,
                     },
                     firmar_ingresos=True,
                 )
@@ -734,16 +769,25 @@ def construir_resumen_cierre(sucursal, anio, mes):
     # Fallbacks si aún no se sincronizó el árbol de extensión.
     if bloque_recaudacion is None:
         filas_fondo = []
+        total_rec = Decimal('0')
         if total_fondo_mant:
             filas_fondo.append({
                 'nombre': 'Fondo mantenimiento',
                 'monto': total_fondo_mant,
                 'signo': 1,
             })
+            total_rec += total_fondo_mant
+        if total_fondos_cochera:
+            filas_fondo.append({
+                'nombre': 'Fondos cochera',
+                'monto': total_fondos_cochera,
+                'signo': 1,
+            })
+            total_rec += total_fondos_cochera
         bloque_recaudacion = {
             'titulo': 'RECAUDACIÓN FONDOS',
             'filas': filas_fondo,
-            'total': total_fondo_mant,
+            'total': total_rec.quantize(Decimal('0.01')),
         }
     if bloque_cierre_tomados is None:
         auto = _saldo_cierre_dptos_tomados(sucursal, fecha_desde, fecha_hasta)
@@ -788,6 +832,19 @@ def construir_resumen_cierre(sucursal, anio, mes):
         - bloque_gastos_oscar['total']
     ).quantize(Decimal('0.01'))
 
+    # % del saldo sobre ingresos + equivalente USD con cotización de caja
+    # del último día del mes.
+    porcentaje_saldo = None
+    if total_ingresos and abs(total_ingresos) > Decimal('0.009'):
+        porcentaje_saldo = (
+            (saldo / total_ingresos) * Decimal('100')
+        ).quantize(Decimal('0.01'))
+
+    cotizacion_cierre = _cotizacion_dolar_ultimo_dia_mes(sucursal, fecha_hasta)
+    saldo_usd = None
+    if cotizacion_cierre and cotizacion_cierre > 0:
+        saldo_usd = (saldo / cotizacion_cierre).quantize(Decimal('0.01'))
+
     return {
         'anio': anio,
         'mes': mes,
@@ -799,6 +856,9 @@ def construir_resumen_cierre(sucursal, anio, mes):
         'total_egresos': total_egresos,
         'total_ingresos': total_ingresos,
         'saldo': saldo,
+        'porcentaje_saldo': porcentaje_saldo,
+        'cotizacion_cierre': cotizacion_cierre,
+        'saldo_usd': saldo_usd,
         'bloque_recaudacion': bloque_recaudacion,
         'bloque_cierre_tomados': bloque_cierre_tomados,
         'total_gral_ofic_fondo_tomados': total_gral_ofic_fondo_tomados,
