@@ -222,6 +222,43 @@ def mapa_ingresos_liquidaciones_por_modalidad(propiedad_ids, anio: int, mes: int
     return resultado
 
 
+def totales_alquileres_propios_para_fondo_oscar(sucursal, anio: int, mes: int) -> dict:
+    """
+    Totales día / invierno / 24 para Fondo Oscar.
+    Solo liquidaciones confirmadas de la cartera de oficina (sin armar el
+    reporte mensual completo de cada depto, que es muy costoso).
+    """
+    from inmobiliaria.views_oficina import _qs_propiedades_oficina
+
+    anio = int(anio)
+    mes = int(mes)
+    prop_ids = list(
+        _qs_propiedades_oficina(sucursal).values_list('id', flat=True)
+    )
+    ocultos, _forzados = preferencias_reporte_deptos(sucursal)
+    ocultos_str = {str(x) for x in ocultos}
+    tarifas_por_prop = mapa_ingresos_liquidaciones_por_modalidad(
+        prop_ids, anio, mes, sucursal=sucursal
+    )
+    total_dia = Decimal('0')
+    total_inv = Decimal('0')
+    total_24 = Decimal('0')
+    for pid, tarifas in tarifas_por_prop.items():
+        if str(pid) in ocultos_str:
+            continue
+        if tarifas.get('por_dia'):
+            total_dia += tarifas['por_dia']
+        if tarifas.get('invierno'):
+            total_inv += tarifas['invierno']
+        if tarifas.get('meses_24'):
+            total_24 += tarifas['meses_24']
+    return {
+        'total_tarifa_dia': _q(total_dia),
+        'total_tarifa_invierno': _q(total_inv),
+        'total_tarifa_24': _q(total_24),
+    }
+
+
 def ingresos_realizados_por_modalidad(prop, anio: int, mes: int, bruto_mes=None) -> dict:
     """
     Alquileres propios del mes por modalidad (día / invierno / 24).

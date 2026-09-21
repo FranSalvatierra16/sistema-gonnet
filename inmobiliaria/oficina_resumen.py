@@ -404,22 +404,37 @@ def _saldo_cierre_dptos_tomados(sucursal, fecha_desde, fecha_hasta):
         )
         return Decimal('0')
 
+    if not disps:
+        return Decimal('0')
+
+    prop_ids = {d.propiedad_id for d in disps if d.propiedad_id}
+    liqs_por_prop = defaultdict(list)
+    if prop_ids:
+        for liq in (
+            LiquidacionPropietario.objects.filter(
+                propiedad_id__in=prop_ids,
+                sucursal=sucursal,
+            )
+            .exclude(estado='cancelada')
+            .only(
+                'propiedad_id',
+                'monto_propietario',
+                'fecha_desde',
+                'fecha_hasta',
+                'fecha_creacion',
+                'estado',
+            )
+        ):
+            liqs_por_prop[liq.propiedad_id].append(liq)
+
     tot_saldo = Decimal('0')
     for disp in disps:
         if (disp.moneda_asegurado or 'ARS').upper() != 'ARS':
             continue
         pagado = Decimal(str(disp.monto_asegurado or 0))
         cobrado = Decimal('0')
-        liqs = (
-            LiquidacionPropietario.objects.filter(
-                propiedad=disp.propiedad,
-                sucursal=sucursal,
-            )
-            .exclude(estado='cancelada')
-            .only('monto_propietario', 'fecha_desde', 'fecha_hasta', 'fecha_creacion', 'estado')
-        )
         d1, d2 = disp.fecha_inicio, disp.fecha_fin
-        for liq in liqs:
+        for liq in liqs_por_prop.get(disp.propiedad_id, ()):
             if not _liquidacion_solapa_rango(liq, d1, d2):
                 continue
             cobrado += liq.monto_propietario or Decimal('0')
@@ -630,17 +645,18 @@ def construir_resumen_cierre(sucursal, anio, mes):
     )
 
     # Alquileres propios liquidados (día / invierno / 24) → Fondo Oscar.
+    # Consulta liviana: no armar el reporte completo de cada depto.
     extras_fondo_oscar = {}
     try:
         from inmobiliaria.oficina_reporte_deptos import (
-            construir_reporte_mensual_deptos_oficina,
+            totales_alquileres_propios_para_fondo_oscar,
         )
 
-        reporte_deptos = construir_reporte_mensual_deptos_oficina(sucursal, anio, mes)
+        tarifas = totales_alquileres_propios_para_fondo_oscar(sucursal, anio, mes)
         extras_fondo_oscar = {
-            'Alquileres propios por día': reporte_deptos.get('total_tarifa_dia') or Decimal('0'),
-            'Alquileres propios temp. inv': reporte_deptos.get('total_tarifa_invierno') or Decimal('0'),
-            'Alquileres propios 24 meses': reporte_deptos.get('total_tarifa_24') or Decimal('0'),
+            'Alquileres propios por día': tarifas.get('total_tarifa_dia') or Decimal('0'),
+            'Alquileres propios temp. inv': tarifas.get('total_tarifa_invierno') or Decimal('0'),
+            'Alquileres propios 24 meses': tarifas.get('total_tarifa_24') or Decimal('0'),
         }
     except Exception:
         logger.exception(
