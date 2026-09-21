@@ -1965,6 +1965,8 @@ def oficina_propiedad_libro(request, propiedad_id):
     if dr_desde and dr_hasta and dr_hasta < dr_desde:
         dr_desde, dr_hasta = dr_hasta, dr_desde
         fecha_desde_s, fecha_hasta_s = dr_desde.isoformat(), dr_hasta.isoformat()
+    # Fecha “Desde” pedida por el usuario (antes del piso por inicio de caja).
+    filtro_desde_usuario = dr_desde
 
     inicio = _obtener_inicio_caja_libro(propiedad)
     costos = _obtener_costos_compra_libro(propiedad)
@@ -2152,7 +2154,18 @@ def oficina_propiedad_libro(request, propiedad_id):
     filas_import.sort(key=_orden_import)
     filas_resto.sort(key=_orden_fila)
 
-    filas = [_fila_inicio_caja_libro(inicio)]
+    # Si el usuario filtró desde una fecha posterior al inicio de caja,
+    # no mostrar esa fila ni sumarla en los totales: solo el rango pedido.
+    inicio_fecha = getattr(inicio, 'fecha', None)
+    mostrar_inicio_caja = not (
+        filtro_desde_usuario
+        and inicio_fecha
+        and filtro_desde_usuario > inicio_fecha
+    )
+
+    filas = []
+    if mostrar_inicio_caja:
+        filas.append(_fila_inicio_caja_libro(inicio))
     filas.extend(filas_import)
 
     if filas_import:
