@@ -10,7 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -486,6 +486,17 @@ def _filas_liquidaciones_confirmadas_libro(
             if cotiz <= 0:
                 cotiz = None
 
+        reserva_id = getattr(liq, 'reserva_id', None)
+        contrato_id = getattr(liq, 'contrato_id', None)
+        url_operacion = None
+        try:
+            if reserva_id:
+                url_operacion = reverse('inmobiliaria:caratula_reserva', args=[reserva_id])
+            elif contrato_id:
+                url_operacion = reverse('inmobiliaria:caratula_contrato', args=[contrato_id])
+        except NoReverseMatch:
+            url_operacion = None
+
         fila = {
             'fecha': f_dt,
             'descripcion': _descripcion_liquidacion_oficina_libro(liq),
@@ -502,7 +513,9 @@ def _filas_liquidaciones_confirmadas_libro(
             'fila_manual_id': None,
             'es_liquidacion_oficina': True,
             'liquidacion_id': liq.id,
-            'reserva_id': getattr(liq, 'reserva_id', None),
+            'reserva_id': reserva_id,
+            'contrato_id': contrato_id,
+            'url_operacion': url_operacion,
             'observaciones': (getattr(liq, 'observaciones', None) or '').strip(),
             'clasificacion_libro': (getattr(liq, 'clasificacion_libro', None) or '').strip(),
         }

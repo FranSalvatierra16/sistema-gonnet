@@ -384,6 +384,15 @@
                         <td class="desc-libro" title="{{ f.descripcion|default:'' }}">
                             {% if f.es_inicio_caja or f.es_subtotal_hasta_fecha %}<strong>{{ f.descripcion }}</strong>
                             {% else %}{{ f.descripcion }}{% endif %}
+                            {% if f.url_operacion %}
+                            <a href="{{ f.url_operacion }}"
+                               target="_blank"
+                               rel="noopener"
+                               class="btn btn-sm btn-outline-primary ms-1 no-print"
+                               title="Ver operación">
+                                <i class="fas fa-external-link-alt me-1"></i>Ver op.
+                            </a>
+                            {% endif %}
                             {% if f.liquidacion_id %}
                             <button type="button"
                                     class="btn btn-sm btn-outline-secondary ms-1 no-print btn-ver-liquidacion-libro"
@@ -391,7 +400,7 @@
                                     title="Ver liquidación">
                                 <i class="fas fa-file-invoice-dollar me-1"></i>Ver liq.
                             </button>
-                            {% elif f.sin_caja %}
+                            {% elif f.sin_caja and not f.url_operacion %}
                             <span class="badge bg-light text-muted border ms-1 no-print" title="Tomado de la operación/contrato">op.</span>
                             {% endif %}
                             {% if exige_facturado_negro and f.clasificacion_libro == 'facturado' %}
