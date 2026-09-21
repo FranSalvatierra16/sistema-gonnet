@@ -95,11 +95,11 @@
                 <td class="col-importe text-end"><strong>{{ total_haber|format_importe_moneda:moneda_liquidacion }}</strong></td>
             </tr>
             <tr class="liq-cobranzas-saldo">
-                <td colspan="3" class="text-end">
+                <td colspan="3" class="text-center">
                     {% if saldo_favor < 0 %}
-                    <strong>Saldo en SU contra: {{ saldo_favor|format_importe_moneda:moneda_liquidacion }}</strong>
+                    <span class="liq-cobranzas-saldo-texto">Saldo en SU contra: {{ saldo_favor|format_importe_moneda:moneda_liquidacion }}</span>
                     {% else %}
-                    <strong>Saldo a SU favor: {{ saldo_favor|format_importe_moneda:moneda_liquidacion }}</strong>
+                    <span class="liq-cobranzas-saldo-texto">Saldo a SU favor: {{ saldo_favor|format_importe_moneda:moneda_liquidacion }}</span>
                     {% endif %}
                 </td>
             </tr>
