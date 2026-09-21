@@ -186,7 +186,8 @@ def mapa_ingresos_liquidaciones_por_modalidad(propiedad_ids, anio: int, mes: int
     {propiedad_id: {por_dia, invierno, meses_24}} solo con liquidaciones
     confirmadas del mes. Keys con monto 0 quedan en None.
     """
-    ids = [int(x) for x in propiedad_ids if x]
+    # Propiedad.id es CharField: no castear a int.
+    ids = [str(x) for x in propiedad_ids if x is not None and str(x).strip() != '']
     resultado = {pid: _vacios_modalidad() for pid in ids}
     if not ids:
         return resultado
@@ -213,7 +214,7 @@ def mapa_ingresos_liquidaciones_por_modalidad(propiedad_ids, anio: int, mes: int
         f_date = _fecha_periodo_liquidacion(liq)
         if f_date is None or f_date < inicio or f_date > fin:
             continue
-        pid = liq.propiedad_id
+        pid = str(liq.propiedad_id)
         if pid not in resultado:
             continue
         _acumular_liquidacion_en_tarifas(resultado[pid], liq)
@@ -230,12 +231,13 @@ def ingresos_realizados_por_modalidad(prop, anio: int, mes: int, bruto_mes=None)
     de ficha (evita inflar «por día» con otros ingresos de caja).
     """
     prop_id = getattr(prop, 'id', None) or prop
-    if not prop_id:
+    if prop_id is None or str(prop_id).strip() == '':
         return _vacios_modalidad()
+    prop_id = str(prop_id)
     sucursal = getattr(prop, 'sucursal', None)
     return mapa_ingresos_liquidaciones_por_modalidad(
         [prop_id], anio, mes, sucursal=sucursal
-    ).get(int(prop_id), _vacios_modalidad())
+    ).get(prop_id, _vacios_modalidad())
 
 
 def preferencias_reporte_deptos(sucursal):
