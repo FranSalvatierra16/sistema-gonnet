@@ -28600,11 +28600,22 @@ def lista_liquidaciones(request):
             propiedades_opciones.append({'id': p.id, 'label': ' — '.join(partes)})
 
     propiedad_filtro = None
+    propiedad_label = ''
     if propiedad_id:
         propiedad_filtro = Propiedad.objects.filter(
             pk=propiedad_id,
             sucursal=request.user.sucursal,
-        ).first()
+        ).select_related('propietario').first()
+        if propiedad_filtro:
+            partes = [f'#{propiedad_filtro.id}']
+            dir_txt = (propiedad_filtro.direccion or '').strip()
+            if dir_txt:
+                partes.append(dir_txt)
+            piso = (propiedad_filtro.piso or '').strip()
+            depto = (propiedad_filtro.departamento or '').strip()
+            if piso or depto:
+                partes.append(' '.join(x for x in (piso, depto) if x))
+            propiedad_label = ' — '.join(partes)
 
     context = {
         'liquidaciones': page_obj,
@@ -28614,6 +28625,7 @@ def lista_liquidaciones(request):
         'propietario_filtro': propietario_filtro,
         'propiedad_id': propiedad_id,
         'propiedad_filtro': propiedad_filtro,
+        'propiedad_label': propiedad_label,
         'propiedades_opciones': propiedades_opciones,
         'busqueda': busqueda,
         'tipo_filtro': tipo_filtro,
@@ -28660,6 +28672,57 @@ def _url_volver_lista_liquidaciones(request):
     if _es_lista(ses):
         return ses
     return lista
+
+
+@login_required
+def liquidaciones_buscar_propiedades(request):
+    """Autocomplete de propiedades para el filtro de la lista de liquidaciones."""
+    termino = (request.GET.get('q') or request.GET.get('term') or '').strip()
+    sucursal = request.user.sucursal
+    if not sucursal or not termino:
+        return JsonResponse({'success': True, 'propiedades': []})
+    try:
+        from inmobiliaria.busqueda_propiedad import (
+            limite_busqueda_propiedad,
+            ordenar_propiedades,
+            q_busqueda_propiedad,
+        )
+
+        limite = limite_busqueda_propiedad(termino)
+        props = ordenar_propiedades(
+            Propiedad.objects.filter(sucursal=sucursal)
+            .filter(q_busqueda_propiedad(termino))
+            .select_related('propietario')[:limite],
+            termino=termino,
+        )
+        out = []
+        for p in props:
+            partes = [f'#{p.id}']
+            if p.numero_por_propietario:
+                partes.append(f'ficha {p.numero_por_propietario}')
+            dir_txt = (p.direccion or '').strip()
+            if dir_txt:
+                partes.append(dir_txt)
+            piso = (p.piso or '').strip()
+            depto = (p.departamento or '').strip()
+            if piso or depto:
+                partes.append(' '.join(x for x in (piso, depto) if x))
+            pr = p.propietario
+            prop_txt = ''
+            prop_id = None
+            if pr:
+                prop_id = pr.id
+                prop_txt = f'{(pr.apellido or "").strip()}, {(pr.nombre or "").strip()}'.strip(', ')
+            out.append({
+                'id': p.id,
+                'label': ' — '.join(partes),
+                'propietario_id': prop_id,
+                'propietario': prop_txt,
+            })
+        return JsonResponse({'success': True, 'propiedades': out})
+    except Exception as e:
+        logger.exception('liquidaciones_buscar_propiedades')
+        return JsonResponse({'success': False, 'error': str(e), 'propiedades': []})
 
 
 @login_required

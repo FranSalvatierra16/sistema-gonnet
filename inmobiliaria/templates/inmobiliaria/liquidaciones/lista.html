@@ -80,22 +80,21 @@
                             <input type="hidden" name="propietario_q" id="propietario_q_lista" value="{{ propietario_q }}">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label" for="propiedad_id_lista">Propiedad</label>
-                            <select name="propiedad" id="propiedad_id_lista" class="form-select"
-                                    {% if not propietario_id and not propiedades_opciones %}disabled{% endif %}>
-                                <option value="">
-                                    {% if propietario_id or propiedades_opciones %}Todas del propietario{% else %}Elegí un propietario…{% endif %}
-                                </option>
-                                {% for p in propiedades_opciones %}
-                                <option value="{{ p.id }}" {% if propiedad_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.label }}</option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text small">Al buscar por nombre aparecen acá sus deptos.</div>
+                            <label class="form-label" for="propiedad_buscar_lista">Propiedad</label>
+                            <div class="position-relative">
+                                <input type="hidden" name="propiedad" id="propiedad_id_lista" value="{{ propiedad_id }}">
+                                <input type="text" id="propiedad_buscar_lista" class="form-control" autocomplete="off"
+                                       placeholder="Falucho 1364, ficha, dueño…"
+                                       value="{{ propiedad_label|default:'' }}">
+                                <div id="propiedad_resultados_lista" class="list-group position-absolute w-100 shadow-sm d-none"
+                                     style="z-index: 45; max-height: 280px; overflow-y: auto;"></div>
+                            </div>
+                            <div class="form-text small">Mientras escribís aparecen los deptos para elegir.</div>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">Buscar</label>
                             <input type="text" name="busqueda" class="form-control"
-                                   placeholder="Dirección, ID liquidación…" value="{{ busqueda }}">
+                                   placeholder="ID liquidación…" value="{{ busqueda }}">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">&nbsp;</label>
@@ -293,55 +292,125 @@
     var inp = document.getElementById('propietario_buscar_lista');
     var dd = document.getElementById('propietario_resultados_lista');
     var qHid = document.getElementById('propietario_q_lista');
-    var selProp = document.getElementById('propiedad_id_lista');
+    var propHid = document.getElementById('propiedad_id_lista');
+    var propInp = document.getElementById('propiedad_buscar_lista');
+    var propDd = document.getElementById('propiedad_resultados_lista');
     var formFiltro = document.getElementById('form-filtros-liquidaciones');
+    var urlBuscarProp = '{% url "inmobiliaria:liquidaciones_buscar_propiedades" %}';
     var urlPropsBase = '{% url "inmobiliaria:liquidaciones_propiedades_propietario" 0 %}'.replace(/\/0\/?$/, '/');
 
-    function resetSelectPropiedad(placeholder) {
-        if (!selProp) return;
-        selProp.innerHTML = '';
-        var opt0 = document.createElement('option');
-        opt0.value = '';
-        opt0.textContent = placeholder || 'Elegí un propietario…';
-        selProp.appendChild(opt0);
-        selProp.disabled = true;
+    function esc(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/"/g, '&quot;');
     }
 
-    function cargarPropiedades(propietarioId, selectedId) {
-        if (!selProp || !propietarioId) {
-            resetSelectPropiedad('Elegí un propietario…');
+    function ocultarPropDd() {
+        if (!propDd) return;
+        propDd.classList.add('d-none');
+        propDd.innerHTML = '';
+    }
+
+    function elegirPropiedad(p) {
+        if (!p || p.id == null) return;
+        if (propHid) propHid.value = String(p.id);
+        if (propInp) propInp.value = p.label || ('#' + p.id);
+        if (p.propietario_id && hid) {
+            hid.value = String(p.propietario_id);
+            if (inp) inp.value = p.propietario || inp.value;
+            if (qHid) qHid.value = '';
+        }
+        ocultarPropDd();
+    }
+
+    function renderPropiedades(lista) {
+        if (!propDd) return;
+        if (!lista || !lista.length) {
+            propDd.innerHTML = '<div class="list-group-item text-muted">Sin propiedades</div>';
+            propDd.classList.remove('d-none');
             return;
         }
-        selProp.disabled = true;
-        selProp.innerHTML = '<option value="">Cargando…</option>';
+        propDd.innerHTML = lista.map(function (p) {
+            return (
+                '<button type="button" class="list-group-item list-group-item-action py-2 prop-item-liq" data-id="' +
+                esc(p.id) + '">' +
+                '<strong>' + esc(p.label || ('#' + p.id)) + '</strong>' +
+                (p.propietario ? '<br><span class="text-muted small">' + esc(p.propietario) + '</span>' : '') +
+                '</button>'
+            );
+        }).join('');
+        propDd.classList.remove('d-none');
+        propDd.querySelectorAll('.prop-item-liq').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var id = btn.getAttribute('data-id');
+                var found = lista.find(function (x) { return String(x.id) === String(id); });
+                elegirPropiedad(found || { id: id, label: btn.textContent.trim() });
+            });
+        });
+    }
+
+    var timerProp = null;
+    var abortProp = null;
+    function buscarPropiedadesTexto(q) {
+        var term = String(q || '').trim();
+        if (term.length < 2 && !/^\d+$/.test(term)) {
+            ocultarPropDd();
+            return;
+        }
+        if (abortProp) abortProp.abort();
+        abortProp = new AbortController();
+        fetch(urlBuscarProp + '?q=' + encodeURIComponent(term), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: abortProp.signal,
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                renderPropiedades((data && data.propiedades) || []);
+            })
+            .catch(function (err) {
+                if (err && err.name === 'AbortError') return;
+                propDd.innerHTML = '<div class="list-group-item text-danger">Error al buscar</div>';
+                propDd.classList.remove('d-none');
+            });
+    }
+
+    if (propInp && propDd) {
+        propInp.addEventListener('input', function () {
+            if (propHid) propHid.value = '';
+            clearTimeout(timerProp);
+            timerProp = setTimeout(function () {
+                buscarPropiedadesTexto(propInp.value);
+            }, 220);
+        });
+        propInp.addEventListener('focus', function () {
+            var t = (propInp.value || '').trim();
+            if (t.length >= 2 || /^\d+$/.test(t)) buscarPropiedadesTexto(t);
+        });
+        document.addEventListener('click', function (e) {
+            if (!propDd.contains(e.target) && e.target !== propInp) ocultarPropDd();
+        });
+    }
+
+    function mostrarListaDelPropietario(propietarioId) {
+        if (!propietarioId || !propDd) return;
         fetch(urlPropsBase + encodeURIComponent(propietarioId) + '/', {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
         })
             .then(function (r) { return r.json(); })
             .then(function (data) {
-                selProp.innerHTML = '';
-                var opt0 = document.createElement('option');
-                opt0.value = '';
-                opt0.textContent = 'Todas del propietario';
-                selProp.appendChild(opt0);
-                var lista = (data && data.propiedades) || [];
-                lista.forEach(function (p) {
-                    var opt = document.createElement('option');
-                    opt.value = String(p.id);
-                    opt.textContent = p.label || ('#' + p.id);
-                    if (selectedId && String(selectedId) === String(p.id)) {
-                        opt.selected = true;
-                    }
-                    selProp.appendChild(opt);
+                var lista = ((data && data.propiedades) || []).map(function (p) {
+                    return {
+                        id: p.id,
+                        label: p.label,
+                        propietario_id: propietarioId,
+                        propietario: (inp && inp.value) || '',
+                    };
                 });
-                selProp.disabled = false;
-                if (!lista.length) {
-                    opt0.textContent = 'Sin propiedades en esta sucursal';
-                }
+                renderPropiedades(lista);
+                if (propInp) propInp.focus();
             })
-            .catch(function () {
-                resetSelectPropiedad('Error al cargar propiedades');
-            });
+            .catch(function () {});
     }
 
     if (window.initBuscadorPropietario && inp && dd) {
@@ -352,11 +421,12 @@
             url: '{% url "inmobiliaria:buscar_propietarios" %}',
             onSelect: function (r) {
                 if (qHid) qHid.value = '';
-                cargarPropiedades(r && r.id, null);
+                if (propHid) propHid.value = '';
+                if (propInp) propInp.value = '';
+                mostrarListaDelPropietario(r && r.id);
             },
             onClear: function () {
                 if (qHid) qHid.value = (inp.value || '').trim();
-                resetSelectPropiedad('Elegí un propietario…');
             },
         });
     }
@@ -368,10 +438,6 @@
                 qHid.value = (inp.value || '').trim();
             }
         });
-    }
-    // Si ya hay propietario en el filtro, asegurar el select habilitado.
-    if (hid && hid.value && selProp) {
-        selProp.disabled = false;
     }
 })();
 (function () {

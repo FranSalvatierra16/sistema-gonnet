@@ -605,6 +605,11 @@ urlpatterns = [
         views.liquidaciones_propiedades_propietario,
         name='liquidaciones_propiedades_propietario',
     ),
+    path(
+        'liquidaciones/buscar-propiedades/',
+        views.liquidaciones_buscar_propiedades,
+        name='liquidaciones_buscar_propiedades',
+    ),
     path('liquidaciones/pagar-lote/', views.pagar_lote_liquidaciones, name='pagar_lote_liquidaciones'),
     path('liquidaciones/crear/', views.crear_liquidacion, name='crear_liquidacion'),
     path('liquidaciones/crear/<int:reserva_id>/', views.crear_liquidacion, name='crear_liquidacion_reserva'),
