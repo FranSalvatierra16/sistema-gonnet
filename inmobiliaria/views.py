@@ -28624,7 +28624,42 @@ def lista_liquidaciones(request):
         'lista_filtros_qs': query_params.urlencode(),
     }
 
+    # Recordar filtros para «Volver a Lista» desde el detalle.
+    try:
+        request.session['liquidaciones_lista_volver'] = request.get_full_path()
+    except Exception:
+        pass
+
     return render(request, 'inmobiliaria/liquidaciones/lista.html', context)
+
+
+def _url_volver_lista_liquidaciones(request):
+    """
+    URL de la lista de liquidaciones con los últimos filtros.
+    Prioriza ?next= (si apunta a la lista); si no, la sesión; si no, lista limpia.
+    """
+    from urllib.parse import urlparse
+
+    lista = reverse('inmobiliaria:lista_liquidaciones')
+    lista_path = lista.rstrip('/')
+
+    def _es_lista(url):
+        if not url:
+            return False
+        path = urlparse(url).path.rstrip('/')
+        return path == lista_path
+
+    next_raw = _sanitize_internal_next_path(request.GET.get('next'))
+    if _es_lista(next_raw):
+        return next_raw
+    try:
+        ses = (request.session.get('liquidaciones_lista_volver') or '').strip()
+    except Exception:
+        ses = ''
+    ses = _sanitize_internal_next_path(ses)
+    if _es_lista(ses):
+        return ses
+    return lista
 
 
 @login_required
@@ -33058,6 +33093,7 @@ def detalle_liquidacion(request, liquidacion_id):
         'liq_editable': liq_editable,
         'caratulas_pendientes_confirmacion': caratulas_pendientes,
         'cuentas_bancarias': cuentas_bancarias,
+        'url_volver_lista': _url_volver_lista_liquidaciones(request),
         **_context_liquidacion_cobranzas(liquidacion, request),
     }
 

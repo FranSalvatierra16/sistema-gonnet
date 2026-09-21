@@ -228,7 +228,7 @@
                                     </td>
                                     <td class="small">{{ liquidacion.fecha_creacion|date:"d/m/Y H:i" }}</td>
                                     <td class="text-end">
-                                        <a href="{% url 'inmobiliaria:detalle_liquidacion' liquidacion.id %}" 
+                                        <a href="{% url 'inmobiliaria:detalle_liquidacion' liquidacion.id %}{% if request.get_full_path %}?next={{ request.get_full_path|urlencode }}{% endif %}"
                                            class="btn btn-sm btn-info" title="Ver detalle">
                                             <i class="fas fa-eye"></i>
                                         </a>
