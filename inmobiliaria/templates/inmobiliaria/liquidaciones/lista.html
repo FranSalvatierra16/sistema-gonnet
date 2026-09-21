@@ -79,10 +79,23 @@
                             </div>
                             <input type="hidden" name="propietario_q" id="propietario_q_lista" value="{{ propietario_q }}">
                         </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="propiedad_id_lista">Propiedad</label>
+                            <select name="propiedad" id="propiedad_id_lista" class="form-select"
+                                    {% if not propietario_id and not propiedades_opciones %}disabled{% endif %}>
+                                <option value="">
+                                    {% if propietario_id or propiedades_opciones %}Todas del propietario{% else %}Elegí un propietario…{% endif %}
+                                </option>
+                                {% for p in propiedades_opciones %}
+                                <option value="{{ p.id }}" {% if propiedad_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.label }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text small">Al buscar por nombre aparecen acá sus deptos.</div>
+                        </div>
                         <div class="col-md-2">
                             <label class="form-label">Buscar</label>
                             <input type="text" name="busqueda" class="form-control"
-                                   placeholder="Dirección, propietario, ID..." value="{{ busqueda }}">
+                                   placeholder="Dirección, ID liquidación…" value="{{ busqueda }}">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label">&nbsp;</label>
@@ -90,7 +103,7 @@
                                 <i class="fas fa-search me-2"></i>Buscar
                             </button>
                         </div>
-                        {% if fecha_desde or fecha_hasta or estado_filtro or tipo_filtro or busqueda or propietario_id or propietario_q %}
+                        {% if fecha_desde or fecha_hasta or estado_filtro or tipo_filtro or busqueda or propietario_id or propietario_q or propiedad_id %}
                         <div class="col-12">
                             <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-outline-secondary btn-sm">
                                 Limpiar filtros
@@ -280,18 +293,70 @@
     var inp = document.getElementById('propietario_buscar_lista');
     var dd = document.getElementById('propietario_resultados_lista');
     var qHid = document.getElementById('propietario_q_lista');
+    var selProp = document.getElementById('propiedad_id_lista');
     var formFiltro = document.getElementById('form-filtros-liquidaciones');
+    var urlPropsBase = '{% url "inmobiliaria:liquidaciones_propiedades_propietario" 0 %}'.replace(/\/0\/?$/, '/');
+
+    function resetSelectPropiedad(placeholder) {
+        if (!selProp) return;
+        selProp.innerHTML = '';
+        var opt0 = document.createElement('option');
+        opt0.value = '';
+        opt0.textContent = placeholder || 'Elegí un propietario…';
+        selProp.appendChild(opt0);
+        selProp.disabled = true;
+    }
+
+    function cargarPropiedades(propietarioId, selectedId) {
+        if (!selProp || !propietarioId) {
+            resetSelectPropiedad('Elegí un propietario…');
+            return;
+        }
+        selProp.disabled = true;
+        selProp.innerHTML = '<option value="">Cargando…</option>';
+        fetch(urlPropsBase + encodeURIComponent(propietarioId) + '/', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                selProp.innerHTML = '';
+                var opt0 = document.createElement('option');
+                opt0.value = '';
+                opt0.textContent = 'Todas del propietario';
+                selProp.appendChild(opt0);
+                var lista = (data && data.propiedades) || [];
+                lista.forEach(function (p) {
+                    var opt = document.createElement('option');
+                    opt.value = String(p.id);
+                    opt.textContent = p.label || ('#' + p.id);
+                    if (selectedId && String(selectedId) === String(p.id)) {
+                        opt.selected = true;
+                    }
+                    selProp.appendChild(opt);
+                });
+                selProp.disabled = false;
+                if (!lista.length) {
+                    opt0.textContent = 'Sin propiedades en esta sucursal';
+                }
+            })
+            .catch(function () {
+                resetSelectPropiedad('Error al cargar propiedades');
+            });
+    }
+
     if (window.initBuscadorPropietario && inp && dd) {
         window.initBuscadorPropietario({
             input: inp,
             dropdown: dd,
             hidden: hid,
             url: '{% url "inmobiliaria:buscar_propietarios" %}',
-            onSelect: function () {
+            onSelect: function (r) {
                 if (qHid) qHid.value = '';
+                cargarPropiedades(r && r.id, null);
             },
             onClear: function () {
                 if (qHid) qHid.value = (inp.value || '').trim();
+                resetSelectPropiedad('Elegí un propietario…');
             },
         });
     }
@@ -303,6 +368,10 @@
                 qHid.value = (inp.value || '').trim();
             }
         });
+    }
+    // Si ya hay propietario en el filtro, asegurar el select habilitado.
+    if (hid && hid.value && selProp) {
+        selProp.disabled = false;
     }
 })();
 (function () {

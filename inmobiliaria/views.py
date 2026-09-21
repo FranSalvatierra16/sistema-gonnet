@@ -28492,6 +28492,7 @@ def lista_liquidaciones(request):
     estado_filtro = request.GET.get('estado', '')
     propietario_id = request.GET.get('propietario', '')
     propietario_q = (request.GET.get('propietario_q') or '').strip()
+    propiedad_id = (request.GET.get('propiedad') or '').strip()
     busqueda = request.GET.get('busqueda', '')
     tipo_filtro = request.GET.get('tipo', '').strip()
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
@@ -28514,6 +28515,9 @@ def lista_liquidaciones(request):
         if propietario_q.isdigit():
             q_prop |= Q(propietario_id=int(propietario_q))
         liquidaciones = liquidaciones.filter(q_prop)
+
+    if propiedad_id:
+        liquidaciones = liquidaciones.filter(propiedad_id=propiedad_id)
 
     if busqueda:
         liquidaciones = liquidaciones.filter(
@@ -28573,12 +28577,44 @@ def lista_liquidaciones(request):
             sucursal=request.user.sucursal,
         ).first()
 
+    propiedades_opciones = []
+    if propietario_filtro:
+        for p in (
+            Propiedad.objects.filter(
+                propietario=propietario_filtro,
+                sucursal=request.user.sucursal,
+            )
+            .order_by('direccion', 'piso', 'departamento', 'id')
+            .only('id', 'direccion', 'piso', 'departamento', 'ubicacion', 'numero_por_propietario')
+        ):
+            partes = [f'#{p.id}']
+            if p.numero_por_propietario:
+                partes.append(f'ficha {p.numero_por_propietario}')
+            dir_txt = (p.direccion or '').strip()
+            if dir_txt:
+                partes.append(dir_txt)
+            piso = (p.piso or '').strip()
+            depto = (p.departamento or '').strip()
+            if piso or depto:
+                partes.append(' '.join(x for x in (piso, depto) if x))
+            propiedades_opciones.append({'id': p.id, 'label': ' — '.join(partes)})
+
+    propiedad_filtro = None
+    if propiedad_id:
+        propiedad_filtro = Propiedad.objects.filter(
+            pk=propiedad_id,
+            sucursal=request.user.sucursal,
+        ).first()
+
     context = {
         'liquidaciones': page_obj,
         'estado_filtro': estado_filtro,
         'propietario_id': propietario_id,
         'propietario_q': propietario_q,
         'propietario_filtro': propietario_filtro,
+        'propiedad_id': propiedad_id,
+        'propiedad_filtro': propiedad_filtro,
+        'propiedades_opciones': propiedades_opciones,
         'busqueda': busqueda,
         'tipo_filtro': tipo_filtro,
         'fecha_desde': fecha_desde_s,
@@ -28589,6 +28625,36 @@ def lista_liquidaciones(request):
     }
 
     return render(request, 'inmobiliaria/liquidaciones/lista.html', context)
+
+
+@login_required
+def liquidaciones_propiedades_propietario(request, propietario_id):
+    """JSON: propiedades del propietario en la sucursal (filtro de liquidaciones)."""
+    sucursal = request.user.sucursal
+    if not sucursal:
+        return JsonResponse({'success': False, 'propiedades': []}, status=403)
+    propietario = Propietario.objects.filter(pk=propietario_id, sucursal=sucursal).first()
+    if not propietario:
+        return JsonResponse({'success': False, 'propiedades': []}, status=404)
+    props = (
+        Propiedad.objects.filter(propietario=propietario, sucursal=sucursal)
+        .order_by('direccion', 'piso', 'departamento', 'id')
+        .only('id', 'direccion', 'piso', 'departamento', 'ubicacion', 'numero_por_propietario')
+    )
+    out = []
+    for p in props:
+        partes = [f'#{p.id}']
+        if p.numero_por_propietario:
+            partes.append(f'ficha {p.numero_por_propietario}')
+        dir_txt = (p.direccion or '').strip()
+        if dir_txt:
+            partes.append(dir_txt)
+        piso = (p.piso or '').strip()
+        depto = (p.departamento or '').strip()
+        if piso or depto:
+            partes.append(' '.join(x for x in (piso, depto) if x))
+        out.append({'id': p.id, 'label': ' — '.join(partes)})
+    return JsonResponse({'success': True, 'propiedades': out})
 
 
 def _resolver_moneda_liquidacion(*, contrato_fk=None, operaciones_incluidas=None, post_moneda=None):

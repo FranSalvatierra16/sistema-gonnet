@@ -600,6 +600,11 @@ urlpatterns = [
         name='honorarios_oficina_imprimir',
     ),
     path('liquidaciones/', views.lista_liquidaciones, name='lista_liquidaciones'),
+    path(
+        'liquidaciones/propietario/<int:propietario_id>/propiedades/',
+        views.liquidaciones_propiedades_propietario,
+        name='liquidaciones_propiedades_propietario',
+    ),
     path('liquidaciones/pagar-lote/', views.pagar_lote_liquidaciones, name='pagar_lote_liquidaciones'),
     path('liquidaciones/crear/', views.crear_liquidacion, name='crear_liquidacion'),
     path('liquidaciones/crear/<int:reserva_id>/', views.crear_liquidacion, name='crear_liquidacion_reserva'),
