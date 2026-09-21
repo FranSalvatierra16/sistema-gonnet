@@ -2316,6 +2316,8 @@ def administracion_propiedades_operaciones(request):
 
         # Movimientos ya descontados en alguna liquidación (aunque el GastoPropietario
         # no entre en el filtro de fechas de esta pantalla).
+        from inmobiliaria.models.liquidacion import q_gastos_del_propietario_actual
+
         q_marcadores_liq = GastoPropietario.objects.filter(
             liquidacion__isnull=False,
             observaciones__icontains='Movimiento de caja #',
