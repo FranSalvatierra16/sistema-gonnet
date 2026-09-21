@@ -595,7 +595,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
         sucursal, fecha_desde, fecha_hasta
     )
 
-    # Tarifas del reporte de deptos propios → Fondo Oscar (día / invierno / 24 meses).
+    # Alquileres propios liquidados (día / invierno / 24) → Fondo Oscar.
     extras_fondo_oscar = {}
     try:
         from inmobiliaria.oficina_reporte_deptos import (
@@ -610,7 +610,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
         }
     except Exception:
         logger.exception(
-            'resumen_cierre: falló tarifas deptos propios (sucursal_id=%s, %s-%02d)',
+            'resumen_cierre: falló alquileres propios liquidados (sucursal_id=%s, %s-%02d)',
             getattr(sucursal, 'pk', None),
             anio,
             mes,

@@ -111,24 +111,131 @@ def _modalidad_ocupacion_mes(prop, anio: int, mes: int) -> str | None:
     return None
 
 
-def ingresos_realizados_por_modalidad(prop, anio: int, mes: int, bruto_mes) -> dict:
-    """
-    Imputa el ingreso bruto del mes a Día / Invierno / 24 meses según
-    la ocupación real (no las tarifas de la ficha).
-    Si no hubo ingreso, las tres quedan vacías.
-    """
-    bruto = _q(bruto_mes)
-    vacio = {'por_dia': None, 'invierno': None, 'meses_24': None}
-    if bruto <= Decimal('0.009'):
-        return vacio
+_ESTADOS_LIQUIDACION_ALQUILERES_PROPIOS = ('oficina', 'pagada', 'cerrada', 'procesada')
 
-    mod = _modalidad_ocupacion_mes(prop, anio, mes)
-    if mod == 'invierno':
-        return {'por_dia': None, 'invierno': bruto, 'meses_24': None}
-    if mod == '24':
-        return {'por_dia': None, 'invierno': None, 'meses_24': bruto}
-    # Por día, o ingreso sin contrato claro → columna Día
-    return {'por_dia': bruto, 'invierno': None, 'meses_24': None}
+
+def _modalidad_desde_liquidacion(liq) -> str | None:
+    """Clasifica una liquidación: día (reserva), invierno o 24 (contrato)."""
+    if getattr(liq, 'reserva_id', None):
+        return 'dia'
+    contrato = getattr(liq, 'contrato', None)
+    if contrato is None:
+        return None
+    try:
+        cat = contrato.categoria_tipo_operacion()
+    except Exception:
+        cat = None
+    dur = int(getattr(contrato, 'duracion_meses', 0) or 0)
+    if cat == 'invierno' or dur == 9:
+        return 'invierno'
+    if cat in ('24', '6') or dur >= 12:
+        return '24'
+    return None
+
+
+def _monto_ars_liquidacion_propietario(liq) -> Decimal:
+    """Monto del depto/propietario en ARS (como en el libro)."""
+    monto = Decimal(str(getattr(liq, 'monto_propietario', None) or 0))
+    if monto <= 0:
+        monto = Decimal(str(getattr(liq, 'monto_a_pagar', None) or 0))
+    if monto <= 0:
+        return Decimal('0')
+    moneda = (getattr(liq, 'moneda', None) or 'ARS').strip().upper()
+    if moneda != 'USD':
+        return _q(monto)
+    cotiz = getattr(liq, 'cotizacion_dolar', None)
+    if cotiz is not None:
+        cotiz = Decimal(str(cotiz))
+        if cotiz > 0:
+            return _q(monto * cotiz)
+    return Decimal('0')
+
+
+def _fecha_periodo_liquidacion(liq):
+    """Fecha de período de la liquidación (misma regla que el libro del depto)."""
+    fecha_raw = (
+        getattr(liq, 'fecha_desde', None)
+        or getattr(liq, 'fecha_procesamiento', None)
+        or getattr(liq, 'fecha_creacion', None)
+    )
+    return _fecha_sola(fecha_raw)
+
+
+def _vacios_modalidad():
+    return {'por_dia': None, 'invierno': None, 'meses_24': None}
+
+
+def _acumular_liquidacion_en_tarifas(tarifas: dict, liq) -> None:
+    f_date = _fecha_periodo_liquidacion(liq)
+    if f_date is None:
+        return
+    monto = _monto_ars_liquidacion_propietario(liq)
+    if monto <= Decimal('0.009'):
+        return
+    mod = _modalidad_desde_liquidacion(liq)
+    if mod == 'dia':
+        tarifas['por_dia'] = _q((tarifas['por_dia'] or Decimal('0')) + monto)
+    elif mod == 'invierno':
+        tarifas['invierno'] = _q((tarifas['invierno'] or Decimal('0')) + monto)
+    elif mod == '24':
+        tarifas['meses_24'] = _q((tarifas['meses_24'] or Decimal('0')) + monto)
+
+
+def mapa_ingresos_liquidaciones_por_modalidad(propiedad_ids, anio: int, mes: int, sucursal=None):
+    """
+    {propiedad_id: {por_dia, invierno, meses_24}} solo con liquidaciones
+    confirmadas del mes. Keys con monto 0 quedan en None.
+    """
+    ids = [int(x) for x in propiedad_ids if x]
+    resultado = {pid: _vacios_modalidad() for pid in ids}
+    if not ids:
+        return resultado
+
+    from inmobiliaria.models import LiquidacionPropietario
+
+    inicio = date(anio, mes, 1)
+    fin = date(anio, mes, calendar.monthrange(anio, mes)[1])
+
+    qs = (
+        LiquidacionPropietario.objects.filter(
+            propiedad_id__in=ids,
+            estado__in=_ESTADOS_LIQUIDACION_ALQUILERES_PROPIOS,
+        )
+        .exclude(reserva__eliminada=True)
+        .exclude(reserva__estado='cancelada')
+        .exclude(contrato__estado='rescindido')
+        .select_related('contrato', 'reserva')
+    )
+    if sucursal is not None:
+        qs = qs.filter(sucursal=sucursal)
+
+    for liq in qs.iterator(chunk_size=500):
+        f_date = _fecha_periodo_liquidacion(liq)
+        if f_date is None or f_date < inicio or f_date > fin:
+            continue
+        pid = liq.propiedad_id
+        if pid not in resultado:
+            continue
+        _acumular_liquidacion_en_tarifas(resultado[pid], liq)
+
+    return resultado
+
+
+def ingresos_realizados_por_modalidad(prop, anio: int, mes: int, bruto_mes=None) -> dict:
+    """
+    Alquileres propios del mes por modalidad (día / invierno / 24).
+
+    Solo cuenta liquidaciones confirmadas (oficina/pagada/cerrada/procesada)
+    del período. Sin liquidación → cero. No usa el bruto del libro ni tarifas
+    de ficha (evita inflar «por día» con otros ingresos de caja).
+    """
+    prop_id = getattr(prop, 'id', None) or prop
+    if not prop_id:
+        return _vacios_modalidad()
+    sucursal = getattr(prop, 'sucursal', None)
+    return mapa_ingresos_liquidaciones_por_modalidad(
+        [prop_id], anio, mes, sucursal=sucursal
+    ).get(int(prop_id), _vacios_modalidad())
 
 
 def preferencias_reporte_deptos(sucursal):
@@ -379,15 +486,28 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         orden='direccion',
     )
 
+    tarifas_por_prop = mapa_ingresos_liquidaciones_por_modalidad(
+        [p.id for p in props], anio, mes, sucursal=sucursal
+    )
+    total_tarifa_dia = Decimal('0')
+    total_tarifa_invierno = Decimal('0')
+    total_tarifa_24 = Decimal('0')
+    for pid, tarifas in tarifas_por_prop.items():
+        if pid in ocultos:
+            continue
+        if tarifas.get('por_dia'):
+            total_tarifa_dia += tarifas['por_dia']
+        if tarifas.get('invierno'):
+            total_tarifa_invierno += tarifas['invierno']
+        if tarifas.get('meses_24'):
+            total_tarifa_24 += tarifas['meses_24']
+
     filas = []
     ocultos_labels = []
     disponibles_para_agregar = []
     total_bruto = Decimal('0')
     total_gastos = Decimal('0')
     total_neto_positivos = Decimal('0')
-    total_tarifa_dia = Decimal('0')
-    total_tarifa_invierno = Decimal('0')
-    total_tarifa_24 = Decimal('0')
     n_positivos = 0
     n_negativos = 0
 
@@ -426,13 +546,7 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         elif calc['negativo']:
             n_negativos += 1
 
-        tarifas = ingresos_realizados_por_modalidad(prop, anio, mes, calc['bruto'])
-        if tarifas['por_dia']:
-            total_tarifa_dia += tarifas['por_dia']
-        if tarifas['invierno']:
-            total_tarifa_invierno += tarifas['invierno']
-        if tarifas['meses_24']:
-            total_tarifa_24 += tarifas['meses_24']
+        tarifas = tarifas_por_prop.get(prop.id) or _vacios_modalidad()
         filas.append({
             'nro': len(filas) + 1,
             'propiedad': prop,
