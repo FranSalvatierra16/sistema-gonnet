@@ -25,13 +25,13 @@
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item">
             <a class="nav-link {% if vista == 'recibidos' %}active{% endif %}"
-               href="{% url 'inmobiliaria:lista_vales_vendedor' vendedor.id %}?vista=recibidos{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+               href="{% url 'inmobiliaria:lista_vales_vendedor' vendedor.id %}?vista=recibidos{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}{% if termino %}&q={{ termino|urlencode }}{% endif %}">
                 Recibidos (descuentan comisiones)
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link {% if vista == 'otorgados' %}active{% endif %}"
-               href="{% url 'inmobiliaria:lista_vales_vendedor' vendedor.id %}?vista=otorgados{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+               href="{% url 'inmobiliaria:lista_vales_vendedor' vendedor.id %}?vista=otorgados{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}{% if termino %}&q={{ termino|urlencode }}{% endif %}">
                 Otorgados a otros
             </a>
         </li>
@@ -48,11 +48,18 @@
         <div class="card-body">
             <form method="get" class="row g-2 align-items-end">
                 <input type="hidden" name="vista" value="{{ vista }}">
-                <div class="col-md-3">
+                <div class="col-md-4">
+                    <label for="q" class="form-label">Buscar</label>
+                    <input type="text" id="q" name="q" class="form-control"
+                           value="{{ termino|default:'' }}"
+                           placeholder="Concepto, beneficiario, DNI…"
+                           autocomplete="off">
+                </div>
+                <div class="col-md-2">
                     <label for="fecha_desde" class="form-label">Desde</label>
                     <input type="date" id="fecha_desde" name="fecha_desde" class="form-control" value="{{ fecha_desde|default:'' }}">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label for="fecha_hasta" class="form-label">Hasta</label>
                     <input type="date" id="fecha_hasta" name="fecha_hasta" class="form-control" value="{{ fecha_hasta|default:'' }}">
                 </div>
@@ -68,7 +75,13 @@
                 {% endif %}
             </form>
             {% if hay_filtro_fecha %}
-            <p class="text-muted small mb-0 mt-2">Mostrando vales del rango seleccionado. Los totales corresponden solo a ese período.</p>
+            <p class="text-muted small mb-0 mt-2">
+                {% if termino %}
+                Mostrando vales que coinciden con «{{ termino }}»{% if fecha_desde or fecha_hasta %} en el rango seleccionado{% endif %}. Los totales corresponden a ese filtro.
+                {% else %}
+                Mostrando vales del rango seleccionado. Los totales corresponden solo a ese período.
+                {% endif %}
+            </p>
             {% endif %}
         </div>
     </div>
@@ -168,9 +181,9 @@
     {% else %}
     <div class="alert alert-info">
         {% if vista == 'otorgados' %}
-        No hay vales otorgados por este productor{% if hay_filtro_fecha %} en el período{% endif %}.
+        No hay vales otorgados por este productor{% if hay_filtro_fecha %} con los filtros aplicados{% endif %}.
         {% else %}
-        No hay vales recibidos por este productor{% if hay_filtro_fecha %} en el período{% endif %}.
+        No hay vales recibidos por este productor{% if hay_filtro_fecha %} con los filtros aplicados{% endif %}.
         {% endif %}
     </div>
     {% endif %}

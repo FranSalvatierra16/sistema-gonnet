@@ -1715,6 +1715,7 @@ def lista_vales_vendedor(request, vendedor_id):
 
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
     fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
+    termino = (request.GET.get('q') or '').strip()
     fecha_desde = _parse_fecha(fecha_desde_s)
     fecha_hasta = _parse_fecha(fecha_hasta_s)
     if fecha_desde and fecha_hasta and fecha_hasta < fecha_desde:
@@ -1744,6 +1745,17 @@ def lista_vales_vendedor(request, vendedor_id):
         vales = vales.filter(fecha__date__gte=fecha_desde)
     if fecha_hasta:
         vales = vales.filter(fecha__date__lte=fecha_hasta)
+    if termino:
+        vales = vales.filter(
+            models.Q(concepto__icontains=termino)
+            | models.Q(observaciones__icontains=termino)
+            | models.Q(beneficiario_nombre__icontains=termino)
+            | models.Q(beneficiario_apellido__icontains=termino)
+            | models.Q(beneficiario_dni__icontains=termino)
+            | models.Q(vendedor__nombre__icontains=termino)
+            | models.Q(vendedor__apellido__icontains=termino)
+            | models.Q(movimiento_caja__concepto__icontains=termino)
+        )
 
     total_vales_egreso = (
         vales.filter(tipo_vale='EG').aggregate(total=models.Sum('monto'))['total'] or Decimal('0')
@@ -1752,6 +1764,7 @@ def lista_vales_vendedor(request, vendedor_id):
         vales.filter(tipo_vale='IN').aggregate(total=models.Sum('monto'))['total'] or Decimal('0')
     )
     total_vales_saldo = total_vales_egreso - total_vales_ingreso
+    hay_filtro = bool(fecha_desde or fecha_hasta or termino)
 
     context = {
         'vendedor': vendedor,
@@ -1762,7 +1775,8 @@ def lista_vales_vendedor(request, vendedor_id):
         'total_vales_ingreso': total_vales_ingreso,
         'fecha_desde': fecha_desde_s,
         'fecha_hasta': fecha_hasta_s,
-        'hay_filtro_fecha': bool(fecha_desde or fecha_hasta),
+        'termino': termino,
+        'hay_filtro_fecha': hay_filtro,
         'puede_anular_vale': usuario_puede_anular_vale(request.user),
     }
 
