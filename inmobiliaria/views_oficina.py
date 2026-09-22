@@ -723,26 +723,53 @@ def oficina_gastos(request):
         qs = qs.filter(fecha__lte=dr_hasta)
     if categoria_id.isdigit():
         cat = CategoriaGastoOficina.objects.filter(
-            sucursal=sucursal, id=int(categoria_id)
+            sucursal=sucursal, id=int(categoria_id), eliminada=False
         ).first()
         if cat:
-            hijos_ids = list(
-                CategoriaGastoOficina.objects.filter(sucursal=sucursal, parent=cat).values_list(
-                    'id', flat=True
+            if cat.parent_id is None:
+                # Raíz: incluye la raíz y todas sus subcategorías (conceptos).
+                hijos_ids = list(
+                    CategoriaGastoOficina.objects.filter(
+                        sucursal=sucursal, parent=cat, eliminada=False
+                    ).values_list('id', flat=True)
                 )
-            )
-            ids = [cat.id] + hijos_ids
-            qs = qs.filter(categoria_id__in=ids)
+                qs = qs.filter(categoria_id__in=[cat.id] + hijos_ids)
+            else:
+                # Concepto / subcategoría concreta.
+                qs = qs.filter(categoria_id=cat.id)
     if q:
-        qs = qs.filter(descripcion__icontains=q)
+        from django.db.models import Q as DQ
+
+        qs = qs.filter(
+            DQ(descripcion__icontains=q)
+            | DQ(observaciones__icontains=q)
+            | DQ(categoria__nombre__icontains=q)
+            | DQ(categoria__parent__nombre__icontains=q)
+            | DQ(movimiento_caja__concepto__icontains=q)
+            | DQ(vendedor__nombre__icontains=q)
+            | DQ(vendedor__apellido__icontains=q)
+        )
 
     total = qs.aggregate(t=Sum('monto'))['t'] or Decimal('0')
     gastos = list(qs.order_by('-fecha', '-id')[:500])
     totales_por_categoria = _totales_gastos_por_raiz(qs)
 
-    raices_filtro = CategoriaGastoOficina.objects.filter(
-        sucursal=sucursal, parent__isnull=True, activa=True, eliminada=False
-    ).order_by('orden', 'nombre')
+    raices_filtro = list(
+        CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal, parent__isnull=True, activa=True, eliminada=False
+        )
+        .prefetch_related('subcategorias')
+        .order_by('orden', 'nombre')
+    )
+    arbol_filtro = []
+    for raiz in raices_filtro:
+        hijos = [
+            h
+            for h in raiz.subcategorias.all()
+            if h.activa and not getattr(h, 'eliminada', False)
+        ]
+        hijos.sort(key=lambda x: (x.orden, (x.nombre or '').lower()))
+        arbol_filtro.append({'raiz': raiz, 'hijos': hijos})
 
     caja_abierta = (
         Caja.objects.filter(sucursal=sucursal, estado='abierta')
@@ -762,6 +789,7 @@ def oficina_gastos(request):
             'categoria_filtro': categoria_id,
             'q': q,
             'raices_filtro': raices_filtro,
+            'arbol_filtro': arbol_filtro,
             'caja_abierta': caja_abierta,
         },
     )

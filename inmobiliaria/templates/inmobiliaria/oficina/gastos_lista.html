@@ -50,18 +50,32 @@
                     <label class="form-label small mb-0">Hasta</label>
                     <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ fecha_hasta }}">
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label small mb-0">Categoría</label>
+                <div class="col-md-4">
+                    <label class="form-label small mb-0">Categoría / concepto</label>
                     <select name="categoria" class="form-select form-select-sm">
                         <option value="">Todas</option>
+                        {% for bloque in arbol_filtro %}
+                        <optgroup label="{{ bloque.raiz.nombre }}">
+                            <option value="{{ bloque.raiz.id }}" {% if categoria_filtro == bloque.raiz.id|stringformat:"s" %}selected{% endif %}>
+                                Toda «{{ bloque.raiz.nombre }}»
+                            </option>
+                            {% for h in bloque.hijos %}
+                            <option value="{{ h.id }}" {% if categoria_filtro == h.id|stringformat:"s" %}selected{% endif %}>
+                                {{ h.nombre }}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        {% empty %}
                         {% for r in raices_filtro %}
                         <option value="{{ r.id }}" {% if categoria_filtro == r.id|stringformat:"s" %}selected{% endif %}>{{ r.nombre }}</option>
                         {% endfor %}
+                        {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small mb-0">Buscar</label>
-                    <input type="text" name="q" class="form-control form-control-sm" value="{{ q }}" placeholder="Descripción…">
+                    <input type="text" name="q" class="form-control form-control-sm" value="{{ q }}"
+                           placeholder="Viáticos, descripción…">
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary btn-sm w-100">Filtrar</button>
