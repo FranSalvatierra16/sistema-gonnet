@@ -178,10 +178,10 @@
                             </div>
                             <div class="col">
                                 <label class="form-label">Monto para el Propietario <span class="text-danger" id="lbl-req-monto-prop">*</span></label>
-                                <input type="text" name="monto_propietario" id="monto_propietario" class="form-control input-monto-ar bg-light" 
-                                       inputmode="decimal" autocomplete="off" placeholder="0,00" readonly
+                                <input type="text" name="monto_propietario" id="monto_propietario" class="form-control input-monto-ar"
+                                       inputmode="decimal" autocomplete="off" placeholder="0,00"
                                        {% if monto_propietario_inicial %}value="{{ monto_propietario_inicial }}"{% endif %}>
-                                <small class="form-text text-muted">Suma automática de los montos de arriba (por operación).</small>
+                                <small class="form-text text-muted">Editable. Con operaciones tildadas, actualiza el monto de arriba (si hay una, o reparte si hay varias).</small>
                             </div>
                             <div class="col">
                                 <label class="form-label">Monto para la Inmobiliaria</label>
@@ -2151,11 +2151,57 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
-        if (montoPropietario) {
+        // No pisar el casillero mientras el usuario lo está editando.
+        if (montoPropietario && document.activeElement !== montoPropietario) {
             montoPropietario.value = suma > 0.009 ? fmtMontoCampoLiq(suma) : '';
         }
         recalcularInmobiliariaResto();
         return suma;
+    }
+
+    /**
+     * Al editar el casillero «Monto para el Propietario», refleja el valor
+     * en los casilleros por operación (1 op = ese valor; varias = prorrateo).
+     */
+    function sincronizarPartesDesdeMontoProp() {
+        const lista = document.getElementById('lista-montos-prop-por-op');
+        if (!lista) return;
+        const inputs = Array.from(lista.querySelectorAll('.input-monto-prop-op'));
+        if (!inputs.length) return;
+        const nuevo = parseNumeroEsAR(montoPropietario.value);
+        if (inputs.length === 1) {
+            const inp = inputs[0];
+            // Mientras escribe, no reformatear el casillero hijo con ,00 (rompe el cursor).
+            if (document.activeElement === montoPropietario) {
+                inp.value = montoPropietario.value;
+            } else {
+                inp.value = nuevo > 0.009 ? fmtMontoCampoLiq(nuevo) : '';
+            }
+            const clave = inp.getAttribute('data-op-key');
+            document.querySelectorAll('.operacion-checkbox:checked').forEach(function(cb) {
+                if (claveOperacionLiq(cb) === clave) {
+                    cb.setAttribute('data-monto-propietario', String(nuevo));
+                }
+            });
+            return;
+        }
+        const vals = inputs.map(function(inp) { return leerMontoPropDeInputOp(inp); });
+        const sumaPrev = vals.reduce(function(a, b) { return a + b; }, 0);
+        inputs.forEach(function(inp, i) {
+            let v;
+            if (sumaPrev > 0.009) {
+                v = nuevo * (vals[i] / sumaPrev);
+            } else {
+                v = nuevo / inputs.length;
+            }
+            inp.value = v > 0.009 ? fmtMontoCampoLiq(v) : (nuevo <= 0.009 ? '' : fmtMontoCampoLiq(v));
+            const clave = inp.getAttribute('data-op-key');
+            document.querySelectorAll('.operacion-checkbox:checked').forEach(function(cb) {
+                if (claveOperacionLiq(cb) === clave) {
+                    cb.setAttribute('data-monto-propietario', String(v));
+                }
+            });
+        });
     }
 
     function renderMontosPropPorOperacion() {
@@ -2167,10 +2213,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!ops.length) {
             lista.innerHTML = '';
             bloque.classList.add('d-none');
-            if (montoPropietario) {
-                montoPropietario.readOnly = false;
-                montoPropietario.classList.remove('bg-light');
-            }
             return;
         }
 
@@ -2200,15 +2242,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         lista.innerHTML = html;
         bloque.classList.remove('d-none');
-        if (montoPropietario) {
-            montoPropietario.readOnly = true;
-            montoPropietario.classList.add('bg-light');
-        }
 
         lista.querySelectorAll('.input-monto-prop-op').forEach(function(inp) {
             inp.addEventListener('input', function() {
                 sincronizarMontoPropDesdePartes();
-                actualizarResumenLiquidacion();
+                actualizarResumenLiquidacion({ preservarMontoProp: true });
             });
             inp.addEventListener('blur', function() {
                 const n = leerMontoPropDeInputOp(inp);
@@ -2221,7 +2259,10 @@ document.addEventListener('DOMContentLoaded', function() {
         sincronizarMontoPropDesdePartes();
     }
 
-    function actualizarResumenLiquidacion() {
+    function actualizarResumenLiquidacion(opts) {
+        opts = opts || {};
+        const preservarMontoProp = !!opts.preservarMontoProp
+            || (montoPropietario && document.activeElement === montoPropietario);
         const pagosBody = document.getElementById('resumen-pagos-body');
         const pagosFoot = document.getElementById('resumen-pagos-foot');
         const gastosBody = document.getElementById('resumen-gastos-body');
@@ -2249,7 +2290,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 totalAFavor += monto;
             });
-            if (montoPropietario) {
+            if (montoPropietario && !preservarMontoProp) {
                 montoPropietario.value = totalAFavor > 0.009 ? fmtMontoCampoLiq(totalAFavor) : '';
             }
         } else {
@@ -2450,13 +2491,21 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     montoPropietario.addEventListener('input', function() {
         marcarMontosEditadosManualmente();
+        sincronizarPartesDesdeMontoProp();
         recalcularInmobiliariaResto();
-        recalcularMontoFinalDesdeCampos();
+        actualizarResumenLiquidacion({ preservarMontoProp: true });
+        if (typeof actualizarResumenDivision === 'function') {
+            try { actualizarResumenDivision(); } catch (e) { /* noop */ }
+        }
     });
     montoPropietario.addEventListener('blur', function() {
         asegurarFormatoMontoPropietario();
+        sincronizarPartesDesdeMontoProp();
         recalcularInmobiliariaResto();
-        recalcularMontoFinalDesdeCampos();
+        actualizarResumenLiquidacion();
+        if (typeof actualizarResumenDivision === 'function') {
+            try { actualizarResumenDivision(); } catch (e) { /* noop */ }
+        }
     });
     montoInmobiliaria.addEventListener('input', function() {
         marcarMontosEditadosManualmente();
