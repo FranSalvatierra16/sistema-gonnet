@@ -736,6 +736,11 @@ def _fecha_reversion_honorarios(liq, when_dt=None):
         fd = _datetime_a_fecha_local(liq.fecha_procesamiento)
         if fd:
             return fd
+    # Sin fecha de anulación: restar en el mismo día del ingreso para que
+    # las operaciones anuladas no inflen Com. alq. temporarios / cierre.
+    f_ing = _fecha_ingreso_honorarios_oficina(liq) or _fecha_entrada_liquidacion(liq)
+    if f_ing:
+        return f_ing
     return timezone.localdate()
 
 

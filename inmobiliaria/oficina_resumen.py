@@ -143,11 +143,26 @@ def _etiqueta_ingreso_desde_fila_honorario(fila):
 
 
 def _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta):
-    """Mismas fuentes que el listado de honorarios de oficina (liq + carátulas)."""
+    """
+    Mismas fuentes que el listado de honorarios de oficina
+    (liq + carátulas + reversiones por anulación, incl. legacy sin liquidación).
+    """
+    from inmobiliaria.honorarios_anulacion import (
+        filas_honorarios_reserva_anulada_legacy,
+        ids_reservas_cubiertas_por_liquidaciones,
+        queryset_reservas_anuladas_legacy,
+    )
+    from inmobiliaria.views_honorarios import (
+        _fila_comisiones_locador_locatario,
+        _propiedad_txt,
+    )
+
     qs = (
         LiquidacionPropietario.objects.filter(sucursal=sucursal)
         .select_related('propietario', 'propiedad', 'reserva', 'contrato')
     )
+    # Incluir anulación por fecha_eliminacion: la liq suele quedar en el mes
+    # original y al anular ya no se marca cancelada (caja/liq intactas).
     qs = qs.filter(
         Q(fecha_creacion__date__gte=fecha_desde, fecha_creacion__date__lte=fecha_hasta)
         | Q(fecha_desde__gte=fecha_desde, fecha_desde__lte=fecha_hasta)
@@ -159,6 +174,18 @@ def _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta):
             fecha_procesamiento__date__lte=fecha_hasta,
             estado='cancelada',
         )
+        | Q(
+            reserva__fecha_eliminacion__date__gte=fecha_desde,
+            reserva__fecha_eliminacion__date__lte=fecha_hasta,
+        )
+        | Q(
+            reserva__comisiones_vendedor__fecha_operacion__date__gte=fecha_desde,
+            reserva__comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta,
+        )
+        | Q(
+            contrato__comisiones_vendedor__fecha_operacion__date__gte=fecha_desde,
+            contrato__comisiones_vendedor__fecha_operacion__date__lte=fecha_hasta,
+        )
     ).distinct()
 
     filas_liq = _filtrar_filas_por_fecha(
@@ -167,6 +194,19 @@ def _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta):
         fecha_hasta,
     )
     cubiertos = _keys_comisiones_contrato_cubiertas(filas_liq)
+
+    reservas_cubiertas = ids_reservas_cubiertas_por_liquidaciones(qs)
+    filas_legacy = []
+    for reserva in queryset_reservas_anuladas_legacy(sucursal, fecha_desde, fecha_hasta):
+        if reserva.id in reservas_cubiertas:
+            continue
+        filas_legacy.extend(
+            filas_honorarios_reserva_anulada_legacy(
+                reserva, _propiedad_txt, _fila_comisiones_locador_locatario
+            )
+        )
+    filas_legacy = _filtrar_filas_por_fecha(filas_legacy, fecha_desde, fecha_hasta)
+
     filas_car = _filas_honorarios_desde_caratulas_confirmadas(
         sucursal, fecha_desde, fecha_hasta, cubiertos
     )
@@ -177,7 +217,11 @@ def _filas_honorarios_para_cierre(sucursal, fecha_desde, fecha_hasta):
         sucursal, fecha_desde, fecha_hasta
     )
     return _filtrar_filas_por_fecha(
-        list(filas_liq) + list(filas_car) + list(filas_oficina_res) + list(filas_oficina_cto),
+        list(filas_liq)
+        + list(filas_car)
+        + list(filas_oficina_res)
+        + list(filas_oficina_cto)
+        + list(filas_legacy),
         fecha_desde,
         fecha_hasta,
     )
