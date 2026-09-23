@@ -172,11 +172,13 @@ def administracion_listado_operaciones(request):
 
     reservas_qs = queryset_reservas_con_operacion(
         Reserva.objects.filter(sucursal=sucursal, eliminada=False)
+        .exclude(estado='cancelada')
         .select_related('propiedad', 'propiedad__propietario', 'cliente', 'vendedor')
         .order_by('-fecha_creacion', '-id')
     )
     contratos_qs = queryset_contratos_con_operacion(
         ContratoAlquiler.objects.filter(sucursal=sucursal)
+        .exclude(estado='rescindido')
         .select_related('propiedad', 'propiedad__propietario', 'inquilino', 'vendedor')
         .order_by('-fecha_creacion', '-id')
     )
