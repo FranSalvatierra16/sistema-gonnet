@@ -9,7 +9,6 @@ from django.db.models import Q, Sum
 
 from inmobiliaria.models import (
     CategoriaGastoOficina,
-    ComisionVendedor,
     Disponibilidad,
     GastoOficina,
     LiquidacionPropietario,
@@ -94,24 +93,23 @@ def _totales_gastos_por_categoria_ids(gastos_qs):
     return {row['categoria_id']: row['total'] or Decimal('0') for row in ag}
 
 
-def _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta):
+def _totales_liquidacion_vendedores(sucursal, anio, mes):
     """
-    Totales del mes por vendedor, misma base que el resumen mensual del productor:
-    comisiones visibles en historial (confirmadas/pagadas/pendientes de carátula, + ventas).
+    Lo liquidado a cada productor en el mes: sueldo básico + comisiones
+    (misma regla que Oficina → Liquidación productores, incl. flag «no suma si supera»).
     """
-    from inmobiliaria.models.comision import q_comision_operacion_de_sucursal
+    from inmobiliaria.oficina_liquidacion_productores import construir_liquidacion_productores
 
-    qs = (
-        ComisionVendedor.objects.filter(
-            fecha_operacion__date__gte=fecha_desde,
-            fecha_operacion__date__lte=fecha_hasta,
-        )
-        .filter(q_comision_operacion_de_sucursal(sucursal))
-        .visibles_en_historial()
-        .values('vendedor_id')
-        .annotate(total=Sum('monto_comision'))
-    )
-    return {row['vendedor_id']: row['total'] or Decimal('0') for row in qs}
+    data = construir_liquidacion_productores(sucursal, anio, mes)
+    out = {}
+    for fila in data.get('filas') or ():
+        v = fila.get('vendedor')
+        if not v:
+            continue
+        monto = Decimal(str(fila.get('total') or 0)).quantize(Decimal('0.01'))
+        if monto != 0:
+            out[v.id] = monto
+    return out
 
 
 def _etiqueta_ingreso_desde_fila_honorario(fila):
@@ -677,13 +675,14 @@ def construir_resumen_cierre(sucursal, anio, mes):
         )
 
     try:
-        comisiones_pagadas = _totales_comisiones_vendedor(sucursal, fecha_desde, fecha_hasta)
+        # Comisiones vendedores del cierre = lo liquidado (básico + comisiones).
+        liquidacion_vendedores = _totales_liquidacion_vendedores(sucursal, anio, mes)
     except Exception:
         logger.exception(
-            'resumen_cierre: falló comisiones (sucursal_id=%s)',
+            'resumen_cierre: falló liquidación productores (sucursal_id=%s)',
             getattr(sucursal, 'pk', None),
         )
-        comisiones_pagadas = {}
+        liquidacion_vendedores = {}
     honorarios_map, total_fondo_mant, total_fondos_cochera = _honorarios_por_etiqueta(
         sucursal, fecha_desde, fecha_hasta
     )
@@ -799,9 +798,8 @@ def construir_resumen_cierre(sucursal, anio, mes):
         hijos = _hijos_activos(raiz)
         for hijo in hijos:
             if nombre_raiz == 'Comisiones vendedores' and hijo.vendedor_id:
-                # Solo ComisionVendedor (igual que el historial del productor).
-                # No sumar GastoOficina de esa categoría: suele ser el mismo egreso duplicado.
-                monto = comisiones_pagadas.get(hijo.vendedor_id, Decimal('0'))
+                # Liquidado = básico + comisiones (Liquidación productores).
+                monto = liquidacion_vendedores.get(hijo.vendedor_id, Decimal('0'))
             else:
                 monto = totales_por_cat.get(hijo.id, Decimal('0'))
             # Incluir netos ≠ 0 (ej. Veraz con egresos e ingresos de caja).
@@ -810,7 +808,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
 
         if nombre_raiz == 'Comisiones vendedores':
             usados = {h.vendedor_id for h in hijos if h.vendedor_id}
-            for vid, monto in comisiones_pagadas.items():
+            for vid, monto in liquidacion_vendedores.items():
                 if vid in usados or monto <= 0:
                     continue
                 v = vendedores_map.get(vid)
