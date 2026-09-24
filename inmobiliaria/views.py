@@ -14316,6 +14316,45 @@ def detalle_caja(request, numero):
     context = _build_context_detalle_caja(
         request, caja, movimientos_order=('-fecha', '-id'), busqueda=busqueda
     )
+
+    from urllib.parse import urlencode
+
+    url_volver_listado = _validar_url_volver_recibo(
+        (request.GET.get('next') or '').strip(), request
+    ) or reverse('inmobiliaria:lista_cajas')
+
+    # Misma orden que el historial (más reciente primero).
+    caja_mas_reciente = (
+        Caja.objects.filter(
+            sucursal=caja.sucursal,
+            fecha_apertura__gt=caja.fecha_apertura,
+        )
+        .order_by('fecha_apertura')
+        .first()
+    )
+    caja_mas_antigua = (
+        Caja.objects.filter(
+            sucursal=caja.sucursal,
+            fecha_apertura__lt=caja.fecha_apertura,
+        )
+        .order_by('-fecha_apertura')
+        .first()
+    )
+
+    def _url_detalle_caja_nav(otra):
+        if not otra:
+            return None
+        base = reverse('inmobiliaria:detalle_caja', args=[otra.numero])
+        qs = urlencode({'next': url_volver_listado})
+        return f'{base}?{qs}'
+
+    context.update({
+        'url_volver_listado': url_volver_listado,
+        'caja_anterior': caja_mas_reciente,
+        'caja_siguiente': caja_mas_antigua,
+        'url_caja_anterior': _url_detalle_caja_nav(caja_mas_reciente),
+        'url_caja_siguiente': _url_detalle_caja_nav(caja_mas_antigua),
+    })
     return render(request, 'inmobiliaria/caja/detalle_caja.html', context)
 
 
