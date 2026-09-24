@@ -693,6 +693,7 @@ def oficina_gastos(request):
     fecha_desde_s = (request.GET.get('fecha_desde') or '').strip()
     fecha_hasta_s = (request.GET.get('fecha_hasta') or '').strip()
     categoria_id = (request.GET.get('categoria') or '').strip()
+    subcategoria_id = (request.GET.get('subcategoria') or '').strip()
     q = (request.GET.get('q') or '').strip()
 
     today = timezone.localdate()
@@ -721,13 +722,25 @@ def oficina_gastos(request):
         qs = qs.filter(fecha__gte=dr_desde)
     if dr_hasta:
         qs = qs.filter(fecha__lte=dr_hasta)
-    if categoria_id.isdigit():
+
+    # Preferir subcategoría concreta; si no, toda la categoría raíz (+ hijos).
+    filtro_cat_aplicado = False
+    if subcategoria_id.isdigit():
+        sub = CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal, id=int(subcategoria_id), eliminada=False
+        ).first()
+        if sub and sub.parent_id is not None:
+            qs = qs.filter(categoria_id=sub.id)
+            filtro_cat_aplicado = True
+            # Mantener la raíz seleccionada en el form si no vino.
+            if not categoria_id:
+                categoria_id = str(sub.parent_id)
+    if not filtro_cat_aplicado and categoria_id.isdigit():
         cat = CategoriaGastoOficina.objects.filter(
             sucursal=sucursal, id=int(categoria_id), eliminada=False
         ).first()
         if cat:
             if cat.parent_id is None:
-                # Raíz: incluye la raíz y todas sus subcategorías (conceptos).
                 hijos_ids = list(
                     CategoriaGastoOficina.objects.filter(
                         sucursal=sucursal, parent=cat, eliminada=False
@@ -735,8 +748,8 @@ def oficina_gastos(request):
                 )
                 qs = qs.filter(categoria_id__in=[cat.id] + hijos_ids)
             else:
-                # Concepto / subcategoría concreta.
                 qs = qs.filter(categoria_id=cat.id)
+
     if q:
         from django.db.models import Q as DQ
 
@@ -787,6 +800,7 @@ def oficina_gastos(request):
             'fecha_desde': fecha_desde_s,
             'fecha_hasta': fecha_hasta_s,
             'categoria_filtro': categoria_id,
+            'subcategoria_filtro': subcategoria_id,
             'q': q,
             'raices_filtro': raices_filtro,
             'arbol_filtro': arbol_filtro,

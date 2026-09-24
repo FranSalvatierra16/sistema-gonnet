@@ -41,30 +41,23 @@
 
     <div class="card shadow-sm mb-3">
         <div class="card-body">
-            <form method="get" class="row g-2 align-items-end">
-                <div class="col-md-2">
+            <form method="get" class="row g-2 align-items-end" id="form-filtro-gastos-oficina">
+                <div class="col-6 col-md-2">
                     <label class="form-label small mb-0">Desde</label>
                     <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ fecha_desde }}">
                 </div>
-                <div class="col-md-2">
+                <div class="col-6 col-md-2">
                     <label class="form-label small mb-0">Hasta</label>
                     <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ fecha_hasta }}">
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label small mb-0">Categoría / concepto</label>
-                    <select name="categoria" class="form-select form-select-sm">
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-0">Categoría</label>
+                    <select name="categoria" id="filtro-categoria-raiz" class="form-select form-select-sm">
                         <option value="">Todas</option>
                         {% for bloque in arbol_filtro %}
-                        <optgroup label="{{ bloque.raiz.nombre }}">
-                            <option value="{{ bloque.raiz.id }}" {% if categoria_filtro == bloque.raiz.id|stringformat:"s" %}selected{% endif %}>
-                                Toda «{{ bloque.raiz.nombre }}»
-                            </option>
-                            {% for h in bloque.hijos %}
-                            <option value="{{ h.id }}" {% if categoria_filtro == h.id|stringformat:"s" %}selected{% endif %}>
-                                {{ h.nombre }}
-                            </option>
-                            {% endfor %}
-                        </optgroup>
+                        <option value="{{ bloque.raiz.id }}" {% if categoria_filtro == bloque.raiz.id|stringformat:"s" %}selected{% endif %}>
+                            {{ bloque.raiz.nombre }}
+                        </option>
                         {% empty %}
                         {% for r in raices_filtro %}
                         <option value="{{ r.id }}" {% if categoria_filtro == r.id|stringformat:"s" %}selected{% endif %}>{{ r.nombre }}</option>
@@ -72,12 +65,27 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-6 col-md-3">
+                    <label class="form-label small mb-0">Subcategoría</label>
+                    <select name="subcategoria" id="filtro-subcategoria" class="form-select form-select-sm">
+                        <option value="">Todas</option>
+                        {% for bloque in arbol_filtro %}
+                        {% for h in bloque.hijos %}
+                        <option value="{{ h.id }}"
+                                data-parent="{{ bloque.raiz.id }}"
+                                {% if subcategoria_filtro == h.id|stringformat:"s" %}selected{% endif %}>
+                            {{ bloque.raiz.nombre }} › {{ h.nombre }}
+                        </option>
+                        {% endfor %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-8 col-md-2">
                     <label class="form-label small mb-0">Buscar</label>
                     <input type="text" name="q" class="form-control form-control-sm" value="{{ q }}"
-                           placeholder="Viáticos, descripción…">
+                           placeholder="Veraz, viáticos…">
                 </div>
-                <div class="col-md-2">
+                <div class="col-4 col-md-1">
                     <button type="submit" class="btn btn-primary btn-sm w-100">Filtrar</button>
                 </div>
             </form>
@@ -151,4 +159,28 @@
         </div>
     </div>
 </div>
+<script>
+(function () {
+    var raiz = document.getElementById('filtro-categoria-raiz');
+    var sub = document.getElementById('filtro-subcategoria');
+    if (!raiz || !sub) return;
+
+    function filtrarSubs() {
+        var parent = (raiz.value || '').trim();
+        var opts = sub.querySelectorAll('option[data-parent]');
+        var selected = sub.value;
+        var keep = false;
+        opts.forEach(function (opt) {
+            var show = !parent || opt.getAttribute('data-parent') === parent;
+            opt.hidden = !show;
+            opt.disabled = !show;
+            if (show && opt.value === selected) keep = true;
+        });
+        if (!keep) sub.value = '';
+    }
+
+    raiz.addEventListener('change', filtrarSubs);
+    filtrarSubs();
+})();
+</script>
 {% endblock %}
