@@ -217,6 +217,12 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
+                <div class="mb-2 d-flex flex-wrap gap-1 align-items-center" id="modalObsFiltros">
+                    <span class="small text-muted me-1">Ver:</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary active" data-obs-filtro="todos">Todos</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-obs-filtro="pendientes">Pendientes</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-obs-filtro="cobrados">Cobrados</button>
+                </div>
                 <div id="modalObsLista" class="mb-3"></div>
                 <form method="post" id="formAddObservacionCobro" class="row g-2 small">
                     {% csrf_token %}
@@ -315,28 +321,53 @@
         return d.getFullYear() + '-' + m + '-' + day;
     }
 
+    var filtroObs = 'todos';
+
     function renderLista() {
         var lista = document.getElementById('modalObsLista');
         if (!lista) return;
-        if (!observaciones.length) {
-            lista.innerHTML = '<p class="small text-muted mb-0">Sin observaciones. Agregá gastos abajo; se acumulan hasta cobrarlos.</p>';
+        var filtradas = observaciones.filter(function (o) {
+            var cobrada = !!(o.cobrada || o.estado === 'cobrado');
+            if (filtroObs === 'pendientes') return !cobrada;
+            if (filtroObs === 'cobrados') return cobrada;
+            return true;
+        });
+        if (!filtradas.length) {
+            lista.innerHTML = observaciones.length
+                ? '<p class="small text-muted mb-0">No hay observaciones en este filtro.</p>'
+                : '<p class="small text-muted mb-0">Sin observaciones. Agregá gastos abajo; se acumulan hasta cobrarlos.</p>';
             return;
         }
-        var html = '<div class="table-responsive"><table class="table table-sm mb-0 small"><thead><tr><th>Fecha</th><th>Concepto</th><th>Detalle</th><th class="text-end">Monto</th><th>Estado</th><th></th></tr></thead><tbody>';
-        observaciones.forEach(function (o) {
+        var html = '<div class="table-responsive"><table class="table table-sm mb-0 small"><thead><tr>' +
+            '<th>Fecha</th><th>Concepto</th><th>Detalle</th>' +
+            '<th class="text-end">Monto</th><th class="text-end">Cobrado</th><th class="text-end">Saldo</th>' +
+            '<th>Estado</th><th></th></tr></thead><tbody>';
+        filtradas.forEach(function (o) {
             var cobrada = !!(o.cobrada || o.estado === 'cobrado');
-            var rowClass = cobrada ? ' table-success' : '';
-            var estadoTxt = cobrada
-                ? '<span class="badge bg-success">Cobrada</span>'
-                : '<span class="badge bg-warning text-dark">Pendiente</span>';
+            var parcial = !!(o.es_parcial);
+            var colorStyle = cobrada ? 'color:#c62828;' : 'color:#111;';
+            var estadoTxt;
+            if (cobrada) {
+                estadoTxt = '<span class="badge bg-danger">Cobrado</span>';
+            } else if (parcial) {
+                estadoTxt = '<span class="badge bg-secondary">Parcial</span>';
+            } else {
+                estadoTxt = '<span class="badge bg-warning text-dark">Pendiente</span>';
+            }
             var accion = cobrada
                 ? '<span class="text-muted small">—</span>'
                 : '<button type="button" class="btn btn-sm btn-outline-danger btn-del-obs" data-obs-id="' + o.id + '" title="Eliminar"><i class="fas fa-trash"></i></button>';
-            html += '<tr class="' + rowClass.trim() + '">' +
+            var montoCobrado = Number(o.monto_cobrado || 0);
+            var saldo = (o.saldo != null && o.saldo !== undefined)
+                ? Number(o.saldo)
+                : (cobrada ? 0 : Number(o.monto || 0));
+            html += '<tr style="' + colorStyle + '">' +
                 '<td class="text-nowrap">' + escapeHtml(o.fecha || '—') + '</td>' +
                 '<td>' + escapeHtml(o.nombre || '—') + '</td>' +
                 '<td class="text-break">' + escapeHtml(o.detalle || '—') + '</td>' +
                 '<td class="text-end text-nowrap">' + formatMonto(o.monto, o.moneda) + '</td>' +
+                '<td class="text-end text-nowrap">' + formatMonto(montoCobrado, o.moneda) + '</td>' +
+                '<td class="text-end text-nowrap">' + formatMonto(saldo, o.moneda) + '</td>' +
                 '<td class="text-nowrap">' + estadoTxt + '</td>' +
                 '<td class="text-end">' + accion + '</td>' +
                 '</tr>';
@@ -351,6 +382,19 @@
                 if (!form || !hid) return;
                 hid.value = btn.getAttribute('data-obs-id') || '';
                 form.submit();
+            });
+        });
+    }
+
+    var filtrosEl = document.getElementById('modalObsFiltros');
+    if (filtrosEl) {
+        filtrosEl.querySelectorAll('[data-obs-filtro]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                filtroObs = btn.getAttribute('data-obs-filtro') || 'todos';
+                filtrosEl.querySelectorAll('[data-obs-filtro]').forEach(function (b) {
+                    b.classList.toggle('active', b === btn);
+                });
+                renderLista();
             });
         });
     }

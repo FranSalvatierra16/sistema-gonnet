@@ -4434,11 +4434,17 @@ def _adjuntar_observaciones_a_cuotas(contrato, cuotas_list):
         cobrada = o.estado == ObservacionCobroInquilino.ESTADO_COBRADO
         if not cobrada:
             pendientes_count += 1
+        monto = Decimal(str(o.monto or 0)).quantize(Decimal('0.01'))
+        monto_cobrado = Decimal(str(o.monto_cobrado or 0)).quantize(Decimal('0.01'))
+        saldo = o.saldo_pendiente
         items.append({
             'id': o.id,
             'nombre': (o.concepto_nombre or o.concepto_caja_id or '')[:120],
             'detalle': o.detalle or '',
-            'monto': float(o.monto or 0),
+            'monto': float(monto),
+            'monto_cobrado': float(monto_cobrado),
+            'saldo': float(saldo),
+            'es_parcial': bool(o.es_parcial),
             'moneda': o.moneda or 'ARS',
             'estado': o.estado,
             'cobrada': cobrada,

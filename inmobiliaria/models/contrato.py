@@ -545,7 +545,7 @@ def clasificar_estado_cobro_contrato(contrato, hoy=None):
 class ObservacionCobroInquilino(models.Model):
     """
     Gasto/observación a cobrar al inquilino (concepto + monto).
-    Pendiente hasta que se cobre en un recibo de cuota; al cobrarse deja de listarse.
+    Soporta cobros a cuenta vía monto_cobrado; queda pendiente mientras haya saldo.
     """
 
     ESTADO_PENDIENTE = 'pendiente'
@@ -590,6 +590,12 @@ class ObservacionCobroInquilino(models.Model):
         verbose_name='Nombre del concepto',
     )
     monto = models.DecimalField(max_digits=14, decimal_places=2)
+    monto_cobrado = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0'),
+        help_text='Suma de cobros a cuenta aplicados. Saldo = monto − monto_cobrado.',
+    )
     moneda = models.CharField(max_length=3, choices=MONEDA_CHOICES, default='ARS')
     detalle = models.CharField(max_length=400, blank=True, default='')
     fecha = models.DateField(
@@ -638,3 +644,57 @@ class ObservacionCobroInquilino(models.Model):
             f'Obs #{self.id} CT{self.contrato_id} '
             f'{self.concepto_caja_id} ${self.monto} ({self.estado})'
         )
+
+    @property
+    def saldo_pendiente(self):
+        total = Decimal(str(self.monto or 0))
+        cobrado = Decimal(str(self.monto_cobrado or 0))
+        saldo = (total - cobrado).quantize(Decimal('0.01'))
+        return saldo if saldo > 0 else Decimal('0.00')
+
+    @property
+    def es_parcial(self):
+        cobrado = Decimal(str(self.monto_cobrado or 0))
+        return (
+            self.estado == self.ESTADO_PENDIENTE
+            and cobrado > Decimal('0.01')
+            and self.saldo_pendiente > Decimal('0.01')
+        )
+
+    def aplicar_cobro_parcial(self, importe, movimiento=None):
+        """
+        Aplica un cobro a cuenta. Retorna el importe efectivamente aplicado.
+        Si cubre el saldo, pasa a estado cobrado.
+        """
+        from django.utils import timezone as dj_tz
+
+        aplicado = Decimal(str(importe or 0)).quantize(Decimal('0.01'))
+        if aplicado <= 0:
+            return Decimal('0.00')
+        saldo = self.saldo_pendiente
+        if aplicado > saldo:
+            aplicado = saldo
+        if aplicado <= 0:
+            return Decimal('0.00')
+
+        nuevo_cobrado = (
+            Decimal(str(self.monto_cobrado or 0)) + aplicado
+        ).quantize(Decimal('0.01'))
+        self.monto_cobrado = nuevo_cobrado
+        fields = ['monto_cobrado']
+        if movimiento is not None:
+            self.movimiento_cobro = movimiento
+            fields.append('movimiento_cobro')
+
+        total = Decimal(str(self.monto or 0)).quantize(Decimal('0.01'))
+        if nuevo_cobrado + Decimal('0.01') >= total:
+            self.estado = self.ESTADO_COBRADO
+            self.cobrado_en = dj_tz.now()
+            self.monto_cobrado = total
+            fields.extend(['estado', 'cobrado_en', 'monto_cobrado'])
+        else:
+            self.estado = self.ESTADO_PENDIENTE
+            fields.append('estado')
+
+        self.save(update_fields=list(dict.fromkeys(fields)))
+        return aplicado

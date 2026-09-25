@@ -222,6 +222,7 @@
                                 <p class="small text-muted mb-2">
                                     Egresos de caja y observaciones a cargo del inquilino.
                                     Si los dejás tildados, se suman al recibo.
+                                    En observaciones podés cobrar menos del saldo (cobro a cuenta); el resto queda pendiente.
                                     Con <strong>No cobrar</strong> desaparecen para siempre de esta lista (el egreso de caja no se borra).
                                 </p>
                                 <div class="table-responsive">
@@ -232,7 +233,7 @@
                                                 <th>Fecha</th>
                                                 <th>Concepto</th>
                                                 <th>Detalle</th>
-                                                <th class="text-end">Monto</th>
+                                                <th class="text-end">Importe / Saldo</th>
                                                 <th class="text-center" style="width:7rem;">Acciones</th>
                                             </tr>
                                         </thead>
@@ -694,15 +695,25 @@ function renderGastosPendientesInquilino() {
         var oid = Number(g.observacion_id || 0);
         var mid = Number(g.movimiento_id || 0);
         var key = oid ? ('o:' + oid) : ('m:' + mid);
-        var monto = Number(g.monto || 0);
+        var saldo = (g.saldo != null && g.saldo !== undefined) ? Number(g.saldo) : Number(g.monto || 0);
+        var montoTotal = (g.monto_total != null && g.monto_total !== undefined) ? Number(g.monto_total) : saldo;
+        var montoCobrado = Number(g.monto_cobrado || 0);
         var mon = ((g.moneda || 'ARS') === 'USD') ? 'USD' : 'ARS';
+        var pref = mon === 'USD' ? 'U$S ' : '$';
+        var celdaMonto;
+        if (oid && montoCobrado > 0.001 && saldo > 0.001) {
+            celdaMonto = '<span class="d-block">Saldo ' + pref + formatoMontoReciboAR(saldo) + '</span>' +
+                '<span class="small text-muted">Total ' + pref + formatoMontoReciboAR(montoTotal) + '</span>';
+        } else {
+            celdaMonto = pref + formatoMontoReciboAR(saldo);
+        }
         var tr = document.createElement('tr');
         tr.innerHTML =
             '<td><input type="checkbox" class="form-check-input chk-gasto-inq" value="' + key + '" data-key="' + key + '" data-obs-id="' + (oid || '') + '" data-mid="' + (mid || '') + '" checked></td>' +
             '<td>' + escapeHtmlAttr(g.fecha_display || '—') + '</td>' +
             '<td>' + escapeHtmlAttr(g.nombre || '—') + '</td>' +
             '<td class="small">' + escapeHtmlAttr(g.detalle || '—') + '</td>' +
-            '<td class="text-end">' + (mon === 'USD' ? 'U$S ' : '$') + formatoMontoReciboAR(monto) + '</td>' +
+            '<td class="text-end">' + celdaMonto + '</td>' +
             '<td class="text-center">' +
                 '<button type="button" class="btn btn-outline-danger btn-sm btn-descartar-gasto-inq" ' +
                 'data-obs-id="' + (oid || '') + '" data-mid="' + (mid || '') + '" ' +
@@ -817,13 +828,14 @@ function sincronizarConceptosDesdeGastosInquilino() {
             obs = 'Egreso caja #' + mid + ' (gasto pendiente inquilino)';
         }
         if (g.detalle) obs = String(g.detalle).trim() + ' · ' + obs;
+        var saldo = (g.saldo != null && g.saldo !== undefined) ? Number(g.saldo) : Number(g.monto || 0);
         var fila = {
             id: contadorConceptos,
             conceptoId: String(g.concepto_id || ''),
             nombre: String(g.nombre || (oid ? ('Observación #' + oid) : ('Egreso #' + mid))),
             moneda: ((g.moneda || 'ARS') === 'USD') ? 'USD' : 'ARS',
             observaciones: obs,
-            importe: Number(g.monto || 0),
+            importe: saldo,
             fecha: new Date().toLocaleDateString('es-AR'),
             cuotaObjetivoId: '',
             cuotaObjetivoLabel: '',
