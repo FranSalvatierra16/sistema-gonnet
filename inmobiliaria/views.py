@@ -14777,7 +14777,10 @@ def _form_post_desde_movimiento(movimiento):
     """Arma el mismo dict que _serializar_form_post para precargar el form de edición."""
     from inmobiliaria.models import GastoOficina
     from inmobiliaria.models.vale import ValeVendedor
-    from inmobiliaria.oficina_gastos import par_sucursales_reparto_gasto_oficina
+    from inmobiliaria.oficina_gastos import (
+        _limpiar_notas_reparto_observaciones,
+        par_sucursales_reparto_gasto_oficina,
+    )
 
     def _m(val):
         return format_monto_argentino(val or 0)
@@ -14920,7 +14923,9 @@ def _form_post_desde_movimiento(movimiento):
         fp['es_gasto_oficina'] = True
         fp['gasto_oficina_categoria_id'] = str(gasto.categoria_id)
         fp['gasto_oficina_descripcion'] = (gasto.descripcion or '').strip()
-        fp['gasto_oficina_observaciones'] = (gasto.observaciones or '').strip()
+        fp['gasto_oficina_observaciones'] = _limpiar_notas_reparto_observaciones(
+            gasto.observaciones or ''
+        )
         if gasto.vendedor_id:
             fp['gasto_oficina_vendedor_id'] = str(gasto.vendedor_id)
             fp['gasto_oficina_vendedor_nombre'] = (gasto.vendedor.nombre or '').strip()
@@ -15899,10 +15904,24 @@ def nuevo_movimiento(request, numero_caja=None):
                     _sincronizar_montos_anexos_movimiento(movimiento)
 
             if movimiento_edicion:
-                messages.success(
-                    request,
-                    f'Movimiento #{movimiento.id} actualizado correctamente.',
-                )
+                if (
+                    es_gasto_oficina
+                    and gasto_oficina_pct_colon is not None
+                    and gasto_oficina_pct_corrientes is not None
+                    and gasto_oficina_pct_colon > 0
+                    and gasto_oficina_pct_corrientes > 0
+                ):
+                    messages.success(
+                        request,
+                        f'Movimiento #{movimiento.id} actualizado '
+                        f'(reparto Colón {gasto_oficina_pct_colon}% / '
+                        f'Corrientes {gasto_oficina_pct_corrientes}%).',
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f'Movimiento #{movimiento.id} actualizado correctamente.',
+                    )
                 safe_next = _validar_url_volver_recibo(next_url_edicion, request)
                 if safe_next:
                     return redirect(safe_next)

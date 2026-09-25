@@ -1146,6 +1146,82 @@ def _encontrar_categoria_espejo(cat, sucursal_destino, nombre_buscar=None):
     ).first()
 
 
+def _asegurar_categoria_espejo(cat, sucursal_destino):
+    """
+    Busca o crea la categoría espejo en la otra sucursal (Colón ↔ Corrientes).
+    Sin esto el reparto 25/75 queda solo en observaciones y no crea el gasto pareja.
+    """
+    if not cat or not sucursal_destino:
+        return None
+    encontrada = _encontrar_categoria_espejo(cat, sucursal_destino)
+    if encontrada and not getattr(encontrada, 'eliminada', False):
+        if not encontrada.activa:
+            encontrada.activa = True
+            encontrada.save(update_fields=['activa'])
+        return encontrada
+
+    # Subcategorías ligadas a productor: no crear a ciegas.
+    if getattr(cat, 'vendedor_id', None):
+        return encontrada
+
+    if cat.parent_id:
+        parent_d = _asegurar_parent_espejo(cat, sucursal_destino)
+        if not parent_d or getattr(parent_d, 'eliminada', False):
+            return None
+        hijo_d, _created = _get_or_create_hijo(
+            sucursal_destino,
+            parent_d,
+            (cat.nombre or '').strip(),
+            cat.orden,
+        )
+        upd = []
+        if getattr(hijo_d, 'eliminada', False):
+            hijo_d.eliminada = False
+            upd.append('eliminada')
+        if not hijo_d.activa:
+            hijo_d.activa = True
+            upd.append('activa')
+        if upd:
+            hijo_d.save(update_fields=upd)
+        return hijo_d
+
+    raiz_d, _created = _get_or_create_raiz(
+        sucursal_destino,
+        (cat.nombre or '').strip(),
+        cat.orden,
+    )
+    upd = []
+    if getattr(raiz_d, 'eliminada', False):
+        raiz_d.eliminada = False
+        upd.append('eliminada')
+    if not raiz_d.activa:
+        raiz_d.activa = True
+        upd.append('activa')
+    if upd:
+        raiz_d.save(update_fields=upd)
+    return raiz_d
+
+
+def _limpiar_notas_reparto_observaciones(texto):
+    """Quita líneas auto de reparto/aviso/origen para no duplicarlas al reeditar."""
+    if not texto:
+        return ''
+    out = []
+    for line in str(texto).splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        low = s.lower()
+        if low.startswith('reparto:'):
+            continue
+        if low.startswith('aviso: no se pudo crear el gasto'):
+            continue
+        if low.startswith('origen: movimiento de caja'):
+            continue
+        out.append(line.rstrip())
+    return '\n'.join(out).strip()
+
+
 def _asegurar_parent_espejo(cat, sucursal_destino):
     """Crea la raíz espejo si hace falta (para subcategorías nuevas)."""
     if not cat.parent_id:
@@ -1979,6 +2055,11 @@ def registrar_gasto_oficina_desde_movimiento(
         + Decimal(str(movimiento.monto_tarjeta or 0))
         + Decimal(str(movimiento.monto_deposito or 0))
     )
+    # Solo USD: el gasto de oficina usa el monto en dólares como base del reparto.
+    if abs(total) < Decimal('0.005'):
+        m_dol = Decimal(str(getattr(movimiento, 'monto_dolares', None) or 0))
+        if abs(m_dol) > Decimal('0.005'):
+            total = m_dol
     if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
         total = -total
     elif categoria_gasto_es_ingreso(categoria):
@@ -1996,7 +2077,7 @@ def registrar_gasto_oficina_desde_movimiento(
         vendedor = vendedor_desde_categoria(categoria)
 
     descripcion = (descripcion or categoria.nombre_ruta())[:255]
-    observaciones = observaciones or ''
+    observaciones = _limpiar_notas_reparto_observaciones(observaciones or '')
     sucursal_local = movimiento.sucursal
     par = par_sucursales_reparto_gasto_oficina(sucursal_local)
 
@@ -2050,7 +2131,7 @@ def registrar_gasto_oficina_desde_movimiento(
     if abs(monto_otra) < Decimal('0.005'):
         return gasto_local
 
-    cat_otra = _encontrar_categoria_espejo(categoria, sucursal_otra)
+    cat_otra = _asegurar_categoria_espejo(categoria, sucursal_otra)
     if not cat_otra:
         # Sin categoría espejo no se puede imputar a la otra sucursal.
         gasto_local.observaciones = (
