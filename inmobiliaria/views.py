@@ -17333,6 +17333,10 @@ def _importe_lineas_concepto_en_movimiento(movimiento, ids_buscados, nombre_busc
             imp = -abs(imp)
         sub += imp
 
+    # Si ya hay JSON de conceptos, no sumar también |CONCEPTOS: (duplicaba el importe).
+    if conceptos_data:
+        return sub.quantize(Decimal('0.01'))
+
     raw = (movimiento.concepto or '')
     if '|CONCEPTOS:' in raw:
         trozo = raw.split('|CONCEPTOS:', 1)[1]
