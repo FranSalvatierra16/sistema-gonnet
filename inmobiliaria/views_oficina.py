@@ -432,7 +432,8 @@ def _filas_liquidaciones_confirmadas_libro(
         )
         .exclude(reserva__eliminada=True)
         .exclude(reserva__estado='cancelada')
-        .exclude(contrato__estado='rescindido')
+        # Contrato rescindido: igual se listan liquidaciones ya en oficina/pagada/cerrada
+        # (el período se liquidó; no ocultar alquileres del libro del depto).
         .select_related('contrato', 'reserva', 'reserva__cliente', 'contrato__inquilino')
         .order_by('fecha_desde', 'id')
     )
