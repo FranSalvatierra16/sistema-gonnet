@@ -235,7 +235,7 @@ def totales_alquileres_propios_para_fondo_oscar(sucursal, anio: int, mes: int) -
     prop_ids = list(
         _qs_propiedades_oficina(sucursal).values_list('id', flat=True)
     )
-    ocultos, _forzados = preferencias_reporte_deptos(sucursal)
+    ocultos, _forzados = preferencias_reporte_deptos(sucursal, anio, mes)
     ocultos_str = {str(x) for x in ocultos}
     tarifas_por_prop = mapa_ingresos_liquidaciones_por_modalidad(
         prop_ids, anio, mes, sucursal=sucursal
@@ -277,18 +277,25 @@ def ingresos_realizados_por_modalidad(prop, anio: int, mes: int, bruto_mes=None)
     ).get(prop_id, _vacios_modalidad())
 
 
-def preferencias_reporte_deptos(sucursal):
-    """Devuelve sets de ids ocultos y forzados para el resumen."""
+def preferencias_reporte_deptos(sucursal, anio=None, mes=None):
+    """
+    Devuelve sets de ids ocultos y forzados para el resumen.
+    Con anio/mes: solo oculta desde oculto_desde (meses anteriores siguen).
+    """
     from inmobiliaria.models import ReporteDeptosOficinaPreferencia
 
     ocultos = set()
     forzados = set()
     for row in ReporteDeptosOficinaPreferencia.objects.filter(sucursal=sucursal).only(
-        'propiedad_id', 'oculto', 'forzado'
+        'propiedad_id', 'oculto', 'oculto_desde', 'forzado'
     ):
-        if row.oculto:
+        if anio is not None and mes is not None:
+            oculto_en_mes = row.esta_oculto_en_mes(anio, mes)
+        else:
+            oculto_en_mes = bool(row.oculto)
+        if oculto_en_mes:
             ocultos.add(row.propiedad_id)
-        if row.forzado:
+        elif row.forzado:
             forzados.add(row.propiedad_id)
     return ocultos, forzados
 
@@ -514,7 +521,7 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     fecha_hasta = date(anio, mes, ultimo_dia)
     periodo_label = f'{MESES_ES[mes]} DE {anio}'
 
-    ocultos, forzados = preferencias_reporte_deptos(sucursal)
+    ocultos, forzados = preferencias_reporte_deptos(sucursal, anio, mes)
 
     props = _ordenar_propiedades_oficina(
         list(

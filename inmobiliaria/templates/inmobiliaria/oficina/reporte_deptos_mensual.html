@@ -149,7 +149,7 @@
                                    href="{% url 'inmobiliaria:oficina_propiedad_libro' f.propiedad.id %}?fecha_desde={{ f.fecha_desde_mes }}&fecha_hasta={{ f.fecha_hasta_mes }}">
                                     Libro
                                 </a>
-                                <form method="post" class="d-inline" onsubmit="return confirm('¿Sacar este depto del resumen?');">
+                                <form method="post" class="d-inline" onsubmit="return confirm('¿Sacar este depto del resumen desde este mes en adelante? En meses anteriores seguirá figurando.');">
                                     {% csrf_token %}
                                     <input type="hidden" name="accion" value="sacar">
                                     <input type="hidden" name="propiedad_id" value="{{ f.propiedad.id }}">

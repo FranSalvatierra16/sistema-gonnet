@@ -517,6 +517,8 @@ class ReporteDeptosOficinaPreferencia(models.Model):
     """
     Preferencias del resumen mensual de departamentos de oficina por sucursal.
     - oculto: no aparece en el resumen (aunque tenga movimientos).
+    - oculto_desde: primer día del mes desde el cual aplica el ocultar
+      (meses anteriores siguen visibles en el reporte).
     - forzado: aparece aunque no tenga movimientos en el mes.
     """
 
@@ -531,6 +533,11 @@ class ReporteDeptosOficinaPreferencia(models.Model):
         related_name='prefs_reporte_deptos_oficina',
     )
     oculto = models.BooleanField(default=False)
+    oculto_desde = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Mes desde el cual el depto queda fuera del resumen (meses anteriores siguen).',
+    )
     forzado = models.BooleanField(default=False)
 
     class Meta:
@@ -547,6 +554,17 @@ class ReporteDeptosOficinaPreferencia(models.Model):
         flags = []
         if self.oculto:
             flags.append('oculto')
+            if self.oculto_desde:
+                flags.append(f'desde {self.oculto_desde:%m/%Y}')
         if self.forzado:
             flags.append('forzado')
         return f'{self.sucursal_id} · {self.propiedad_id} ({", ".join(flags) or "—"})'
+
+    def esta_oculto_en_mes(self, anio: int, mes: int) -> bool:
+        """True si no debe listarse en el resumen de ese mes."""
+        if not self.oculto:
+            return False
+        if self.oculto_desde is None:
+            # Preferencias viejas sin fecha: oculto en todos los meses.
+            return True
+        return (int(anio), int(mes)) >= (self.oculto_desde.year, self.oculto_desde.month)

@@ -1314,13 +1314,20 @@ def oficina_reporte_deptos_mensual(request):
             )
             if accion == 'sacar':
                 pref.oculto = True
+                # Oculto desde el mes que está mirando; meses anteriores siguen en el resumen.
+                pref.oculto_desde = date(anio, mes, 1)
                 pref.forzado = False
-                pref.save(update_fields=['oculto', 'forzado'])
-                messages.success(request, 'Departamento sacado del resumen.')
+                pref.save(update_fields=['oculto', 'oculto_desde', 'forzado'])
+                messages.success(
+                    request,
+                    f'Departamento sacado del resumen desde {mes:02d}/{anio}. '
+                    'En meses anteriores sigue figurando.',
+                )
             else:
                 pref.oculto = False
+                pref.oculto_desde = None
                 pref.forzado = True
-                pref.save(update_fields=['oculto', 'forzado'])
+                pref.save(update_fields=['oculto', 'oculto_desde', 'forzado'])
                 messages.success(request, 'Departamento agregado al resumen.')
             return redirect(redirect_url)
         messages.error(request, 'Acción no válida.')
