@@ -15593,14 +15593,16 @@ def nuevo_movimiento(request, numero_caja=None):
                 m_inq = Decimal('0')
             else:
                 try:
-                    # Solo reparte ARS; si el movimiento es solo USD, deja 0/0/0
+                    # ARS o, si el movimiento es solo USD, el total en dólares.
+                    total_imputacion = total_mov if total_mov > 0 else m_dol
                     m_of, m_prop, m_inq = _parse_imputacion_corresponde_post(
-                        request, total_mov if total_mov > 0 else Decimal('0')
+                        request, total_imputacion
                     )
                 except ValueError:
                     messages.error(
                         request,
-                        'El reparto entre oficina, propietario e inquilino debe sumar el total del movimiento.',
+                        'El reparto entre oficina, propietario e inquilino debe sumar el total del movimiento'
+                        + (' (en dólares).' if (total_mov <= 0 and m_dol > 0) else '.'),
                     )
                     return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 

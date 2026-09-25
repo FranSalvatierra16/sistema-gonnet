@@ -1759,11 +1759,18 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_res
 
     if es_egreso:
         ars_bruto = ars
-        ars = _monto_gasto_libro_sin_inquilino(mov, ars_bruto)
-        if ars <= 0:
-            return None
-        if ars_bruto > 0 and ars < ars_bruto and usd > 0:
-            usd = (usd * ars / ars_bruto).quantize(Decimal('0.01'))
+        if ars_bruto <= Decimal('0.01') and usd > Decimal('0.01'):
+            # Solo USD: el reparto oficina/propietario/inquilino está en dólares.
+            usd = _monto_gasto_libro_sin_inquilino(mov, usd)
+            if usd <= Decimal('0.01'):
+                return None
+            ars = Decimal('0')
+        else:
+            ars = _monto_gasto_libro_sin_inquilino(mov, ars_bruto)
+            if ars <= 0:
+                return None
+            if ars_bruto > 0 and ars < ars_bruto and usd > 0:
+                usd = (usd * ars / ars_bruto).quantize(Decimal('0.01'))
 
     gastos_ars = Decimal('0')
     alquileres_ars = Decimal('0')

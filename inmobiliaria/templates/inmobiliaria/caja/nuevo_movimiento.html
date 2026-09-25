@@ -756,7 +756,7 @@
                                 <hr>
                                 <label class="form-label fw-semibold mb-2">A quién corresponde el importe</label>
                                 <small class="text-muted d-block mb-2">
-                                    Tenés que cargar vos el reparto (oficina / propietario / inquilino). La suma de los tres tiene que ser igual al total del movimiento. No se completa solo.
+                                    Tenés que cargar vos el reparto (oficina / propietario / inquilino). La suma de los tres tiene que ser igual al total del movimiento (en pesos o en dólares, según la moneda elegida). No se completa solo.
                                 </small>
                             </div>
                             <div class="col-md-3">
@@ -1864,8 +1864,7 @@ $(document).ready(function() {
             $('#bloque_montos_ars .monto').val('');
             $('#destino_deposito_mov').val('');
             $('#bloque_detalle_tarjeta, #bloque_detalle_cheque').addClass('d-none');
-            // Sin ARS: el reparto en pesos no aplica; dejar en cero
-            $('#monto_a_oficina, #monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
+            // El reparto oficina/propietario/inquilino se carga en USD (mismo total).
         }
         if (soloArs && !(cotiz > 0)) {
             $('#monto_dolares_mov').val('');
@@ -1875,6 +1874,7 @@ $(document).ready(function() {
         sincronizarUsdDesdeArs();
         actualizarTotalVisible();
         actualizarVisibilidadMediosPago();
+        actualizarHintCorresponde();
     }
 
     $('#moneda_movimiento').on('change', function() {
@@ -1944,8 +1944,17 @@ $(document).ready(function() {
         actualizarHintCorresponde();
     }
 
+    function totalParaCorresponde() {
+        if (monedaActual() === 'USD') return calcularTotalUsd();
+        return calcularTotal();
+    }
+
+    function prefijoCorresponde() {
+        return monedaActual() === 'USD' ? 'U$S ' : '$';
+    }
+
     function correspondeSumaOk() {
-        var total = calcularTotal();
+        var total = totalParaCorresponde();
         if (total <= 0.005) return true;
         var suma = parseMontoLocal($('#monto_a_oficina').val())
             + parseMontoLocal($('#monto_a_propietario').val())
@@ -1956,7 +1965,8 @@ $(document).ready(function() {
     function actualizarHintCorresponde() {
         var $hint = $('#hint_corresponde_suma');
         if (!$hint.length) return;
-        var total = calcularTotal();
+        var total = totalParaCorresponde();
+        var pref = prefijoCorresponde();
         if (total <= 0.005) {
             $hint.addClass('d-none').text('');
             return;
@@ -1967,10 +1977,10 @@ $(document).ready(function() {
         var dif = Math.round((suma - total) * 100) / 100;
         if (Math.abs(dif) < 0.02) {
             $hint.removeClass('d-none text-danger').addClass('text-success')
-                .text('Reparto OK: suma $' + fmtMontoLocal(suma));
+                .text('Reparto OK: suma ' + pref + fmtMontoLocal(suma));
         } else {
             $hint.removeClass('d-none text-success').addClass('text-danger')
-                .text('La suma ($' + fmtMontoLocal(suma) + ') tiene que ser $' + fmtMontoLocal(total) + '.');
+                .text('La suma (' + pref + fmtMontoLocal(suma) + ') tiene que ser ' + pref + fmtMontoLocal(total) + '.');
         }
     }
 
@@ -2775,10 +2785,9 @@ $(document).ready(function() {
         var totalUsd = calcularTotalUsd();
         var moneda = monedaActual();
         if (moneda === 'USD') {
-            // Forzar solo USD: limpiar ARS por si quedó algo
+            // Forzar solo USD: limpiar medios ARS (no tocar el reparto oficina/propietario/inquilino).
             $('#bloque_montos_ars .monto').val('');
             totalArs = 0;
-            $('#monto_a_oficina, #monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
         }
         if (totalArs <= 0 && totalUsd <= 0) {
             e.preventDefault();
@@ -2817,18 +2826,20 @@ $(document).ready(function() {
             $('#monto_a_oficina').val(fmtMontoLocal(totalGo));
             $('#monto_a_propietario').val(fmtMontoLocal(0));
             $('#monto_a_inquilino').val(fmtMontoLocal(0));
-        } else if (totalArs > 0) {
+        } else if ((moneda === 'USD' && totalUsd > 0) || totalArs > 0) {
             if (!correspondeSumaOk()) {
                 e.preventDefault();
                 actualizarHintCorresponde();
-                alert('Tenés que indicar a quién corresponde el importe (oficina / propietario / inquilino). La suma tiene que ser igual al total.');
+                alert(
+                    moneda === 'USD'
+                        ? 'Tenés que indicar a quién corresponde el importe (oficina / propietario / inquilino). La suma tiene que ser igual al total en dólares.'
+                        : 'Tenés que indicar a quién corresponde el importe (oficina / propietario / inquilino). La suma tiene que ser igual al total.'
+                );
                 $('#monto_a_oficina').focus();
                 enviandoMovimientoCaja = false;
                 $('#btn_guardar_movimiento').prop('disabled', false).html('<i class="fas fa-save"></i> Guardar movimiento');
                 return false;
             }
-        } else {
-            $('#monto_a_oficina, #monto_a_propietario, #monto_a_inquilino').val(fmtMontoLocal(0));
         }
         // Egreso: propiedad obligatoria (salvo gasto de oficina o vale a productor)
         if ($('select[name="tipo"]').val() === 'EG'
