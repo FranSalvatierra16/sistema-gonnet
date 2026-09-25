@@ -1680,7 +1680,8 @@ def _descripcion_movimiento_libro(mov):
 def _monto_gasto_libro_sin_inquilino(mov, ars_total):
     """
     Parte del egreso que carga el depto / propietario en el libro.
-    La parte a inquilino (proporcional) no suma: no es gasto del depto.
+    La parte a inquilino no suma: no es gasto del depto.
+    Si a_descontar=inquilino, se excluye completo (aunque queden montos OF/PROP viejos).
     """
     ars_total = Decimal(str(ars_total or 0))
     m_inq = Decimal(str(getattr(mov, 'monto_a_inquilino', None) or 0))
@@ -1688,13 +1689,17 @@ def _monto_gasto_libro_sin_inquilino(mov, ars_total):
     m_of = Decimal(str(getattr(mov, 'monto_a_oficina', None) or 0))
     a_desc = (getattr(mov, 'a_descontar', None) or '').strip().lower()
 
+    # Etiqueta inquilino gana: no entra al libro del depto.
+    if a_desc == 'inquilino':
+        return Decimal('0')
+    if m_inq > 0 and ars_total > 0 and m_inq >= ars_total:
+        return Decimal('0')
+
     propio = (m_prop + m_of).quantize(Decimal('0.01'))
     if propio > 0:
         return propio
     if m_inq > 0 and ars_total > m_inq:
         return (ars_total - m_inq).quantize(Decimal('0.01'))
-    if a_desc == 'inquilino' or (m_inq > 0 and ars_total > 0 and m_inq >= ars_total):
-        return Decimal('0')
     return ars_total.quantize(Decimal('0.01')) if ars_total > 0 else Decimal('0')
 
 
