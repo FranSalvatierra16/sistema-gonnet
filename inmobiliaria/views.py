@@ -333,14 +333,25 @@ def _url_imprimir_caratula_contrato(contrato_id, request=None):
 
 
 def _contexto_botones_recibo_contrato(request, contrato_id):
-    """Volver al detalle/caja y Siguiente hacia carátula imprimible."""
+    """Volver al detalle/caja y Siguiente hacia carátula imprimible (no en 24 meses)."""
     explicit = (request.GET.get('next') or '').strip()
     validated = _validar_url_volver_recibo(explicit, request)
     url_volver = validated or reverse('inmobiliaria:detalle_contrato', args=[contrato_id])
+    muestra_caratula = True
+    try:
+        from inmobiliaria.models import ContratoAlquiler
+
+        contrato = ContratoAlquiler.objects.filter(pk=contrato_id).first()
+        if contrato and hasattr(contrato, 'categoria_tipo_operacion'):
+            muestra_caratula = contrato.categoria_tipo_operacion() != '24'
+    except Exception:
+        pass
     return {
         'url_volver': url_volver,
-        'url_siguiente': _url_imprimir_caratula_contrato(contrato_id, request),
-        'muestra_siguiente_caratula': True,
+        'url_siguiente': (
+            _url_imprimir_caratula_contrato(contrato_id, request) if muestra_caratula else ''
+        ),
+        'muestra_siguiente_caratula': muestra_caratula,
     }
 
 

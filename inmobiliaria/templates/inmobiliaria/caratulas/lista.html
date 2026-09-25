@@ -198,7 +198,7 @@
                         {% endif %}
                         {% else %}
                         <a class="btn btn-sm btn-outline-primary" href="{% url 'inmobiliaria:caratula_contrato' f.pk %}{% if lista_ver_qs %}?{{ lista_ver_qs }}{% endif %}">Ver</a>
-                        {% if puede_imprimir_caratula %}
+                        {% if puede_imprimir_caratula and f.puede_imprimir_caratula %}
                         <a class="btn btn-sm btn-outline-secondary" href="{% url 'inmobiliaria:imprimir_caratula_contrato' f.pk %}" target="_blank" rel="noopener" title="Imprimir carátula"><i class="fas fa-print"></i></a>
                         {% endif %}
                         {% endif %}

@@ -752,6 +752,16 @@ def _puede_imprimir_caratula(user):
     return nivel >= 1
 
 
+def _contrato_permite_imprimir_caratula(contrato):
+    """Los contratos 24 meses no tienen impresión de carátula (sí invierno / 6 meses)."""
+    if not contrato:
+        return False
+    if hasattr(contrato, 'categoria_tipo_operacion'):
+        return contrato.categoria_tipo_operacion() != '24'
+    dm = int(getattr(contrato, 'duracion_meses', 0) or 0)
+    return dm == 9 or dm == 6 or dm < 9
+
+
 def _puede_corregir_montos_liquidacion(user):
     """Administrador (nivel 4+) o superusuario: corregir montos del resumen con liquidación ya cargada."""
     from inmobiliaria.models.persona import usuario_es_nivel_administracion
@@ -4032,6 +4042,7 @@ def lista_caratulas(request):
                 'propiedad_linea': clinea,
                 'propiedad_sub': csub,
                 'direccion': p.direccion if p else '—',
+                'puede_imprimir_caratula': _contrato_permite_imprimir_caratula(c),
                 'piso_dto': piso_dto,
                 'ficha': p.id if p else '—',
                 # En contratos (24 meses / invierno) se muestra la locación mensual, no el total.
@@ -4639,7 +4650,10 @@ def caratula_contrato(request, contrato_id):
         'carpeta_actual': carpeta_actual,
         'carpeta_default': _carpeta_default_actual(request),
         'puede_editar_caratula': _puede_editar_caratula(request.user),
-        'puede_imprimir_caratula': _puede_imprimir_caratula(request.user),
+        'puede_imprimir_caratula': (
+            _puede_imprimir_caratula(request.user)
+            and _contrato_permite_imprimir_caratula(contrato)
+        ),
         'edit_montos': {
             'precio_total': format_monto_argentino(total_contrato),
             'senia': format_monto_argentino(senia_display),
@@ -4767,6 +4781,10 @@ def imprimir_caratula_contrato(request, contrato_id):
         ),
         pk=contrato_id,
     )
+    if not _contrato_permite_imprimir_caratula(contrato):
+        return HttpResponseForbidden(
+            'Los contratos de 24 meses no tienen impresión de carátula.'
+        )
     if contrato.sucursal_id != getattr(request.user, 'sucursal_id', None) and not getattr(
         request.user, 'is_superuser', False
     ):
