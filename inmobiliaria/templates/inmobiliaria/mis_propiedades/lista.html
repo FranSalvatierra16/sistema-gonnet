@@ -50,6 +50,11 @@
         </div>
         <div class="card-body">
             <p class="mb-2"><strong>{{ detalle.item.propiedad.direccion }}</strong>
+                {% if detalle.item.propiedad.piso or detalle.item.propiedad.departamento %}
+                <span class="text-muted"> —
+                    {% if detalle.item.propiedad.piso %}Piso {{ detalle.item.propiedad.piso }}{% endif %}{% if detalle.item.propiedad.piso and detalle.item.propiedad.departamento %}, {% endif %}{% if detalle.item.propiedad.departamento %}Dpto {{ detalle.item.propiedad.departamento }}{% endif %}
+                </span>
+                {% endif %}
                 {% if detalle.item.propiedad.propietario %}
                 <span class="text-muted"> · propietario: {{ detalle.item.propiedad.propietario.apellido }}, {{ detalle.item.propiedad.propietario.nombre }}</span>
                 {% endif %}
@@ -107,13 +112,22 @@
   {% endif %}
 
     <div class="card mb-4">
-        <div class="card-header bg-light"><strong>Cartera de la sucursal</strong></div>
+        <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <strong>Cartera de la sucursal</strong>
+            <div class="input-group input-group-sm" style="max-width: 22rem;">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="search" id="buscar-cartera-mis-prop" class="form-control"
+                       placeholder="ID, dirección, piso/dpto o propietario…"
+                       autocomplete="off">
+            </div>
+        </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0 align-middle">
+                <table class="table table-hover mb-0 align-middle" id="tabla-cartera-mis-prop">
                     <thead class="table-light">
                         <tr>
                             <th>Propiedad</th>
+                            <th>Piso / Dpto</th>
                             <th>Propietario</th>
                             <th class="text-end">%</th>
                             <th class="text-end">Ingresos míos</th>
@@ -123,10 +137,22 @@
                     </thead>
                     <tbody>
                         {% for row in cartera_items %}
-                        <tr>
+                        <tr class="fila-cartera-mis-prop"
+                            data-id="{{ row.item.propiedad_id }}"
+                            data-direccion="{{ row.item.propiedad.direccion }}"
+                            data-piso="{{ row.item.propiedad.piso|default:'' }}"
+                            data-dpto="{{ row.item.propiedad.departamento|default:'' }}"
+                            data-propietario="{% if row.item.propiedad.propietario %}{{ row.item.propiedad.propietario.apellido }} {{ row.item.propiedad.propietario.nombre }}{% endif %}">
                             <td>
                                 <strong>#{{ row.item.propiedad_id }}</strong><br>
                                 <small>{{ row.item.propiedad.direccion }}</small>
+                            </td>
+                            <td class="small text-nowrap">
+                                {% if row.item.propiedad.piso or row.item.propiedad.departamento %}
+                                    {% if row.item.propiedad.piso %}Piso {{ row.item.propiedad.piso }}{% endif %}{% if row.item.propiedad.piso and row.item.propiedad.departamento %}, {% endif %}{% if row.item.propiedad.departamento %}Dpto {{ row.item.propiedad.departamento }}{% endif %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
                             </td>
                             <td class="small">{% if row.item.propiedad.propietario %}{{ row.item.propiedad.propietario.apellido }}, {{ row.item.propiedad.propietario.nombre }}{% else %}—{% endif %}</td>
                             <td class="text-end">
@@ -147,8 +173,9 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="6" class="text-center text-muted py-4">Todavía no agregaste propiedades. Buscá un propietario abajo para empezar.</td></tr>
+                        <tr id="fila-cartera-vacia-servidor"><td colspan="7" class="text-center text-muted py-4">Todavía no agregaste propiedades. Buscá un propietario abajo para empezar.</td></tr>
                         {% endfor %}
+                        <tr id="fila-cartera-vacia-filtro" class="d-none"><td colspan="7" class="text-center text-muted py-4">Sin coincidencias.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -208,6 +235,7 @@
                                 </th>
                                 <th>#</th>
                                 <th>Dirección</th>
+                                <th>Piso / Dpto</th>
                                 <th>Ubicación</th>
                                 <th>Estado</th>
                             </tr>
@@ -224,6 +252,11 @@
                                 </td>
                                 <td>{{ row.propiedad.id }}</td>
                                 <td>{{ row.propiedad.direccion }}</td>
+                                <td class="small text-nowrap">
+                                    {% if row.propiedad.piso or row.propiedad.departamento %}
+                                        {% if row.propiedad.piso %}Piso {{ row.propiedad.piso }}{% endif %}{% if row.propiedad.piso and row.propiedad.departamento %}, {% endif %}{% if row.propiedad.departamento %}Dpto {{ row.propiedad.departamento }}{% endif %}
+                                    {% else %}—{% endif %}
+                                </td>
                                 <td class="small">{{ row.propiedad.ubicacion|default:"—" }}</td>
                                 <td class="small">{% if row.ya_en_cartera %}En cartera{% else %}—{% endif %}</td>
                             </tr>
@@ -272,6 +305,34 @@
 {% block extra_js %}
 <script>
 (function() {
+    var inpCartera = document.getElementById('buscar-cartera-mis-prop');
+    var filasCartera = Array.prototype.slice.call(document.querySelectorAll('.fila-cartera-mis-prop'));
+    var vaciaFiltro = document.getElementById('fila-cartera-vacia-filtro');
+    if (inpCartera && filasCartera.length) {
+        function norm(s) {
+            return (s || '').toString().toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+        function filtrarCartera() {
+            var tokens = norm(inpCartera.value).trim().split(/\s+/).filter(Boolean);
+            var visibles = 0;
+            filasCartera.forEach(function(tr) {
+                var hay = norm(
+                    (tr.getAttribute('data-id') || '') + ' ' +
+                    (tr.getAttribute('data-direccion') || '') + ' ' +
+                    (tr.getAttribute('data-piso') || '') + ' ' +
+                    (tr.getAttribute('data-dpto') || '') + ' ' +
+                    (tr.getAttribute('data-propietario') || '')
+                );
+                var ok = !tokens.length || tokens.every(function(t) { return hay.indexOf(t) !== -1; });
+                tr.classList.toggle('d-none', !ok);
+                if (ok) visibles += 1;
+            });
+            if (vaciaFiltro) vaciaFiltro.classList.toggle('d-none', visibles > 0 || !tokens.length);
+        }
+        inpCartera.addEventListener('input', filtrarCartera);
+    }
+
     var $buscar = $('#buscar_propietario_mis_prop');
     var $dd = $('#dropdown_propietarios_mis_prop');
     var $bloque = $('#bloque_resultado_propietario');
