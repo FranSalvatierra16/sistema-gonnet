@@ -101,6 +101,7 @@
                         <tr>
                             <th class="text-center" style="width:2.5rem">Nº</th>
                             <th>Propiedad</th>
+                            <th>Propietario</th>
                             <th>Período</th>
                             <th class="text-end">Ing. bruto</th>
                             <th class="text-end">Gastos</th>
@@ -123,6 +124,7 @@
                                 </div>
                                 {% endif %}
                             </td>
+                            <td class="text-nowrap">{{ f.apellido_propietario|default:"—" }}</td>
                             <td class="text-nowrap">{{ f.periodo }}</td>
                             <td class="text-end text-nowrap">${{ f.bruto|format_price }}</td>
                             <td class="text-end text-nowrap">${{ f.gastos|format_price }}</td>
@@ -161,7 +163,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="10" class="text-center text-muted py-4">
+                            <td colspan="11" class="text-center text-muted py-4">
                                 No hay movimientos de departamentos de oficina en este mes.
                                 {% if reporte.disponibles_para_agregar %}
                                 Podés agregar uno con el selector de arriba.
@@ -173,7 +175,7 @@
                     {% if reporte.filas %}
                     <tfoot>
                         <tr class="fw-bold table-light">
-                            <td colspan="3" class="text-end">TOTAL</td>
+                            <td colspan="4" class="text-end">TOTAL</td>
                             <td class="text-end">${{ reporte.total_bruto|format_price }}</td>
                             <td class="text-end">${{ reporte.total_gastos|format_price }}</td>
                             <td class="text-end" style="background:#fff3cd">

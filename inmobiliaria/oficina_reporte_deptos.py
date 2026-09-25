@@ -519,7 +519,7 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     props = _ordenar_propiedades_oficina(
         list(
             _qs_propiedades_oficina(sucursal)
-            .select_related('info_invierno', 'info_meses')
+            .select_related('propietario', 'info_invierno', 'info_meses')
             .prefetch_related('precios')
         ),
         orden='direccion',
@@ -586,10 +586,13 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
             n_negativos += 1
 
         tarifas = tarifas_por_prop.get(prop.id) or _vacios_modalidad()
+        prop_obj = getattr(prop, 'propietario', None)
+        apellido_prop = (getattr(prop_obj, 'apellido', None) or '').strip() if prop_obj else ''
         filas.append({
             'nro': len(filas) + 1,
             'propiedad': prop,
             'propiedad_label': label,
+            'apellido_propietario': apellido_prop,
             'periodo': periodo_label,
             'bruto': calc['bruto'],
             'gastos': calc['gastos'],
