@@ -17206,6 +17206,26 @@ def _ids_concepto_en_movimiento(movimiento, nombre_a_id=None):
 def _movimiento_tiene_alguno_concepto_ids(movimiento, ids_buscados, conceptos_catalogo=None):
     if not ids_buscados:
         return False
+    # Ids numéricos de catálogo (ej. 22): solo si hay línea con ese id o es mono-concepto 22.
+    # Evita sumar cobros que solo mencionan «Gastos bancarios» en el texto libre.
+    ids_digit = {str(x).strip() for x in ids_buscados if str(x).strip().isdigit()}
+    ids_otros = {str(x).strip() for x in ids_buscados if str(x).strip() and not str(x).strip().isdigit()}
+    if ids_digit:
+        from inmobiliaria.oficina_gastos import (
+            _movimiento_es_concepto_id_estricto,
+            _parse_lineas_concepto_movimiento,
+        )
+
+        for cid in ids_digit:
+            for linea in _parse_lineas_concepto_movimiento(movimiento):
+                if not isinstance(linea, dict):
+                    continue
+                if str(linea.get('id') or linea.get('codigo') or '').strip() == cid:
+                    return True
+            if _movimiento_es_concepto_id_estricto(movimiento, cid):
+                return True
+        if not ids_otros:
+            return False
     nombre_a_id = _mapa_nombre_concepto_catalogo(conceptos_catalogo)
     return bool(_ids_concepto_en_movimiento(movimiento, nombre_a_id) & set(ids_buscados))
 
@@ -17334,7 +17354,8 @@ def _importe_lineas_concepto_en_movimiento(movimiento, ids_buscados, nombre_busc
 def _importe_concepto_filtrado_movimiento(movimiento, criterio, conceptos_catalogo):
     """
     Importe del movimiento atribuible al concepto filtrado.
-    En recibos con varios conceptos, solo suma la línea buscada (ej. Personal Flow).
+    En recibos con varios conceptos, solo suma la línea buscada (ej. id 22).
+    Nunca usa el total del recibo si hay otras líneas.
     """
     if not criterio:
         return None
@@ -17343,12 +17364,43 @@ def _importe_concepto_filtrado_movimiento(movimiento, criterio, conceptos_catalo
     nombre_buscado = (criterio.get('nombre') or '').strip()
     id_nombre_map = _mapa_id_nombre_concepto_catalogo(conceptos_catalogo)
     nombre_a_id = _mapa_nombre_concepto_catalogo(conceptos_catalogo)
+    ids_digit = {cid for cid in ids_buscados if cid.isdigit()}
 
+    # Con id de catálogo: solo líneas de ese id (no match por nombre «Gastos bancarios» en texto).
+    nombre_para_lineas = '' if ids_digit else nombre_buscado
     sub = _importe_lineas_concepto_en_movimiento(
-        movimiento, ids_buscados, nombre_buscado, id_nombre_map
+        movimiento, ids_buscados, nombre_para_lineas, id_nombre_map
     )
     if sub != 0:
         return sub
+
+    # Filtro por id de catálogo (22, 130, …): misma regla que el cierre de oficina.
+    if ids_digit:
+        from inmobiliaria.oficina_gastos import (
+            _importe_solo_lineas_concepto_id,
+            _movimiento_es_concepto_id_estricto,
+            _parse_lineas_concepto_movimiento,
+        )
+
+        acum = Decimal('0')
+        for cid in ids_digit:
+            acum += _importe_solo_lineas_concepto_id(movimiento, cid)
+        if acum != 0:
+            return acum.quantize(Decimal('0.01'))
+
+        for cid in ids_digit:
+            if not _movimiento_es_concepto_id_estricto(movimiento, cid):
+                continue
+            # Multi-concepto con líneas: sin línea del id → 0 (no el total).
+            if _parse_lineas_concepto_movimiento(movimiento):
+                return Decimal('0')
+            ars = Decimal(str(movimiento.monto_total or 0)).quantize(Decimal('0.01'))
+            if ars != 0:
+                return ars
+            return Decimal(str(getattr(movimiento, 'monto_dolares', None) or 0)).quantize(
+                Decimal('0.01')
+            )
+        return Decimal('0')
 
     ids_mov = _ids_concepto_en_movimiento(movimiento, nombre_a_id)
     coincide = False
