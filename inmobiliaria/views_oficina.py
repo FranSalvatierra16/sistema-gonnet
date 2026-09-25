@@ -1679,28 +1679,34 @@ def _descripcion_movimiento_libro(mov):
 
 def _monto_gasto_libro_sin_inquilino(mov, ars_total):
     """
-    Parte del egreso que carga el depto / propietario en el libro.
-    La parte a inquilino no suma: no es gasto del depto.
-    Si a_descontar=inquilino, se excluye completo (aunque queden montos OF/PROP viejos).
+    Parte del egreso que carga el depto en el libro.
+    Si el gasto está dividido (hay montos de reparto), solo suma lo del
+    propietario (+ oficina si aplica). La parte a inquilino nunca entra.
     """
-    ars_total = Decimal(str(ars_total or 0))
-    m_inq = Decimal(str(getattr(mov, 'monto_a_inquilino', None) or 0))
-    m_prop = Decimal(str(getattr(mov, 'monto_a_propietario', None) or 0))
-    m_of = Decimal(str(getattr(mov, 'monto_a_oficina', None) or 0))
+    ars_total = Decimal(str(ars_total or 0)).quantize(Decimal('0.01'))
+    m_inq = Decimal(str(getattr(mov, 'monto_a_inquilino', None) or 0)).quantize(Decimal('0.01'))
+    m_prop = Decimal(str(getattr(mov, 'monto_a_propietario', None) or 0)).quantize(Decimal('0.01'))
+    m_of = Decimal(str(getattr(mov, 'monto_a_oficina', None) or 0)).quantize(Decimal('0.01'))
     a_desc = (getattr(mov, 'a_descontar', None) or '').strip().lower()
 
-    # Etiqueta inquilino gana: no entra al libro del depto.
+    suma_reparto = (m_prop + m_of + m_inq).quantize(Decimal('0.01'))
+    hay_reparto = suma_reparto > Decimal('0.01')
+
+    if hay_reparto:
+        # Dividido con parte a inquilino → solo lo del propietario.
+        if m_inq > Decimal('0.01'):
+            return m_prop if m_prop > Decimal('0.01') else Decimal('0')
+        # Etiqueta inquilino sin monto a propietario (OF/PROP viejos) → no mostrar.
+        if a_desc == 'inquilino' and m_prop <= Decimal('0.01'):
+            return Decimal('0')
+        # Solo oficina / propietario (sin inquilino).
+        propio = (m_prop + m_of).quantize(Decimal('0.01'))
+        return propio if propio > Decimal('0.01') else Decimal('0')
+
+    # Sin montos de reparto: legacy por etiqueta.
     if a_desc == 'inquilino':
         return Decimal('0')
-    if m_inq > 0 and ars_total > 0 and m_inq >= ars_total:
-        return Decimal('0')
-
-    propio = (m_prop + m_of).quantize(Decimal('0.01'))
-    if propio > 0:
-        return propio
-    if m_inq > 0 and ars_total > m_inq:
-        return (ars_total - m_inq).quantize(Decimal('0.01'))
-    return ars_total.quantize(Decimal('0.01')) if ars_total > 0 else Decimal('0')
+    return ars_total if ars_total > Decimal('0.01') else Decimal('0')
 
 
 def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_reserva=None):
