@@ -266,7 +266,7 @@
             <div class="card shadow-modern border-radius-modern border-warning">
                 <div class="card-header bg-warning text-dark">
                     <h4 class="mb-0"><i class="fas fa-calendar-day"></i> <strong>Precio de cada mes</strong></h4>
-                    <small>Cargá el importe de <strong>cada mes</strong> del contrato ({{ contrato.get_moneda_display }}), en el orden que quieras. <strong>Vacío = sin precio</strong> (cuota bloqueada) hasta que guardés. Solo se actualizan cuotas <strong>no pagadas</strong>.</small>
+                    <small>Cargá el importe de <strong>cada mes</strong> del contrato ({{ contrato.get_moneda_display }}), en el orden que quieras. <strong>Vacío = sin precio</strong> (cuota bloqueada) hasta que guardés. Al guardar solo se actualizan cuotas <strong>no pagadas</strong>; las ya cobradas quedan con el monto del día del pago (si no coincide con el plan, aparece un botón para corregirlas).</small>
                 </div>
                 <div class="card-body">
                     {% if puede_activar_modo_trimestres %}
@@ -448,6 +448,21 @@
                             <td>
                                 {% if cuota.estado == 'pagada' or cuota.estado == 'pagada_con_mora' %}
                                 <strong class="text-dark">{{ cuota.monto_base|format_importe_moneda:contrato.moneda }}</strong>
+                                {% if cuota.desfasada_del_plan %}
+                                <div class="small text-danger mt-1">
+                                    Plan del mes: {{ cuota.monto_plan|format_importe_moneda:contrato.moneda }}
+                                </div>
+                                {% if user.nivel >= 4 or user.is_superuser %}
+                                <form method="post" class="mt-1"
+                                      action="{% url 'inmobiliaria:alinear_monto_cuota_pagada_al_plan' contrato.id cuota.id %}"
+                                      onsubmit="return confirm('¿Corregir el cobro mensual de la cuota {{ cuota.numero_cuota }} a {{ cuota.monto_plan|format_importe_moneda:contrato.moneda }} (precio del mes)?\n\nNo anula el movimiento de caja; solo alinea el monto de la cuota pagada.');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-warning py-0 px-2" title="Alinear al precio del mes">
+                                        <i class="fas fa-wrench"></i> Corregir a plan
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% endif %}
                                 {% else %}
                                 <form method="post"
                                       action="{% url 'inmobiliaria:actualizar_precio_cuota_mes_contrato' contrato.id %}"

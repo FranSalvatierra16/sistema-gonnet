@@ -517,6 +517,11 @@ urlpatterns = [
         name='corregir_saldos_julio_agosto_311',
     ),
     path(
+        'contratos/<int:contrato_id>/cuotas/<int:cuota_id>/alinear-monto-plan/',
+        views.alinear_monto_cuota_pagada_al_plan,
+        name='alinear_monto_cuota_pagada_al_plan',
+    ),
+    path(
         'contratos/<int:contrato_id>/recalcular-montos-cuotas/',
         views.recalcular_cuotas_montos_desde_contrato,
         name='recalcular_cuotas_montos_desde_contrato',

@@ -20227,8 +20227,19 @@ def detalle_contrato(request, contrato_id):
 
     cuotas_list = list(cuotas)
     recibos_por_cuota = mapa_movimientos_recibo_por_cuota_id(cuotas_list, movimientos_contrato)
+    montos_plan = _montos_cuotas_por_trimestre(contrato)
     for c in cuotas_list:
         c.recibos_cobro = recibos_por_cuota.get(int(c.id), [])
+        idx = int(c.numero_cuota) - 1
+        plan = montos_plan[idx] if 0 <= idx < len(montos_plan) else Decimal(str(contrato.precio_mensual or 0))
+        plan = Decimal(str(plan or 0)).quantize(Decimal('0.01'))
+        base = Decimal(str(c.monto_base or 0)).quantize(Decimal('0.01'))
+        c.monto_plan = plan
+        c.desfasada_del_plan = (
+            c.estado in ('pagada', 'pagada_con_mora')
+            and plan > Decimal('0.01')
+            and abs(base - plan) > Decimal('0.01')
+        )
     cuotas = cuotas_list
 
     # Estadísticas
@@ -20955,6 +20966,61 @@ def corregir_saldos_julio_agosto_311(request, contrato_id):
         request,
         f'Listo. Julio (cuota {r_jul["cuota_numero"]}): saldo ${r_jul["saldo"]}. '
         f'Agosto (cuota {r_ago["cuota_numero"]}): saldo ${r_ago["saldo"]}.',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def alinear_monto_cuota_pagada_al_plan(request, contrato_id, cuota_id):
+    """
+    Corrige monto_base/monto_total de una cuota ya pagada al precio del mes del contrato.
+    No anula el movimiento de caja ni cambia el estado (sigue Pagada).
+    Útil cuando el plan pasó a $600.000 pero la cuota quedó congelada en $525.000.
+    """
+    nivel = getattr(request.user, 'nivel', None)
+    if not (
+        getattr(request.user, 'is_superuser', False)
+        or (nivel is not None and int(nivel) >= 4)
+    ):
+        messages.error(request, 'No tenés permiso para corregir montos de cuotas pagadas.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato_id)
+
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    cuota = get_object_or_404(CuotaMensual, id=cuota_id, contrato=contrato)
+    if cuota.estado not in ('pagada', 'pagada_con_mora'):
+        messages.error(request, 'Esta acción es solo para cuotas ya cobradas.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    plan = Decimal(str(_monto_plan_cuota_contrato(contrato, cuota.numero_cuota) or 0)).quantize(
+        Decimal('0.01')
+    )
+    if plan <= Decimal('0.01'):
+        messages.error(
+            request,
+            'El plan de ese mes no tiene precio cargado. Definí el importe arriba y volvé a intentar.',
+        )
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    anterior = Decimal(str(cuota.monto_base or 0)).quantize(Decimal('0.01'))
+    if abs(anterior - plan) <= Decimal('0.01'):
+        messages.info(request, 'La cuota ya coincide con el precio del mes.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    cuota.monto_base = plan
+    cuota.monto_total = plan
+    # Mantener crédito si existiera, topeado al nuevo total.
+    cred = Decimal(str(cuota.credito_aplicado or 0))
+    if cred > plan:
+        cuota.credito_aplicado = plan
+    cuota.save(update_fields=['monto_base', 'monto_total', 'credito_aplicado'])
+
+    messages.success(
+        request,
+        f'Cuota {cuota.numero_cuota}/{contrato.duracion_meses}: cobro mensual '
+        f'corregido de ${format_monto_argentino(anterior)} a ${format_monto_argentino(plan)} '
+        f'(precio del mes). El movimiento de caja no se modificó.',
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
