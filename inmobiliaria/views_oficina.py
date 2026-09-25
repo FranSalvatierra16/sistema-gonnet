@@ -708,11 +708,15 @@ def oficina_gastos(request):
         fecha_desde_s, fecha_hasta_s = dr_desde.isoformat(), dr_hasta.isoformat()
 
     try:
-        from inmobiliaria.oficina_gastos import reimputar_gastos_sueldo_mes_anterior
+        from inmobiliaria.oficina_gastos import (
+            reimputar_gastos_sueldo_mes_anterior,
+            reparar_pares_reparto_faltantes,
+        )
 
         reimputar_gastos_sueldo_mes_anterior(sucursal, dr_desde, dr_hasta)
+        reparar_pares_reparto_faltantes(sucursal, dr_desde, dr_hasta)
     except Exception:
-        logger.exception('oficina_gastos: falló reimputar sueldos al mes anterior')
+        logger.exception('oficina_gastos: falló reimputar/reparar repartos')
 
     qs = GastoOficina.objects.filter(sucursal=sucursal).select_related(
         'categoria', 'categoria__parent', 'usuario_creacion', 'vendedor',

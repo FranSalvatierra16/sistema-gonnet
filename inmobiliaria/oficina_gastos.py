@@ -1106,6 +1106,42 @@ def _monto_por_porcentaje(total, porcentaje, es_resto=False, total_ya_asignado=N
     return (total * pct / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
 
+def _norm_nombre_categoria(nombre):
+    """Normaliza nombre para comparar categorías entre sucursales."""
+    import re
+    import unicodedata
+
+    s = (nombre or '').strip().casefold()
+    s = ''.join(
+        c for c in unicodedata.normalize('NFD', s)
+        if unicodedata.category(c) != 'Mn'
+    )
+    s = re.sub(r'\s+', ' ', s)
+    # Variantes frecuentes del seed / edits a mano
+    s = s.replace('contables o impuestos', 'contables e impuestos')
+    return s
+
+
+def _buscar_raiz_espejo(sucursal_destino, parent_nombre):
+    """Encuentra la raíz equivalente aunque el nombre no sea idéntico."""
+    if not sucursal_destino or not (parent_nombre or '').strip():
+        return None
+    exacta = CategoriaGastoOficina.objects.filter(
+        sucursal=sucursal_destino,
+        parent__isnull=True,
+        nombre__iexact=parent_nombre.strip(),
+    ).first()
+    if exacta:
+        return exacta
+    target = _norm_nombre_categoria(parent_nombre)
+    for raiz in CategoriaGastoOficina.objects.filter(
+        sucursal=sucursal_destino, parent__isnull=True
+    ):
+        if _norm_nombre_categoria(raiz.nombre) == target:
+            return raiz
+    return None
+
+
 def _encontrar_categoria_espejo(cat, sucursal_destino, nombre_buscar=None):
     """Misma categoría en otra sucursal (por nombre de raíz / hijo)."""
     if not cat or not sucursal_destino:
@@ -1116,11 +1152,7 @@ def _encontrar_categoria_espejo(cat, sucursal_destino, nombre_buscar=None):
 
     if cat.parent_id:
         parent_nombre = (cat.parent.nombre or '').strip()
-        parent_d = CategoriaGastoOficina.objects.filter(
-            sucursal=sucursal_destino,
-            parent__isnull=True,
-            nombre__iexact=parent_nombre,
-        ).first()
+        parent_d = _buscar_raiz_espejo(sucursal_destino, parent_nombre)
         if not parent_d:
             return None
         if cat.vendedor_id:
@@ -1132,18 +1164,25 @@ def _encontrar_categoria_espejo(cat, sucursal_destino, nombre_buscar=None):
                 parent=parent_d,
                 vendedor=vend_d,
             ).first()
-        return CategoriaGastoOficina.objects.filter(
+        hijo = CategoriaGastoOficina.objects.filter(
             sucursal=sucursal_destino,
             parent=parent_d,
             nombre__iexact=nombre,
             vendedor__isnull=True,
         ).first()
+        if hijo:
+            return hijo
+        target = _norm_nombre_categoria(nombre)
+        for h in CategoriaGastoOficina.objects.filter(
+            sucursal=sucursal_destino,
+            parent=parent_d,
+            vendedor__isnull=True,
+        ):
+            if _norm_nombre_categoria(h.nombre) == target:
+                return h
+        return None
 
-    return CategoriaGastoOficina.objects.filter(
-        sucursal=sucursal_destino,
-        parent__isnull=True,
-        nombre__iexact=nombre,
-    ).first()
+    return _buscar_raiz_espejo(sucursal_destino, nombre)
 
 
 def _asegurar_categoria_espejo(cat, sucursal_destino):
@@ -1227,9 +1266,16 @@ def _asegurar_parent_espejo(cat, sucursal_destino):
     if not cat.parent_id:
         return None
     parent = cat.parent
+    parent_nombre = (parent.nombre or '').strip()
+    existente = _buscar_raiz_espejo(sucursal_destino, parent_nombre)
+    if existente:
+        if existente.activa != parent.activa and not getattr(existente, 'eliminada', False):
+            existente.activa = parent.activa
+            existente.save(update_fields=['activa'])
+        return existente
     parent_d, _ = _get_or_create_raiz(
         sucursal_destino,
-        (parent.nombre or '').strip(),
+        parent_nombre,
         parent.orden,
     )
     if parent_d.activa != parent.activa and not getattr(parent_d, 'eliminada', False):
@@ -2168,6 +2214,131 @@ def registrar_gasto_oficina_desde_movimiento(
     gasto_local.gasto_relacionado = gasto_otra
     gasto_local.save(update_fields=['gasto_relacionado', 'fecha_modificacion'])
     return gasto_local
+
+
+def reparar_pares_reparto_faltantes(sucursal, fecha_desde=None, fecha_hasta=None):
+    """
+    Crea en ``sucursal`` los GastoOficina pareja que faltan cuando el egreso
+    se cargó en la otra (Colón↔Corrientes) con % < 100 y no se generó el espejo.
+    """
+    par = par_sucursales_reparto_gasto_oficina(sucursal)
+    if not par:
+        return 0
+    otra = par['corrientes'] if par['local_key'] == 'colon' else par['colon']
+
+    qs = (
+        GastoOficina.objects.filter(
+            sucursal=otra,
+            movimiento_caja__isnull=False,
+            porcentaje__isnull=False,
+            monto_total__isnull=False,
+        )
+        .select_related(
+            'categoria',
+            'categoria__parent',
+            'gasto_relacionado',
+            'movimiento_caja',
+            'vendedor',
+        )
+        .order_by('id')
+    )
+    # Ampliar un poco el rango: el par usa fecha de transferencia (puede ser mes anterior).
+    if fecha_desde:
+        from datetime import timedelta
+
+        qs = qs.filter(fecha__gte=fecha_desde - timedelta(days=45))
+    if fecha_hasta:
+        qs = qs.filter(fecha__lte=fecha_hasta)
+
+    creados = 0
+    for g in qs:
+        try:
+            pct_otra = Decimal(str(g.porcentaje or 0)).quantize(Decimal('0.01'))
+        except Exception:
+            continue
+        if pct_otra >= Decimal('99.99'):
+            continue
+        pct_local = (Decimal('100') - pct_otra).quantize(Decimal('0.01'))
+        if pct_local <= Decimal('0.01'):
+            continue
+
+        # ¿Ya existe el par en esta sucursal?
+        if g.gasto_relacionado_id and getattr(g.gasto_relacionado, 'sucursal_id', None) == sucursal.id:
+            continue
+        pareja = GastoOficina.objects.filter(
+            sucursal=sucursal, gasto_relacionado_id=g.id
+        ).first()
+        if not pareja and g.gasto_relacionado_id:
+            pareja = GastoOficina.objects.filter(
+                sucursal=sucursal, id=g.gasto_relacionado_id
+            ).first()
+        if pareja:
+            if g.gasto_relacionado_id != pareja.id:
+                g.gasto_relacionado = pareja
+                g.save(update_fields=['gasto_relacionado', 'fecha_modificacion'])
+            continue
+
+        cat_local = _asegurar_categoria_espejo(g.categoria, sucursal)
+        if not cat_local:
+            continue
+
+        total = Decimal(str(g.monto_total or 0))
+        monto_ya = Decimal(str(g.monto or 0))
+        monto_local = (total - monto_ya).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if abs(monto_local) < Decimal('0.005'):
+            monto_local = _monto_por_porcentaje(total, pct_local)
+
+        mov = g.movimiento_caja
+        mov_id = getattr(mov, 'id', None)
+        nota = (
+            f'Reparto reparado desde {otra.nombre} '
+            f'(mov. caja #{mov_id}).'
+            if mov_id
+            else f'Reparto reparado desde {otra.nombre}.'
+        )
+        obs = _limpiar_notas_reparto_observaciones(g.observaciones or '')
+        # Reconstruir nota de % si estaba en el origen
+        import re
+
+        m_rep = re.search(
+            r'Reparto:\s*Col[oó]n\s+([\d.,]+)%\s*/\s*Corrientes\s+([\d.,]+)%',
+            g.observaciones or '',
+            re.IGNORECASE,
+        )
+        if m_rep:
+            nota_reparto = (
+                f'Reparto: Colón {m_rep.group(1)}% / Corrientes {m_rep.group(2)}%'
+                f' (total ${abs(total):.2f}).'
+            )
+        else:
+            nota_reparto = (
+                f'Reparto: parte {_fmt_pct_reparto(pct_local)}% en {sucursal.nombre}'
+                f' (total ${abs(total):.2f}).'
+            )
+        obs_local = '\n'.join(x for x in (obs, nota_reparto, nota) if x).strip()
+
+        vendedor_local = None
+        if g.vendedor_id:
+            vendedor_local = _resolver_vendedor_espejo(sucursal, g.vendedor)
+
+        nuevo = GastoOficina.objects.create(
+            sucursal=sucursal,
+            categoria=cat_local,
+            fecha=g.fecha,
+            monto=monto_local,
+            descripcion=g.descripcion,
+            observaciones=obs_local[:2000],
+            movimiento_caja=None,
+            vendedor=vendedor_local,
+            usuario_creacion=g.usuario_creacion,
+            porcentaje=pct_local,
+            monto_total=total,
+            gasto_relacionado=g,
+        )
+        g.gasto_relacionado = nuevo
+        g.save(update_fields=['gasto_relacionado', 'fecha_modificacion'])
+        creados += 1
+    return creados
 
 
 def eliminar_gastos_oficina_de_movimiento(movimiento):
