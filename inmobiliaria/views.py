@@ -25726,11 +25726,13 @@ def recibo_contrato_24(request, contrato_id):
                     conceptos_contrato.append({
                         'fecha': _fecha_linea_concepto_recibo(concepto_data, primer_movimiento),
                         'codigo': codigo,
+                        'codigo_catalogo': codigo_txt,
                         'nombre': nombre,
                         'observaciones': observaciones_para_recibo(concepto_data.get('observaciones')),
                         'importe': importe_fmt,
                         'importe_numerico': importe_valor,
                         'moneda': moneda_linea,
+                        'cuota_objetivo_id': concepto_data.get('cuota_objetivo_id'),
                     })
                 
                 if len(conceptos_contrato) > 0:
@@ -26406,6 +26408,10 @@ def recibo_contrato_24(request, contrato_id):
                 if fi.year:
                     mes_alquiler_texto_recibo = f'{mes_alquiler_texto_recibo} {fi.year}'
 
+        _completar_mes_en_observaciones_alquiler_recibo(
+            conceptos_contrato, contrato, primer_movimiento, mes_alquiler_texto_recibo
+        )
+
         # CLIENTE(S) = todos los inquilinos/estudiantes cargados en el contrato (pueden ser varios)
         through_list = list(contrato.contrato_inquilinos.select_related('inquilino').order_by('id'))
         garantes_db = list(contrato.garantes.all())
@@ -26506,6 +26512,63 @@ MESES_ES = [
     '', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
     'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
 ]
+
+_CODIGOS_ALQUILER_MES_RECIBO = frozenset({'1000', '29', '1290', '1010'})
+
+
+def _completar_mes_en_observaciones_alquiler_recibo(
+    conceptos_contrato, contrato, movimiento, mes_alquiler_texto_recibo
+):
+    """
+    Líneas de alquiler (1000 «Alquiler a Cobrar» y equivalentes) sin observación:
+    completa con el mes cobrado (cuota objetivo → cuota del movimiento → mes del recibo).
+    """
+    if not conceptos_contrato:
+        return
+    try:
+        cuotas_por_id = {}
+        cuota_del_movimiento = None
+        if movimiento is not None and getattr(movimiento, 'id', None):
+            cuotas_mov = list(contrato.cuotas.filter(movimiento_id=movimiento.id).order_by('numero_cuota')[:2])
+            if len(cuotas_mov) == 1:
+                cuota_del_movimiento = cuotas_mov[0]
+
+        def _label_cuota(cuota):
+            fv = getattr(cuota, 'fecha_vencimiento', None)
+            if not fv or not (1 <= fv.month <= 12):
+                return ''
+            return f'{MESES_ES[fv.month].capitalize()} {fv.year}'
+
+        texto_recibo = (mes_alquiler_texto_recibo or '').strip()
+        texto_recibo = texto_recibo[:1].upper() + texto_recibo[1:] if texto_recibo else ''
+
+        for c in conceptos_contrato:
+            if (c.get('observaciones') or '').strip():
+                continue
+            cid = str(c.get('codigo_catalogo') or '').strip()
+            nom = (c.get('nombre') or '').strip().lower()
+            if cid not in _CODIGOS_ALQUILER_MES_RECIBO and 'alquiler a cobrar' not in nom:
+                continue
+
+            label = ''
+            qid_raw = c.get('cuota_objetivo_id')
+            try:
+                qid = int(str(qid_raw).strip()) if qid_raw not in (None, '') else 0
+            except (TypeError, ValueError):
+                qid = 0
+            if qid:
+                if qid not in cuotas_por_id:
+                    cuotas_por_id[qid] = contrato.cuotas.filter(id=qid).first()
+                if cuotas_por_id[qid] is not None:
+                    label = _label_cuota(cuotas_por_id[qid])
+            if not label and cuota_del_movimiento is not None:
+                label = _label_cuota(cuota_del_movimiento)
+            if not label:
+                label = texto_recibo
+            if label:
+                c['observaciones'] = label
+    except Exception:
+        logger.exception('recibo contrato: no se pudo completar mes en observaciones de alquiler')
 
 
 @login_required
