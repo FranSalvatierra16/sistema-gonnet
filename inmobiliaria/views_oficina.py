@@ -1711,7 +1711,10 @@ def _monto_gasto_libro_sin_inquilino(mov, ars_total):
         # Etiqueta inquilino sin monto a propietario (OF/PROP viejos) → no mostrar.
         if a_desc == 'inquilino' and m_prop <= Decimal('0.01'):
             return Decimal('0')
-        # Solo oficina / propietario (sin inquilino).
+        # Dividido oficina + propietario → la parte de oficina la absorbe la oficina.
+        if m_prop > Decimal('0.01') and m_of > Decimal('0.01'):
+            return m_prop
+        # 100% a un solo lado (depto/oficina o propietario).
         propio = (m_prop + m_of).quantize(Decimal('0.01'))
         return propio if propio > Decimal('0.01') else Decimal('0')
 
