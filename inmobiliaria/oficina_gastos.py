@@ -272,10 +272,48 @@ def _textos_movimiento_para_mapa_oficina(movimiento):
     return partes
 
 
+def _ruta_oficina_para_linea_concepto(linea):
+    """(raiz, sub) de una línea de cobro por id de catálogo o nombre exacto."""
+    if not isinstance(linea, dict):
+        return None
+    lid = str(linea.get('id') or linea.get('codigo') or '').strip()
+    if lid and lid in MAPA_CONCEPTOS_CAJA_A_OFICINA:
+        return MAPA_CONCEPTOS_CAJA_A_OFICINA[lid]
+    nom = _norm_nombre_cat(linea.get('nombre') or '')
+    if nom and nom in MAPA_NOMBRE_CONCEPTO_A_OFICINA:
+        return MAPA_NOMBRE_CONCEPTO_A_OFICINA[nom]
+    return None
+
+
+def _importe_lineas_ruta_oficina(movimiento, ruta):
+    """
+    Importe de las líneas del cobro que van a la ruta de oficina.
+    None si el movimiento no tiene líneas (se usa el total del movimiento).
+    """
+    lineas = _parse_lineas_concepto_movimiento(movimiento)
+    if not lineas:
+        return None
+    total = Decimal('0')
+    for linea in lineas:
+        if _ruta_oficina_para_linea_concepto(linea) != ruta:
+            continue
+        total += abs(_importe_decimal_linea(linea.get('importe') or linea.get('monto') or 0))
+    return total.quantize(Decimal('0.01'))
+
+
 def _ruta_oficina_desde_movimiento_caja(movimiento, concepto_id=None, concepto_nombre=None):
     """Resuelve (raiz, sub) para un movimiento de caja (concepto + detalle)."""
     cid = str(concepto_id or '').strip() or None
     nom = (concepto_nombre or '').strip() or None
+    if movimiento and not cid and not nom:
+        # Cobro multi-concepto: solo por la línea (nunca por texto de observaciones).
+        lineas = _parse_lineas_concepto_movimiento(movimiento)
+        if lineas:
+            for linea in lineas:
+                ruta = _ruta_oficina_para_linea_concepto(linea)
+                if ruta:
+                    return ruta
+            return None
     if movimiento and not cid:
         try:
             cid = movimiento.concepto_catalogo_id()
@@ -482,6 +520,10 @@ def vincular_movimiento_concepto_a_gasto_oficina(
         if not desc:
             desc = categoria.nombre
 
+    monto_base = _importe_lineas_ruta_oficina(movimiento, ruta)
+    if monto_base is not None and monto_base <= Decimal('0'):
+        return None
+
     gasto = registrar_gasto_oficina_desde_movimiento(
         movimiento,
         categoria,
@@ -490,6 +532,7 @@ def vincular_movimiento_concepto_a_gasto_oficina(
         usuario=usuario,
         porcentaje_colon=porcentaje_colon,
         porcentaje_corrientes=porcentaje_corrientes,
+        monto_base=monto_base,
     )
     # Alinear fecha al día bancario si existe (cierre del mes correcto).
     ft = getattr(movimiento, 'fecha_transferencia', None)
@@ -592,7 +635,16 @@ def _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta):
                 and _norm_nombre_cat(ruta_ok[0]) == _norm_nombre_cat(raiz_n)
                 and _norm_nombre_cat(ruta_ok[1]) == _norm_nombre_cat(sub_n)
             ):
-                continue
+                if 'Vinculado automáticamente' not in obs:
+                    continue
+                esperado = _importe_lineas_ruta_oficina(mov, ruta_ok)
+                if esperado is None:
+                    continue
+                guardado = abs(Decimal(str(
+                    gasto.monto_total if gasto.monto_total is not None else gasto.monto
+                ) or 0))
+                if abs(guardado - esperado) < Decimal('0.01'):
+                    continue
             ids_borrar.append(gasto.id)
         if ids_borrar:
             # Incluir pares de reparto Colón/Corrientes.
@@ -904,7 +956,7 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
             if _movimiento_es_concepto_id_estricto(mov, cid):
                 ruta = ruta_m
                 break
-        if not ruta:
+        if not ruta and not _parse_lineas_concepto_movimiento(mov):
             raw = _norm_nombre_cat(mov.concepto or '')
             if 'veraz' in raw:
                 ruta = MAPA_CONCEPTOS_CAJA_A_OFICINA.get('130') or MAPA_NOMBRE_CONCEPTO_A_OFICINA.get(
@@ -2089,20 +2141,25 @@ def registrar_gasto_oficina_desde_movimiento(
     usuario=None,
     porcentaje_colon=None,
     porcentaje_corrientes=None,
+    monto_base=None,
 ):
     """
     Crea el GastoOficina del movimiento. Si hay reparto Colón/Corrientes,
     crea también el gasto en la otra sucursal con su % (sin movimiento de caja allí).
     El egreso de caja queda 100% en la sucursal donde se cargó.
+    ``monto_base``: importe de la línea del concepto en cobros multi-concepto.
     """
-    total = (
-        Decimal(str(movimiento.monto_efectivo or 0))
-        + Decimal(str(movimiento.monto_cheque or 0))
-        + Decimal(str(movimiento.monto_tarjeta or 0))
-        + Decimal(str(movimiento.monto_deposito or 0))
-    )
+    if monto_base is not None:
+        total = abs(Decimal(str(monto_base)))
+    else:
+        total = (
+            Decimal(str(movimiento.monto_efectivo or 0))
+            + Decimal(str(movimiento.monto_cheque or 0))
+            + Decimal(str(movimiento.monto_tarjeta or 0))
+            + Decimal(str(movimiento.monto_deposito or 0))
+        )
     # Solo USD: el gasto de oficina usa el monto en dólares como base del reparto.
-    if abs(total) < Decimal('0.005'):
+    if monto_base is None and abs(total) < Decimal('0.005'):
         m_dol = Decimal(str(getattr(movimiento, 'monto_dolares', None) or 0))
         if abs(m_dol) > Decimal('0.005'):
             total = m_dol

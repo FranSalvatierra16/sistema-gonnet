@@ -712,10 +712,13 @@ def oficina_gastos(request):
         from inmobiliaria.oficina_gastos import (
             reimputar_gastos_sueldo_mes_anterior,
             reparar_pares_reparto_faltantes,
+            sincronizar_gastos_oficina_desde_conceptos_caja,
         )
 
         reimputar_gastos_sueldo_mes_anterior(sucursal, dr_desde, dr_hasta)
         reparar_pares_reparto_faltantes(sucursal, dr_desde, dr_hasta)
+        if dr_desde and dr_hasta:
+            sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, dr_desde, dr_hasta)
     except Exception:
         logger.exception('oficina_gastos: falló reimputar/reparar repartos')
 
