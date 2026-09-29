@@ -1,0 +1,62 @@
+{% comment %}
+Imprime el bloque `selector` en una sola hoja A4.
+Uso: {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.mi-bloque' orientacion='landscape' %}
+{% endcomment %}
+<style>
+@page { size: A4 {{ orientacion|default:'portrait' }}; margin: 7mm; }
+@media print {
+    html, body { margin: 0 !important; padding: 0 !important; }
+    {{ selector }} { margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+    {{ selector }} .table-responsive { overflow: visible !important; }
+    {{ selector }} table, {{ selector }} tr { page-break-inside: avoid; break-inside: avoid; }
+}
+</style>
+<script>
+(function () {
+    var SELECTOR = '{{ selector|escapejs }}';
+    var APAISADA = '{{ orientacion|default:"portrait"|escapejs }}' === 'landscape';
+    var PX_MM = 96 / 25.4;
+    var MARGEN_MM = 7;
+    var ANCHO_PX = ((APAISADA ? 297 : 210) - 2 * MARGEN_MM) * PX_MM;
+    var ALTO_PX = ((APAISADA ? 210 : 297) - 2 * MARGEN_MM) * PX_MM;
+    // Margen de seguridad: el navegador mide con estilos de pantalla y redondea distinto al imprimir.
+    var SEGURIDAD = 0.94;
+    var aplicado = false;
+
+    function antesDeImprimir() {
+        var el = document.querySelector(SELECTOR);
+        if (!el || aplicado) return;
+        aplicado = true;
+        var ocultos = [];
+        el.querySelectorAll('.no-print').forEach(function (n) {
+            ocultos.push([n, n.style.display]);
+            n.style.display = 'none';
+        });
+        el.style.zoom = '';
+        var anchoDiseno = Math.max(ANCHO_PX, Math.min(el.scrollWidth, 1500));
+        el.style.width = anchoDiseno + 'px';
+        var alto = el.scrollHeight;
+        var ancho = el.scrollWidth;
+        ocultos.forEach(function (par) { par[0].style.display = par[1]; });
+        var escala = Math.min(1, ANCHO_PX / ancho, ALTO_PX / alto) * SEGURIDAD;
+        el.style.zoom = String(escala);
+    }
+
+    function despuesDeImprimir() {
+        var el = document.querySelector(SELECTOR);
+        if (!el) return;
+        el.style.zoom = '';
+        el.style.width = '';
+        aplicado = false;
+    }
+
+    window.addEventListener('beforeprint', antesDeImprimir);
+    window.addEventListener('afterprint', despuesDeImprimir);
+    if (window.matchMedia) {
+        var mq = window.matchMedia('print');
+        var onChange = function (e) { if (e.matches) antesDeImprimir(); else despuesDeImprimir(); };
+        if (mq.addEventListener) mq.addEventListener('change', onChange);
+        else if (mq.addListener) mq.addListener(onChange);
+    }
+})();
+</script>

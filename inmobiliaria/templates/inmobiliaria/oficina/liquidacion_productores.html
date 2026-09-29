@@ -382,10 +382,6 @@
     background: #fffef0;
 }
 .solo-imprimir { display: none; }
-@page {
-    size: A4 landscape;
-    margin: 8mm;
-}
 @media print {
     .no-print, nav, footer, .navbar { display: none !important; }
     .liquidacion-wrap { margin: 0; padding: 0; width: 100%; }
@@ -459,4 +455,5 @@
     wire('form-total-gral', 'total_gral', 'btn-tg-todos', 'btn-tg-ninguno');
 })();
 </script>
+{% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.liquidacion-wrap' orientacion='landscape' %}
 {% endblock %}

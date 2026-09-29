@@ -251,6 +251,10 @@
     .no-print, nav, footer, .navbar { display: none !important; }
     .resumen-cierre-wrap { margin: 0; padding: 0; }
     .resumen-cierre-sheet { border: none !important; box-shadow: none !important; }
+    .resumen-cierre-sheet > .row { flex-wrap: nowrap !important; }
+    .resumen-cierre-sheet .col-lg-7 { flex: 0 0 58.333% !important; max-width: 58.333% !important; }
+    .resumen-cierre-sheet .col-lg-5 { flex: 0 0 41.667% !important; max-width: 41.667% !important; }
 }
 </style>
+{% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.resumen-cierre-sheet' orientacion='portrait' %}
 {% endblock %}
