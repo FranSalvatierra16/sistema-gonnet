@@ -88,7 +88,7 @@
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <h6>Gastos (imputados a depto / oficina)</h6>
+                    <h6>Gastos del depto (como en el libro)</h6>
                     <div class="table-responsive" style="max-height: 280px;">
                         <table class="table table-sm table-hover">
                             <thead><tr><th>Fecha</th><th>Concepto</th><th class="text-end">Mi parte</th></tr></thead>
@@ -100,7 +100,7 @@
                                     <td class="text-end text-danger">${{ row.monto|format_price }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="3" class="text-muted">Sin gastos de oficina en esta propiedad.</td></tr>
+                                <tr><td colspan="3" class="text-muted">Sin gastos en esta propiedad.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>

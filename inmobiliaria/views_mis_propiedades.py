@@ -89,8 +89,39 @@ def _factor_porcentaje(porcentaje):
     return Decimal(str(porcentaje or 0)) / Decimal('100')
 
 
+def _gasto_depto_movimiento(m) -> Decimal:
+    """
+    Gasto del depto en ARS con la misma regla que el libro del departamento:
+    solo egresos, parte depto/propietario (sin inquilino), sin pagos de liquidación.
+    """
+    import re
+
+    from inmobiliaria.views_oficina import (
+        _concepto_es_operacion_anulada,
+        _monto_gasto_libro_sin_inquilino,
+    )
+
+    if m.tipo != TipoMovimientoCajaEnum.EGRESO or getattr(m, 'fecha_eliminacion', None):
+        return Decimal('0')
+    conc = getattr(m, 'concepto', None) or ''
+    if _concepto_es_operacion_anulada(conc):
+        return Decimal('0')
+    if re.search(r'Liquidaci[oó]n\s+Propietario', conc, re.IGNORECASE):
+        return Decimal('0')
+
+    ars = Decimal(str(getattr(m, 'monto_total', None) or 0))
+    if ars > Decimal('0.01'):
+        return _monto_gasto_libro_sin_inquilino(m, ars)
+    usd = Decimal(str(getattr(m, 'monto_dolares', None) or 0))
+    cotiz = Decimal(str(getattr(m, 'cotizacion_dolar', None) or 0))
+    if usd > Decimal('0.01') and cotiz > 0:
+        usd_depto = _monto_gasto_libro_sin_inquilino(m, usd)
+        return (usd_depto * cotiz).quantize(Decimal('0.01'))
+    return Decimal('0')
+
+
 def _resumen_movimientos_propiedad(propiedad_id, sucursal, porcentaje):
-    """Ingresos (neto propietario IN) y gastos oficina (monto_a_oficina) prorrateados."""
+    """Ingresos (neto propietario IN) y gastos del depto (regla del libro) prorrateados."""
     movs = list(
         MovimientoCaja.objects.filter(
             propiedad_id=propiedad_id,
@@ -116,15 +147,15 @@ def _resumen_movimientos_propiedad(propiedad_id, sucursal, porcentaje):
 
     for m in movs:
         neto = neto_propietario_movimiento(m, liq_por_mov, precios_map)
-        oficina = Decimal(str(getattr(m, 'monto_a_oficina', None) or 0))
         if m.tipo == TipoMovimientoCajaEnum.INGRESO and neto > 0:
             mi_parte = (neto * factor).quantize(Decimal('0.01'))
             ingresos_bruto += mi_parte
             ingresos_items.append({'movimiento': m, 'monto': mi_parte, 'neto_total': neto})
-        if oficina > 0:
-            mi_gasto = (oficina * factor).quantize(Decimal('0.01'))
+        gasto = _gasto_depto_movimiento(m)
+        if gasto > 0:
+            mi_gasto = (gasto * factor).quantize(Decimal('0.01'))
             gastos_oficina += mi_gasto
-            gastos_items.append({'movimiento': m, 'monto': mi_gasto, 'oficina_total': oficina})
+            gastos_items.append({'movimiento': m, 'monto': mi_gasto, 'oficina_total': gasto})
 
     return {
         'ingresos_total': ingresos_bruto,
@@ -163,9 +194,9 @@ def _enriquecer_cartera_items(items, sucursal):
         if m.tipo == TipoMovimientoCajaEnum.INGRESO:
             neto = neto_propietario_movimiento(m, liq_por_mov, precios_map)
             ingresos_por_prop[pid] = ingresos_por_prop.get(pid, Decimal('0')) + neto
-        oficina = Decimal(str(getattr(m, 'monto_a_oficina', None) or 0))
-        if oficina > 0:
-            gastos_por_prop[pid] = gastos_por_prop.get(pid, Decimal('0')) + oficina
+        gasto = _gasto_depto_movimiento(m)
+        if gasto > 0:
+            gastos_por_prop[pid] = gastos_por_prop.get(pid, Decimal('0')) + gasto
 
     resultado = []
     for it in items:
