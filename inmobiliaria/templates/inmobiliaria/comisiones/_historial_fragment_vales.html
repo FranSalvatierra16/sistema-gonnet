@@ -41,6 +41,7 @@
                                     <th>Concepto</th>
                                     <th>Efecto en neto</th>
                                     <th>Monto</th>
+                                    <th>Medio</th>
                                     <th>Observaciones</th>
                                     <th>Usuario</th>
                                     {% if puede_anular_vale %}<th class="text-center">Acciones</th>{% endif %}
@@ -79,6 +80,13 @@
                                             <strong class="text-success">+${{ vale.monto|format_price }}</strong>
                                         {% endif %}
                                     </td>
+                                    <td class="text-nowrap">
+                                        {% for medio in vale.medios_pago_display %}
+                                            <span class="badge bg-light text-dark border">{{ medio }}</span>
+                                        {% empty %}
+                                            <span class="text-muted">-</span>
+                                        {% endfor %}
+                                    </td>
                                     <td>
                                         {% if vale.observaciones %}
                                             <small>{{ vale.observaciones }}</small>
@@ -106,7 +114,7 @@
                                     <td colspan="3" class="text-end"><strong>Saldo pendiente (excluye meses marcados pagados):</strong></td>
                                     <td></td>
                                     <td><strong>${{ total_vales|format_price }}</strong></td>
-                                    <td colspan="2"><small class="text-muted">La tabla lista todos los vales; este total coincide con el resumen superior.</small></td>
+                                    <td colspan="3"><small class="text-muted">La tabla lista todos los vales; este total coincide con el resumen superior.</small></td>
                                     {% if puede_anular_vale %}<td></td>{% endif %}
                                 </tr>
                             </tfoot>

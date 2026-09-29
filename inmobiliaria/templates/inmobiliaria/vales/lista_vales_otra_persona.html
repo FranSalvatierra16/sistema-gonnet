@@ -103,6 +103,7 @@
                             <th>Concepto</th>
                             <th>Otorgó</th>
                             <th class="text-end">Monto</th>
+                            <th>Medio</th>
                             <th>Caja</th>
                             {% if puede_anular_vale %}<th class="text-center">Acciones</th>{% endif %}
                         </tr>
@@ -132,6 +133,13 @@
                                 {% else %}
                                     <span class="text-success">+${{ vale.monto|format_price }}</span>
                                 {% endif %}
+                            </td>
+                            <td class="text-nowrap">
+                                {% for medio in vale.medios_pago_display %}
+                                    <span class="badge bg-light text-dark border">{{ medio }}</span>
+                                {% empty %}
+                                    <span class="text-muted">—</span>
+                                {% endfor %}
                             </td>
                             <td>
                                 {% if vale.movimiento_caja and vale.movimiento_caja.caja %}

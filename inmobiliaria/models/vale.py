@@ -248,6 +248,29 @@ class ValeVendedor(models.Model):
     def __str__(self):
         return f'Vale {self.id} - {self.nombre_beneficiario()} - ${self.monto}'
 
+    def medios_pago_display(self):
+        """Medios del movimiento de caja: ['Efectivo'], ['Transferencia (Galicia)'], etc."""
+        mov = self.movimiento_caja if self.movimiento_caja_id else None
+        if mov is None:
+            return []
+        medios = []
+        if Decimal(str(mov.monto_efectivo or 0)) > 0:
+            medios.append('Efectivo')
+        if Decimal(str(mov.monto_deposito or 0)) > 0:
+            destino = ''
+            try:
+                destino = (mov.get_destino_deposito_display() or '').strip()
+            except Exception:
+                destino = ''
+            medios.append(f'Transferencia ({destino})' if destino else 'Transferencia')
+        if Decimal(str(mov.monto_cheque or 0)) > 0:
+            medios.append('Cheque')
+        if Decimal(str(mov.monto_tarjeta or 0)) > 0:
+            medios.append('Tarjeta')
+        if Decimal(str(getattr(mov, 'monto_dolares', None) or 0)) > 0:
+            medios.append('Dólares efectivo')
+        return medios
+
     @staticmethod
     def monto_total_movimiento(movimiento):
         """Suma de medios de pago del movimiento (ARS + USD efectivo)."""

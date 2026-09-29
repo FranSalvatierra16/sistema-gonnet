@@ -462,7 +462,11 @@ def historial_comisiones_vendedor(request, vendedor_id):
             )
             .ordenadas_para_listado_historial()
         )
-        vales = ValeVendedor.objects.filter(vendedor=vendedor).order_by('-fecha')
+        vales = (
+            ValeVendedor.objects.filter(vendedor=vendedor)
+            .select_related('movimiento_caja', 'usuario_creador')
+            .order_by('-fecha')
+        )
         total_comisiones = comisiones.aggregate(
             total=models.Sum('monto_comision')
         )['total'] or Decimal('0')
