@@ -2,6 +2,7 @@
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
+import re
 import unicodedata
 
 from django.db import transaction
@@ -70,6 +71,36 @@ def comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta):
         clave = _clave_desglose_comision(c)
         row[clave] += monto
         row['total'] += monto
+    return out
+
+
+_RE_OPERACION_VENTA = re.compile(r'Operaci[oó]n venta #(\d+)', re.IGNORECASE)
+
+
+def comisiones_por_venta_vendedores(sucursal, fecha_desde, fecha_hasta):
+    """{venta_id: {vendedor_id: monto}} de comisiones «por venta» del mes."""
+    from inmobiliaria.models.comision import q_comision_operacion_de_sucursal
+
+    qs = (
+        ComisionVendedor.objects.filter(
+            fecha_operacion__date__gte=fecha_desde,
+            fecha_operacion__date__lte=fecha_hasta,
+            reserva__isnull=True,
+            contrato__isnull=True,
+        )
+        .filter(q_comision_operacion_de_sucursal(sucursal))
+        .visibles_en_historial()
+    )
+    out = defaultdict(lambda: defaultdict(lambda: Decimal('0.00')))
+    for c in qs:
+        if _clave_desglose_comision(c) != 'por_venta':
+            continue
+        # Solo observaciones: el concepto trae el nº de propiedad («venta #200245»).
+        m = _RE_OPERACION_VENTA.search(c.observaciones or '')
+        if not m:
+            continue
+        monto = Decimal(str(c.monto_comision or 0)).quantize(Decimal('0.01'))
+        out[int(m.group(1))][c.vendedor_id] += monto
     return out
 
 # Vigencia “desde siempre” para no pisar meses anteriores al primer aumento.
@@ -702,9 +733,15 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     filas = []
     filas.append({'tipo': 'seccion', 'label': 'VENTAS', 'celdas': [None] * n})
 
+    por_venta_detalle = comisiones_por_venta_vendedores(sucursal, fecha_desde, fecha_hasta)
     celdas_ventas = []
     for op in ventas:
-        celdas = _celdas(n, oficina=op.honorarios_ars)
+        celdas = _celdas(
+            n,
+            oficina=op.honorarios_ars,
+            por_id=por_venta_detalle.get(op.id),
+            columnas=columnas,
+        )
         filas.append({'tipo': 'dato', 'label': _label_venta(op), 'celdas': celdas})
         celdas_ventas.append(celdas)
     tot_ventas = _sumar_celdas(celdas_ventas, n)
