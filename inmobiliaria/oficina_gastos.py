@@ -533,6 +533,7 @@ def vincular_movimiento_concepto_a_gasto_oficina(
         porcentaje_colon=porcentaje_colon,
         porcentaje_corrientes=porcentaje_corrientes,
         monto_base=monto_base,
+        signo_por_tipo_movimiento=True,
     )
     # Alinear fecha al día bancario si existe (cierre del mes correcto).
     ft = getattr(movimiento, 'fecha_transferencia', None)
@@ -637,14 +638,24 @@ def _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta):
             ):
                 if 'Vinculado automáticamente' not in obs:
                     continue
+                monto_g = Decimal(str(gasto.monto or 0))
+                es_ingreso_mov = (
+                    (mov.tipo or '').strip().upper() == TipoMovimientoCajaEnum.INGRESO
+                )
+                signo_ok = (
+                    abs(monto_g) < Decimal('0.005')
+                    or (monto_g < 0) == es_ingreso_mov
+                )
                 esperado = _importe_lineas_ruta_oficina(mov, ruta_ok)
                 if esperado is None:
-                    continue
-                guardado = abs(Decimal(str(
-                    gasto.monto_total if gasto.monto_total is not None else gasto.monto
-                ) or 0))
-                if abs(guardado - esperado) < Decimal('0.01'):
-                    continue
+                    if signo_ok:
+                        continue
+                else:
+                    guardado = abs(Decimal(str(
+                        gasto.monto_total if gasto.monto_total is not None else gasto.monto
+                    ) or 0))
+                    if signo_ok and abs(guardado - esperado) < Decimal('0.01'):
+                        continue
             ids_borrar.append(gasto.id)
         if ids_borrar:
             # Incluir pares de reparto Colón/Corrientes.
@@ -2142,12 +2153,15 @@ def registrar_gasto_oficina_desde_movimiento(
     porcentaje_colon=None,
     porcentaje_corrientes=None,
     monto_base=None,
+    signo_por_tipo_movimiento=False,
 ):
     """
     Crea el GastoOficina del movimiento. Si hay reparto Colón/Corrientes,
     crea también el gasto en la otra sucursal con su % (sin movimiento de caja allí).
     El egreso de caja queda 100% en la sucursal donde se cargó.
     ``monto_base``: importe de la línea del concepto en cobros multi-concepto.
+    ``signo_por_tipo_movimiento``: egreso +, ingreso − aunque la categoría sea de Ingresos
+    (conceptos mapeados: el cierre usa el neto de caja con ese signo).
     """
     if monto_base is not None:
         total = abs(Decimal(str(monto_base)))
@@ -2165,6 +2179,8 @@ def registrar_gasto_oficina_desde_movimiento(
             total = m_dol
     if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
         total = -total
+    elif signo_por_tipo_movimiento:
+        total = abs(total)
     elif categoria_gasto_es_ingreso(categoria):
         total = -abs(total)
     fecha = timezone.localdate()

@@ -602,6 +602,8 @@ def construir_resumen_cierre(sucursal, anio, mes):
     totales_por_cat = _totales_gastos_por_categoria_ids(gastos_qs)
     # Veraz / 22 / 24: primero a 0 (no arrastrar GastoOficina basura), luego neto de caja
     # con el mismo criterio que el reporte (id + importe de línea).
+    # Neto de caja: egreso +, ingreso −.
+    cats_mapeadas_ids = set()
     try:
         from inmobiliaria.oficina_gastos import (
             MAPA_CONCEPTOS_CAJA_A_OFICINA,
@@ -780,7 +782,10 @@ def construir_resumen_cierre(sucursal, anio, mes):
                 monto_gasto = totales_por_cat.get(hijo.id, Decimal('0'))
                 monto_hon = _monto_honorarios_etiqueta(honorarios_map, hijo.nombre)
                 monto = monto_hon
-                if monto_gasto < 0:
+                if hijo.id in cats_mapeadas_ids:
+                    # Ingresos − egresos (ej. Gastos bancarios: IIBB/comisiones restan).
+                    monto -= monto_gasto
+                elif monto_gasto < 0:
                     monto += abs(monto_gasto)
                 elif monto_gasto > 0:
                     monto += monto_gasto
