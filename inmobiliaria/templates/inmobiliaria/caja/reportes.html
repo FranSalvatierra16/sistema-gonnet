@@ -74,7 +74,14 @@
                         {% endfor %}
                     </datalist>
                 </div>
-                <div class="col-12 col-lg-5 d-flex align-items-end">
+                <div class="col-12 col-lg-2">
+                    <label class="form-label" for="tipo_fecha">Filtrar por fecha</label>
+                    <select class="form-select" id="tipo_fecha" name="tipo_fecha">
+                        <option value="carga" {% if tipo_fecha != 'bancaria' %}selected{% endif %}>De carga</option>
+                        <option value="bancaria" {% if tipo_fecha == 'bancaria' %}selected{% endif %}>Bancaria (como el cierre)</option>
+                    </select>
+                </div>
+                <div class="col-12 col-lg-4 d-flex align-items-end">
                     <p class="small text-muted mb-1 mb-lg-2">
                         Un solo campo: podés tipear <strong>6</strong>, <strong>EXPENSAS</strong>, o elegir del desplegable.
                         Solo aparecen movimientos que <strong>tengan ese concepto en sus líneas</strong>
@@ -201,7 +208,12 @@
                     <tbody>
                         {% for m in movimientos %}
                         <tr class="{% if m.tipo == 'EG' %}table-danger{% endif %}">
-                            <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {{ m.fecha|date:"d/m/Y H:i" }}
+                                {% if m.fecha_transferencia and m.fecha_transferencia|date:"Ymd" != m.fecha|date:"Ymd" %}
+                                <br><small class="text-muted" title="Fecha bancaria (la que usa el cierre)"><i class="fas fa-university"></i> {{ m.fecha_transferencia|date:"d/m/Y" }}</small>
+                                {% endif %}
+                            </td>
                             <td>{% if m.caja %}#{{ m.caja.numero }}{% else %}—{% endif %}</td>
                             <td>
                                 {% if m.tipo == 'IN' %}<span class="badge bg-success">Ingreso</span>{% else %}<span class="badge bg-danger">Egreso</span>{% endif %}

@@ -17904,6 +17904,11 @@ def reportes_caja(request):
     if fecha_hasta < fecha_desde:
         fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
 
+    # 'carga' = día en que se cargó; 'bancaria' = fecha de transferencia (criterio del cierre).
+    tipo_fecha = (request.GET.get('tipo_fecha') or '').strip().lower()
+    if tipo_fecha not in ('carga', 'bancaria'):
+        tipo_fecha = 'carga'
+
     tipo_mov = (request.GET.get('tipo_mov') or '').strip().upper()
     if tipo_mov not in ('', 'IN', 'EG'):
         tipo_mov = ''
@@ -17982,16 +17987,19 @@ def reportes_caja(request):
     if destino_transferencia and destino_transferencia not in valores_destino_validos:
         destino_transferencia = ''
 
-    qs = (
-        MovimientoCaja.objects.filter(
-            sucursal=sucursal,
-            fecha__date__gte=fecha_desde,
-            fecha__date__lte=fecha_hasta,
-            fecha_eliminacion__isnull=True,
-        )
-        .select_related('caja', 'empleado', 'propiedad')
-        .order_by('-fecha', '-id')
+    qs = MovimientoCaja.objects.filter(
+        sucursal=sucursal,
+        fecha_eliminacion__isnull=True,
     )
+    if tipo_fecha == 'bancaria':
+        from django.db.models.functions import Coalesce, TruncDate
+
+        qs = qs.annotate(
+            fecha_reporte=Coalesce('fecha_transferencia', TruncDate('fecha'))
+        ).filter(fecha_reporte__gte=fecha_desde, fecha_reporte__lte=fecha_hasta)
+    else:
+        qs = qs.filter(fecha__date__gte=fecha_desde, fecha__date__lte=fecha_hasta)
+    qs = qs.select_related('caja', 'empleado', 'propiedad').order_by('-fecha', '-id')
 
     if tipo_mov == 'IN':
         qs = qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
@@ -18183,6 +18191,7 @@ def reportes_caja(request):
     context = {
         'fecha_desde': fecha_desde.strftime('%Y-%m-%d'),
         'fecha_hasta': fecha_hasta.strftime('%Y-%m-%d'),
+        'tipo_fecha': tipo_fecha,
         'tipo_mov': tipo_mov,
         'medio': medio,
         'destino_transferencia': destino_transferencia,
