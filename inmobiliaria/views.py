@@ -17907,7 +17907,7 @@ def reportes_caja(request):
     # 'carga' = día en que se cargó; 'bancaria' = fecha de transferencia (criterio del cierre).
     tipo_fecha = (request.GET.get('tipo_fecha') or '').strip().lower()
     if tipo_fecha not in ('carga', 'bancaria'):
-        tipo_fecha = 'carga'
+        tipo_fecha = 'bancaria'
 
     tipo_mov = (request.GET.get('tipo_mov') or '').strip().upper()
     if tipo_mov not in ('', 'IN', 'EG'):

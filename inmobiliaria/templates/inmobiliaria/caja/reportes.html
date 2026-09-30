@@ -77,8 +77,8 @@
                 <div class="col-12 col-lg-2">
                     <label class="form-label" for="tipo_fecha">Filtrar por fecha</label>
                     <select class="form-select" id="tipo_fecha" name="tipo_fecha">
-                        <option value="carga" {% if tipo_fecha != 'bancaria' %}selected{% endif %}>De carga</option>
-                        <option value="bancaria" {% if tipo_fecha == 'bancaria' %}selected{% endif %}>Bancaria (como el cierre)</option>
+                        <option value="bancaria" {% if tipo_fecha != 'carga' %}selected{% endif %}>Del mes (fecha bancaria, como el cierre)</option>
+                        <option value="carga" {% if tipo_fecha == 'carga' %}selected{% endif %}>Día en que se cargó</option>
                     </select>
                 </div>
                 <div class="col-12 col-lg-4 d-flex align-items-end">
