@@ -822,7 +822,21 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     fila_comis = _celdas(n, por_id=por_resto, columnas=columnas)
     filas.append({'tipo': 'dato', 'label': 'Comisiones encargados.', 'celdas': fila_comis})
 
-    tot_final = _sumar_celdas([tot_honorarios, celdas_basico, fila_comis], n)
+    # Productor con «no suma el básico si las comisiones lo superan».
+    basico_para_total = list(celdas_basico)
+    for i, col in enumerate(columnas):
+        vend = col.get('vendedor')
+        if not vend or not getattr(vend, 'basico_no_suma_si_comisiones_superan', False):
+            continue
+        comis = _d(tot_honorarios[i]) + _d(fila_comis[i])
+        _total, basico_aplicado = total_a_pagar_productor(
+            col.get('basico'), comis, True
+        )
+        if not basico_aplicado:
+            col['basico_no_suma'] = True
+            basico_para_total[i] = None
+
+    tot_final = _sumar_celdas([tot_honorarios, basico_para_total, fila_comis], n)
     filas.append({'tipo': 'total-final', 'label': 'TOTAL.:', 'celdas': tot_final})
 
     filas_sg = filas_sueldos(sucursal)

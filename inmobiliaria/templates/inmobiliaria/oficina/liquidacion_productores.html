@@ -129,7 +129,7 @@
                             {% for col in liquidacion.columnas %}
                             <td class="celda-num">
                                 {% if col.vid %}
-                                <span class="solo-imprimir">{% if col.basico is not None %}$ {{ col.basico|format_price }}{% endif %}</span>
+                                <span class="solo-imprimir">{% if col.basico is not None %}{% if col.basico_no_suma %}<s>$ {{ col.basico|format_price }}</s>{% else %}$ {{ col.basico|format_price }}{% endif %}{% endif %}</span>
                                 <label class="basico-edit no-print">
                                     <input type="text"
                                            name="basico_{{ col.vid }}"
@@ -138,6 +138,9 @@
                                            autocomplete="off"
                                            value="{% if col.basico is not None %}{{ col.basico|format_price }}{% endif %}">
                                 </label>
+                                {% if col.basico_no_suma %}
+                                <small class="basico-no-suma" title="Las comisiones superan el básico: no se suma al total.">no suma (comisiones superan el básico)</small>
+                                {% endif %}
                                 {% endif %}
                             </td>
                             {% endfor %}
@@ -367,6 +370,7 @@
     border: 3px solid #000;
 }
 .basico-edit { display: block; margin: 0; }
+.basico-no-suma { display: block; font-size: 0.7em; color: #b02a37; line-height: 1.1; }
 .input-basico {
     width: 100%;
     border: none;
