@@ -279,9 +279,9 @@ def totales_alquileres_propios_para_fondo_oscar(sucursal, anio: int, mes: int) -
     a ningún tipo de alquiler, y los gastos totales de los deptos.
     """
     reporte = construir_reporte_mensual_deptos_oficina(sucursal, int(anio), int(mes))
-    dia = _q(reporte.get('total_bruto_dia'))
-    invierno = _q(reporte.get('total_bruto_invierno'))
-    meses_24 = _q(reporte.get('total_bruto_24'))
+    dia = _q(reporte.get('total_tarifa_dia'))
+    invierno = _q(reporte.get('total_tarifa_invierno'))
+    meses_24 = _q(reporte.get('total_tarifa_24'))
     return {
         'total_tarifa_dia': dia,
         'total_tarifa_invierno': invierno,
@@ -483,9 +483,9 @@ def _calcular_mes(buckets, anio, mes):
 _CLAVE_COLUMNA_POR_MODALIDAD = {'dia': 'por_dia', 'invierno': 'invierno', '24': 'meses_24'}
 
 
-def _repartir_neto_por_modalidad(neto, liquidado: dict, prop, anio: int, mes: int) -> dict:
+def _repartir_por_modalidad(neto, liquidado: dict, prop, anio: int, mes: int) -> dict:
     """
-    Ubica el ingreso neto del depto en día / invierno / 24 meses.
+    Ubica el ingreso del depto (total del mes) en día / invierno / 24 meses.
     Con liquidaciones de un solo tipo va todo ahí; con varios, proporcional a lo
     liquidado. Sin liquidación: tipo de ocupación del mes (contrato / reserva).
     """
@@ -555,8 +555,6 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     total_tarifa_dia = Decimal('0')
     total_tarifa_invierno = Decimal('0')
     total_tarifa_24 = Decimal('0')
-    total_bruto_mod = {'dia': Decimal('0'), 'invierno': Decimal('0'), '24': Decimal('0')}
-
     filas = []
     ocultos_labels = []
     disponibles_para_agregar = []
@@ -603,23 +601,14 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         elif calc['negativo']:
             n_negativos += 1
 
-        # Ingreso bruto por tipo de alquiler (para Fondo Oscar: totales, no netos).
-        bruto_mod = _repartir_neto_por_modalidad(
+        # Día / invierno / 24 = ingreso total (bruto) del mes según tipo de alquiler, no el neto.
+        tarifas = _repartir_por_modalidad(
             calc['bruto'],
             tarifas_por_prop.get(prop.id),
             prop,
             anio,
             mes,
         )
-        for clave, acum in (('por_dia', 'dia'), ('invierno', 'invierno'), ('meses_24', '24')):
-            if bruto_mod.get(clave):
-                total_bruto_mod[acum] += bruto_mod[clave]
-
-        # Día / invierno / 24 = ingreso neto según tipo de alquiler, solo si es positivo.
-        if calc['entra_en_total']:
-            tarifas = _repartir_por_pesos(calc['monto_a_total'], bruto_mod)
-        else:
-            tarifas = _vacios_modalidad()
         if tarifas.get('por_dia'):
             total_tarifa_dia += tarifas['por_dia']
         if tarifas.get('invierno'):
@@ -670,9 +659,6 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         'total_tarifa_dia': _q(total_tarifa_dia),
         'total_tarifa_invierno': _q(total_tarifa_invierno),
         'total_tarifa_24': _q(total_tarifa_24),
-        'total_bruto_dia': _q(total_bruto_mod['dia']),
-        'total_bruto_invierno': _q(total_bruto_mod['invierno']),
-        'total_bruto_24': _q(total_bruto_mod['24']),
         'n_positivos': n_positivos,
         'n_negativos': n_negativos,
         'cantidad': len(filas),

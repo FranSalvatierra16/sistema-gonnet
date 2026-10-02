@@ -396,6 +396,35 @@ def _descripcion_liquidacion_oficina_libro(liq):
 _ESTADOS_LIQUIDACION_LIBRO = ('oficina', 'pagada', 'cerrada', 'procesada')
 
 
+def monto_libro_liquidacion(liq) -> Decimal:
+    """
+    Ingreso de la liquidación en el libro del depto = monto a pagar al propietario
+    (alquiler ± movimientos de la liquidación, ej. comisión gestión cobranzas).
+    Los movimientos que vienen de un egreso/ingreso de caja no se descuentan acá:
+    ya figuran en el libro por su propio movimiento de caja.
+    """
+    a_pagar = getattr(liq, 'monto_a_pagar', None)
+    prop = Decimal(str(getattr(liq, 'monto_propietario', None) or 0))
+    if a_pagar is None:
+        return prop
+    monto = Decimal(str(a_pagar))
+    try:
+        gastos = [g for g in liq.gastos.all() if g.aceptado]
+    except Exception:
+        return prop if prop > 0 else monto
+    for g in gastos:
+        if liq.gasto_en_dolares_aparte(g):
+            continue
+        if 'movimiento de caja #' not in (g.observaciones or '').lower():
+            continue
+        m = Decimal(str(g.monto or 0))
+        if g.tipo_movimiento == 'ingreso':
+            monto -= m
+        else:
+            monto += m
+    return monto.quantize(Decimal('0.01'))
+
+
 def _filas_liquidaciones_oficina_libro(
     propiedad,
     sucursal,
@@ -437,6 +466,7 @@ def _filas_liquidaciones_confirmadas_libro(
         # Contrato rescindido: igual se listan liquidaciones ya en oficina/pagada/cerrada
         # (el período se liquidó; no ocultar alquileres del libro del depto).
         .select_related('contrato', 'reserva', 'reserva__cliente', 'contrato__inquilino')
+        .prefetch_related('gastos')
         .order_by('fecha_desde', 'id')
     )
     # fecha_desde puede ser el vencimiento de la cuota (posterior al período): margen amplio.
@@ -480,10 +510,8 @@ def _filas_liquidaciones_confirmadas_libro(
             continue
 
         moneda = (getattr(liq, 'moneda', None) or 'ARS').strip().upper()
-        # Solo lo del depto/propietario (nunca el total cobrado al inquilino).
-        monto = Decimal(str(getattr(liq, 'monto_propietario', None) or 0))
-        if monto <= 0:
-            monto = Decimal(str(getattr(liq, 'monto_a_pagar', None) or 0))
+        # Lo que se liquida al depto/propietario (nunca el total cobrado al inquilino).
+        monto = monto_libro_liquidacion(liq)
         if monto <= 0:
             continue
 
