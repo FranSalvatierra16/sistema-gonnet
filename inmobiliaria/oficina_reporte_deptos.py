@@ -505,6 +505,37 @@ def _aplicar_arrastre(buckets, anio, mes, fecha_corte=None):
     return resultado_mes
 
 
+_CLAVE_COLUMNA_POR_MODALIDAD = {'dia': 'por_dia', 'invierno': 'invierno', '24': 'meses_24'}
+
+
+def _repartir_neto_por_modalidad(neto, liquidado: dict, prop, anio: int, mes: int) -> dict:
+    """
+    Ubica el ingreso neto del depto en día / invierno / 24 meses.
+    Con liquidaciones de un solo tipo va todo ahí; con varios, proporcional a lo
+    liquidado. Sin liquidación: tipo de ocupación del mes (contrato / reserva).
+    """
+    columnas = _vacios_modalidad()
+    neto = _q(neto)
+    if neto <= Decimal('0.009'):
+        return columnas
+    pesos = {k: _q(v) for k, v in (liquidado or {}).items() if v and _q(v) > 0}
+    if not pesos:
+        clave = _CLAVE_COLUMNA_POR_MODALIDAD.get(_modalidad_ocupacion_mes(prop, anio, mes))
+        if clave:
+            columnas[clave] = neto
+        return columnas
+    total = sum(pesos.values(), Decimal('0'))
+    claves = sorted(pesos, key=lambda k: pesos[k], reverse=True)
+    asignado = Decimal('0')
+    for clave in claves[1:]:
+        parte = _q(neto * pesos[clave] / total)
+        columnas[clave] = parte
+        asignado += parte
+    # El de mayor peso se lleva el resto (sin diferencias de redondeo).
+    columnas[claves[0]] = _q(neto - asignado)
+    return columnas
+
+
 def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     """
     Arma el reporte mensual de todos los deptos de la cartera de oficina.
@@ -583,9 +614,15 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         elif calc['negativo']:
             n_negativos += 1
 
-        # Día / invierno / 24 solo para deptos con neto positivo (los que suman al total).
+        # Día / invierno / 24 = ingreso neto según tipo de alquiler, solo si es positivo.
         if calc['entra_en_total']:
-            tarifas = tarifas_por_prop.get(prop.id) or _vacios_modalidad()
+            tarifas = _repartir_neto_por_modalidad(
+                calc['monto_a_total'],
+                tarifas_por_prop.get(prop.id),
+                prop,
+                anio,
+                mes,
+            )
         else:
             tarifas = _vacios_modalidad()
         if tarifas.get('por_dia'):
