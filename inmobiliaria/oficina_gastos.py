@@ -1,14 +1,17 @@
 """Helpers compartidos para gastos de oficina (panel y movimientos de caja)."""
 import calendar
+import logging
 import unicodedata
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from inmobiliaria.models import CategoriaGastoOficina, GastoOficina, Vendedor
 from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+logger = logging.getLogger(__name__)
 
 # Raíces cuyas subcategorías se sincronizan con los vendedores activos de la sucursal.
 RAICES_SUBCATEGORIAS_VENDEDOR = ('Sueldos', 'Vales', 'Comisiones vendedores')
@@ -377,10 +380,16 @@ def resolver_categoria_oficina_por_ruta(sucursal, raiz_nombre, sub_nombre):
     """Busca (o crea vía estructura) la subcategoría oficina por nombres."""
     if not sucursal or not raiz_nombre or not sub_nombre:
         return None
+    # Savepoint: un IntegrityError del sync no debe romper la transacción del llamador
+    # (ej. guardar movimiento de caja dentro de atomic()).
     try:
-        asegurar_estructura_cierre_oficina(sucursal)
+        with transaction.atomic():
+            asegurar_estructura_cierre_oficina(sucursal)
     except Exception:
-        pass
+        logger.exception(
+            'resolver_categoria_oficina_por_ruta: falló asegurar estructura (sucursal_id=%s)',
+            getattr(sucursal, 'pk', None),
+        )
     raiz = (
         CategoriaGastoOficina.objects.filter(
             sucursal=sucursal,
@@ -422,13 +431,14 @@ def resolver_categoria_oficina_por_ruta(sucursal, raiz_nombre, sub_nombre):
             CategoriaGastoOficina.objects.filter(sucursal=sucursal, parent=raiz)
             .count()
         )
-        return CategoriaGastoOficina.objects.create(
-            sucursal=sucursal,
-            parent=raiz,
-            nombre=sub_nombre.strip(),
-            activa=True,
-            orden=orden,
-        )
+        with transaction.atomic():
+            return CategoriaGastoOficina.objects.create(
+                sucursal=sucursal,
+                parent=raiz,
+                nombre=sub_nombre.strip(),
+                activa=True,
+                orden=orden,
+            )
     except Exception:
         return None
 
@@ -1574,7 +1584,16 @@ def sincronizar_categorias_gasto_oficina_desde_referencia(sucursal_destino, sucu
                 hijo_d.nombre = nombre_hijo
                 upd_h.append('nombre')
             if upd_h:
-                hijo_d.save(update_fields=upd_h)
+                try:
+                    with transaction.atomic():
+                        hijo_d.save(update_fields=upd_h)
+                except IntegrityError:
+                    # Nombre ya usado por otra subcategoría del mismo padre.
+                    upd_h = [f for f in upd_h if f != 'nombre']
+                    hijo_d.refresh_from_db(fields=['nombre'])
+                    if upd_h:
+                        with transaction.atomic():
+                            hijo_d.save(update_fields=upd_h)
                 if not created_h:
                     actualizadas += 1
 
@@ -1744,11 +1763,12 @@ def _get_or_create_raiz(sucursal, nombre, orden):
         # No pisar ``orden``: el usuario puede reordenar categorías a mano.
         return raiz, False
     try:
-        return CategoriaGastoOficina.objects.create(
-            sucursal=sucursal,
-            nombre=nombre,
-            orden=orden,
-        ), True
+        with transaction.atomic():
+            return CategoriaGastoOficina.objects.create(
+                sucursal=sucursal,
+                nombre=nombre,
+                orden=orden,
+            ), True
     except IntegrityError:
         existente = CategoriaGastoOficina.objects.filter(
             sucursal=sucursal,
@@ -1794,26 +1814,29 @@ def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
             updates.append('vendedor')
         if updates:
             try:
-                cat.save(update_fields=updates)
+                with transaction.atomic():
+                    cat.save(update_fields=updates)
             except IntegrityError:
                 if vendedor_id and 'nombre' in updates:
                     sufijo = f' #{vendedor_id}'
                     cat.nombre = (nombre[: max(0, 120 - len(sufijo))] + sufijo)[:120]
                     try:
-                        cat.save(update_fields=updates)
+                        with transaction.atomic():
+                            cat.save(update_fields=updates)
                     except IntegrityError:
                         pass
                 else:
                     pass
         return cat, False
     try:
-        return CategoriaGastoOficina.objects.create(
-            sucursal=sucursal,
-            parent=parent,
-            nombre=nombre,
-            orden=orden,
-            vendedor=vendedor,
-        ), True
+        with transaction.atomic():
+            return CategoriaGastoOficina.objects.create(
+                sucursal=sucursal,
+                parent=parent,
+                nombre=nombre,
+                orden=orden,
+                vendedor=vendedor,
+            ), True
     except IntegrityError:
         if vendedor_id:
             existente = qs.filter(vendedor_id=vendedor_id).first()
@@ -1823,13 +1846,14 @@ def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
             sufijo = f' #{vendedor_id}'
             nombre_alt = (nombre[: max(0, 120 - len(sufijo))] + sufijo)[:120]
             try:
-                return CategoriaGastoOficina.objects.create(
-                    sucursal=sucursal,
-                    parent=parent,
-                    nombre=nombre_alt,
-                    orden=orden,
-                    vendedor=vendedor,
-                ), True
+                with transaction.atomic():
+                    return CategoriaGastoOficina.objects.create(
+                        sucursal=sucursal,
+                        parent=parent,
+                        nombre=nombre_alt,
+                        orden=orden,
+                        vendedor=vendedor,
+                    ), True
             except IntegrityError:
                 existente = qs.filter(vendedor_id=vendedor_id).first()
                 if existente:

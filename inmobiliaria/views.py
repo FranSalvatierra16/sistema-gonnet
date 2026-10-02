@@ -13103,25 +13103,8 @@ def _sincronizar_montos_anexos_movimiento(movimiento):
     try:
         from inmobiliaria.models.recibo import Recibo
 
-        recibo = Recibo.objects.filter(movimiento_caja=movimiento).first()
-        if recibo:
-            recibo.monto_este_pago = Decimal(str(movimiento.monto_total or 0))
-            if recibo.precio_total_operacion is not None:
-                recibo.saldo_pendiente = (
-                    Decimal(str(recibo.precio_total_operacion or 0))
-                    - Decimal(str(recibo.total_pagado_antes or 0))
-                    - Decimal(str(recibo.monto_este_pago or 0))
-                )
-            det = recibo.conceptos_detalle
-            if not isinstance(det, dict):
-                det = {}
-            else:
-                det = dict(det)
-            det['formas_pago'] = formas_recibo
-            recibo.conceptos_detalle = det
-            recibo.save(
-                update_fields=['monto_este_pago', 'saldo_pendiente', 'conceptos_detalle']
-            )
+        with transaction.atomic():
+            _sincronizar_recibo_anexo_movimiento(Recibo, movimiento, formas_recibo)
     except Exception:
         pass
 
@@ -13137,9 +13120,33 @@ def _sincronizar_montos_anexos_movimiento(movimiento):
                 if formas_dict.get('destino_deposito'):
                     data['destino_deposito'] = formas_dict['destino_deposito']
                 movimiento.concepto_detalle = json.dumps(data, ensure_ascii=False)
-                movimiento.save(update_fields=['concepto_detalle'])
+                with transaction.atomic():
+                    movimiento.save(update_fields=['concepto_detalle'])
         except Exception:
             pass
+
+
+def _sincronizar_recibo_anexo_movimiento(Recibo, movimiento, formas_recibo):
+    recibo = Recibo.objects.filter(movimiento_caja=movimiento).first()
+    if not recibo:
+        return
+    recibo.monto_este_pago = Decimal(str(movimiento.monto_total or 0))
+    if recibo.precio_total_operacion is not None:
+        recibo.saldo_pendiente = (
+            Decimal(str(recibo.precio_total_operacion or 0))
+            - Decimal(str(recibo.total_pagado_antes or 0))
+            - Decimal(str(recibo.monto_este_pago or 0))
+        )
+    det = recibo.conceptos_detalle
+    if not isinstance(det, dict):
+        det = {}
+    else:
+        det = dict(det)
+    det['formas_pago'] = formas_recibo
+    recibo.conceptos_detalle = det
+    recibo.save(
+        update_fields=['monto_este_pago', 'saldo_pendiente', 'conceptos_detalle']
+    )
 
 
 def _totales_fijos_edicion_forma_pago(movimiento, sucursal=None):
@@ -15899,13 +15906,21 @@ def nuevo_movimiento(request, numero_caja=None):
                 else:
                     # Conceptos de caja mapeados a oficina (ej. 130 Veraz):
                     # también generan GastoOficina aunque no se haya marcado el check.
-                    vincular_movimiento_concepto_a_gasto_oficina(
-                        movimiento,
-                        concepto_id=concepto_valor if concepto_row else None,
-                        concepto_nombre=(concepto_row.nombre if concepto_row else None),
-                        descripcion=detalles_txt,
-                        usuario=request.user,
-                    )
+                    # Savepoint: si falla el vínculo a oficina, el movimiento se guarda igual.
+                    try:
+                        with transaction.atomic():
+                            vincular_movimiento_concepto_a_gasto_oficina(
+                                movimiento,
+                                concepto_id=concepto_valor if concepto_row else None,
+                                concepto_nombre=(concepto_row.nombre if concepto_row else None),
+                                descripcion=detalles_txt,
+                                usuario=request.user,
+                            )
+                    except Exception:
+                        logger.exception(
+                            'nuevo_movimiento: falló vincular concepto a oficina (mov=%s)',
+                            getattr(movimiento, 'pk', None),
+                        )
                     if quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
                         if not ValeVendedor.objects.filter(movimiento_caja=movimiento).exists():
                             ValeVendedor.crear_desde_movimiento(
