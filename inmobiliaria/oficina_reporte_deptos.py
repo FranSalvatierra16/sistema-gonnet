@@ -570,10 +570,12 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         buckets = _buckets_mensuales(filas_libro)
         calc = _aplicar_arrastre(buckets, anio, mes, fecha_corte=fecha_corte)
 
-        # Omitir deptos sin movimiento ni arrastre en el mes (todo en cero),
-        # salvo que estén forzados a aparecer.
+        # Omitir deptos que nunca tuvieron movimiento desde el inicio del conteo,
+        # salvo que estén forzados. Si ya tuvo alguno, sigue apareciendo (en 0)
+        # hasta que lo saquen del resumen.
         sin_mov = (
-            calc['bruto'] <= Decimal('0.009')
+            not filas_libro
+            and calc['bruto'] <= Decimal('0.009')
             and calc['gastos'] <= Decimal('0.009')
             and calc['arrastre_anterior'] <= Decimal('0.009')
             and abs(calc['neto']) <= Decimal('0.009')
