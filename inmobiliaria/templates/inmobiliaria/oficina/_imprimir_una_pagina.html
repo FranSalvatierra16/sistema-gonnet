@@ -1,6 +1,7 @@
 {% comment %}
-Imprime el bloque `selector` en una sola hoja A4.
-Uso: {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.mi-bloque' orientacion='landscape' %}
+Imprime el bloque `selector` en A4 vertical: ajusta al ancho de la hoja y, si casi
+entra en una sola hoja, lo achica para que entre; si es largo, sigue en varias hojas.
+Uso: {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.mi-bloque' %}
 {% endcomment %}
 <style>
 @page { size: A4 {{ orientacion|default:'portrait' }}; margin: 7mm; }
@@ -8,7 +9,8 @@ Uso: {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='
     html, body { margin: 0 !important; padding: 0 !important; }
     {{ selector }} { margin: 0 !important; padding: 0 !important; overflow: visible !important; }
     {{ selector }} .table-responsive { overflow: visible !important; }
-    {{ selector }} table, {{ selector }} tr { page-break-inside: avoid; break-inside: avoid; }
+    {{ selector }} tr { page-break-inside: avoid; break-inside: avoid; }
+    {{ selector }} thead { display: table-header-group; }
 }
 </style>
 <script>
@@ -21,6 +23,8 @@ Uso: {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='
     var ALTO_PX = ((APAISADA ? 210 : 297) - 2 * MARGEN_MM) * PX_MM;
     // Margen de seguridad: el navegador mide con estilos de pantalla y redondea distinto al imprimir.
     var SEGURIDAD = 0.94;
+    // Si al ajustar al ancho ocupa hasta 1,3 hojas, se achica a una sola hoja.
+    var TOLERANCIA_UNA_HOJA = 1.3;
     var aplicado = false;
 
     function antesDeImprimir() {
@@ -38,8 +42,11 @@ Uso: {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='
         var alto = el.scrollHeight;
         var ancho = el.scrollWidth;
         ocultos.forEach(function (par) { par[0].style.display = par[1]; });
-        var escala = Math.min(1, ANCHO_PX / ancho, ALTO_PX / alto) * SEGURIDAD;
-        el.style.zoom = String(escala);
+        var escala = Math.min(1, ANCHO_PX / ancho);
+        if (alto * escala <= ALTO_PX * TOLERANCIA_UNA_HOJA) {
+            escala = Math.min(escala, ALTO_PX / alto);
+        }
+        el.style.zoom = String(escala * SEGURIDAD);
     }
 
     function despuesDeImprimir() {
