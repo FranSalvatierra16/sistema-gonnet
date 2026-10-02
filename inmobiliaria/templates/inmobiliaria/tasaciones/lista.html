@@ -1,0 +1,129 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Tasaciones{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h1 class="h4 mb-1"><i class="fas fa-search-dollar text-warning me-2"></i>Tasaciones</h1>
+            <p class="text-muted mb-0 small">{{ request.user.sucursal.nombre }} — el productor cobra la comisión el día de la tasación</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Panel oficina</a>
+            <a href="{% url 'inmobiliaria:tasaciones_nueva' %}" class="btn btn-warning btn-sm">
+                <i class="fas fa-plus me-1"></i>Registrar tasación
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-4">
+            <div class="border rounded p-2 bg-white">
+                <div class="small text-muted">Tasaciones confirmadas</div>
+                <div class="fs-5 fw-bold">{{ cantidad }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="border rounded p-2 bg-white">
+                <div class="small text-muted">Total tasaciones (ARS)</div>
+                <div class="fs-5 fw-bold text-success">${{ total_monto|format_price }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="border rounded p-2 bg-white">
+                <div class="small text-muted">Comisiones productores (ARS)</div>
+                <div class="fs-5 fw-bold">${{ total_comision|format_price }}</div>
+            </div>
+        </div>
+    </div>
+
+    <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-md-5">
+            <label class="form-label small mb-0">Buscar</label>
+            <input type="text" name="q" value="{{ busqueda }}" class="form-control form-control-sm"
+                   placeholder="Propiedad, solicitante o productor">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small mb-0">Estado</label>
+            <select name="estado" class="form-select form-select-sm">
+                <option value="">Todas</option>
+                <option value="confirmada" {% if estado_sel == 'confirmada' %}selected{% endif %}>Confirmadas</option>
+                <option value="anulada" {% if estado_sel == 'anulada' %}selected{% endif %}>Anuladas</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary btn-sm w-100">Filtrar</button>
+        </div>
+    </form>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Fecha</th>
+                        <th>Propiedad</th>
+                        <th>Productor</th>
+                        <th class="text-end">Monto</th>
+                        <th class="text-end">Monto ARS</th>
+                        <th class="text-end">Comisión</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in tasaciones %}
+                    <tr {% if t.estado == 'anulada' %}class="table-secondary"{% endif %}>
+                        <td>{{ t.id }}</td>
+                        <td>{{ t.fecha|date:"d/m/Y" }}</td>
+                        <td>
+                            <div class="fw-semibold">{{ t.propiedad_nombre }}</div>
+                            {% if t.cliente_nombre %}<small class="text-muted">Solicitante: {{ t.cliente_nombre }}</small>{% endif %}
+                        </td>
+                        <td>{{ t.vendedor.apellido }}, {{ t.vendedor.nombre }}</td>
+                        <td class="text-end">
+                            {% if t.es_usd %}U$S {{ t.monto|format_price }}<div class="small text-muted">cambio {{ t.cotizacion_dolar|format_price }}</div>{% else %}${{ t.monto|format_price }}{% endif %}
+                        </td>
+                        <td class="text-end text-success fw-semibold">${{ t.monto_ars|format_price }}</td>
+                        <td class="text-end">
+                            ${{ t.comision_ars|format_price }}
+                            <div class="small text-muted">{% if t.tipo_comision == 'porcentaje' %}{{ t.porcentaje_comision|format_price }}%{% else %}monto fijo{% endif %}</div>
+                        </td>
+                        <td>
+                            {% if t.estado == 'confirmada' %}
+                            <span class="badge bg-success">Confirmada</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Anulada</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <a href="{% url 'inmobiliaria:tasaciones_detalle' t.id %}" class="btn btn-outline-primary btn-sm">Ver</a>
+                            {% if t.estado == 'confirmada' %}
+                            <a href="{% url 'inmobiliaria:tasaciones_editar' t.id %}" class="btn btn-outline-warning btn-sm" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% endif %}
+                            <form method="post" action="{% url 'inmobiliaria:tasaciones_eliminar' t.id %}"
+                                  class="d-inline"
+                                  onsubmit="return confirm('¿Eliminar la tasación #{{ t.id }}? Se borra la comisión del productor (si no está pagada).');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar tasación">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">Todavía no hay tasaciones. Registrá la primera.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

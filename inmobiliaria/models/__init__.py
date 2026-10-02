@@ -31,6 +31,7 @@ from .oficina import (
 )
 from .historial_inquilino import HistorialInquilino
 from .venta_operacion import OperacionVenta
+from .tasacion import Tasacion
 
 __all__ = [
     'Sucursal',
@@ -68,5 +69,6 @@ __all__ = [
     'HistorialInquilino',
     'ConsultaWeb',
     'OperacionVenta',
+    'Tasacion',
     'LoteDisponibilidadMasiva',
 ]

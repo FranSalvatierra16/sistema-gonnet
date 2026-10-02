@@ -12,6 +12,7 @@ from . import views_administracion
 from . import views_oficina
 from . import views_recibos
 from . import views_ventas
+from . import views_tasaciones
 from . import portal_views
 
 app_name = 'inmobiliaria'
@@ -240,6 +241,12 @@ urlpatterns = [
         views_ventas.operaciones_venta_eliminar,
         name='operaciones_venta_eliminar',
     ),
+    path('tasaciones/', views_tasaciones.tasaciones_lista, name='tasaciones_lista'),
+    path('tasaciones/nueva/', views_tasaciones.tasaciones_nueva, name='tasaciones_nueva'),
+    path('tasaciones/<int:tasacion_id>/', views_tasaciones.tasaciones_detalle, name='tasaciones_detalle'),
+    path('tasaciones/<int:tasacion_id>/editar/', views_tasaciones.tasaciones_editar, name='tasaciones_editar'),
+    path('tasaciones/<int:tasacion_id>/anular/', views_tasaciones.tasaciones_anular, name='tasaciones_anular'),
+    path('tasaciones/<int:tasacion_id>/eliminar/', views_tasaciones.tasaciones_eliminar, name='tasaciones_eliminar'),
     path('alquileres-24-meses/', views.alquileres_24_meses, name='alquileres_24_meses'),
     path('alquileres-invierno/', views.alquileres_invierno, name='alquileres_invierno'),
     path('alquileres-invierno/disponibilidad-masiva/', views.invierno_disponibilidad_masiva, name='invierno_disponibilidad_masiva'),

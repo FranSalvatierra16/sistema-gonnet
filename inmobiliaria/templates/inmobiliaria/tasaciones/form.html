@@ -1,0 +1,163 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}{% if modo == 'editar' %}Editar tasación #{{ tasacion.id }}{% else %}Registrar tasación{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mt-3" style="max-width: 720px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            {% if modo == 'editar' %}
+            <h1 class="h4 mb-1"><i class="fas fa-edit text-warning me-2"></i>Editar tasación #{{ tasacion.id }}</h1>
+            <p class="text-muted small mb-0">Al guardar se regenera la comisión del productor con la fecha de la tasación.</p>
+            {% else %}
+            <h1 class="h4 mb-1"><i class="fas fa-search-dollar text-warning me-2"></i>Registrar tasación</h1>
+            <p class="text-muted small mb-0">Al guardar, el productor cobra la comisión ese día.</p>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-2">
+            {% if modo == 'editar' %}
+            <a href="{% url 'inmobiliaria:tasaciones_detalle' tasacion.id %}" class="btn btn-outline-secondary btn-sm">Detalle</a>
+            {% endif %}
+            <a href="{% url 'inmobiliaria:tasaciones_lista' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
+        </div>
+    </div>
+
+    <form method="post" class="card shadow-sm border-0" id="form_tasacion">
+        {% csrf_token %}
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label fw-semibold" for="propiedad_nombre">Propiedad *</label>
+                <input type="text" class="form-control" id="propiedad_nombre" name="propiedad_nombre"
+                       value="{{ form.propiedad_nombre }}" maxlength="255" required autocomplete="off"
+                       placeholder="Dirección o descripción de la propiedad tasada…">
+                <div class="form-text">Texto libre; no se vincula a ninguna ficha del sistema.</div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-sm-5">
+                    <label class="form-label" for="fecha">Fecha *</label>
+                    <input type="date" class="form-control" name="fecha" id="fecha" value="{{ form.fecha }}" required>
+                    <div class="form-text">Día en que el productor cobra la comisión.</div>
+                </div>
+                <div class="col-sm-7">
+                    <label class="form-label fw-semibold" for="vendedor_id">Productor que la hizo *</label>
+                    <select class="form-select" name="vendedor_id" id="vendedor_id" required>
+                        <option value="">— Elegí —</option>
+                        {% for v in vendedores %}
+                        <option value="{{ v.id }}" {% if form.vendedor_id == v.id|stringformat:"s" %}selected{% endif %}>
+                            {{ v.apellido }}, {{ v.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-2">
+                <label class="form-label fw-semibold d-block">Moneda de la tasación *</label>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="moneda" id="moneda_ars" value="ARS" {% if form.moneda != 'USD' %}checked{% endif %}>
+                    <label class="btn btn-outline-primary btn-sm" for="moneda_ars">Pesos</label>
+                    <input type="radio" class="btn-check" name="moneda" id="moneda_usd" value="USD" {% if form.moneda == 'USD' %}checked{% endif %}>
+                    <label class="btn btn-outline-primary btn-sm" for="moneda_usd">Dólares</label>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-sm-6">
+                    <label class="form-label" for="monto">Monto de la tasación * <span class="simbolo-moneda text-muted"></span></label>
+                    <input type="text" class="form-control" name="monto" id="monto" value="{{ form.monto }}"
+                           inputmode="decimal" autocomplete="off" required>
+                </div>
+                <div class="col-sm-6" id="bloque_cotizacion">
+                    <label class="form-label" for="cotizacion_dolar">Cambio del día (pesos por USD) *</label>
+                    <input type="text" class="form-control" name="cotizacion_dolar" id="cotizacion_dolar"
+                           value="{{ form.cotizacion_dolar }}" inputmode="decimal" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="mb-2">
+                <label class="form-label fw-semibold d-block">Comisión del productor *</label>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="tipo_comision" id="tipo_pct" value="porcentaje" {% if form.tipo_comision != 'monto' %}checked{% endif %}>
+                    <label class="btn btn-outline-success btn-sm" for="tipo_pct">Porcentaje</label>
+                    <input type="radio" class="btn-check" name="tipo_comision" id="tipo_monto" value="monto" {% if form.tipo_comision == 'monto' %}checked{% endif %}>
+                    <label class="btn btn-outline-success btn-sm" for="tipo_monto">Monto fijo</label>
+                </div>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-sm-6" id="bloque_pct">
+                    <label class="form-label" for="porcentaje_comision">Porcentaje (%)</label>
+                    <input type="text" class="form-control" name="porcentaje_comision" id="porcentaje_comision"
+                           value="{{ form.porcentaje_comision }}" inputmode="decimal" autocomplete="off" placeholder="Ej.: 30">
+                </div>
+                <div class="col-sm-6" id="bloque_monto_fijo">
+                    <label class="form-label" for="comision_monto">Monto de la comisión <span class="simbolo-moneda text-muted"></span></label>
+                    <input type="text" class="form-control" name="comision_monto" id="comision_monto"
+                           value="{{ form.comision_monto }}" inputmode="decimal" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="alert alert-light border py-2 mb-3" id="resumen_calculo">
+                <div>Monto en pesos: <strong id="res_monto_ars">—</strong></div>
+                <div>Comisión del productor: <strong id="res_comision">—</strong></div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="cliente_nombre">Solicitante</label>
+                <input type="text" class="form-control" name="cliente_nombre" id="cliente_nombre"
+                       value="{{ form.cliente_nombre }}" maxlength="255" autocomplete="off" placeholder="Opcional">
+            </div>
+            <div class="mb-0">
+                <label class="form-label" for="observaciones">Observaciones</label>
+                <textarea class="form-control" name="observaciones" id="observaciones" rows="2">{{ form.observaciones }}</textarea>
+            </div>
+        </div>
+        <div class="card-footer bg-white d-flex justify-content-end gap-2">
+            {% if modo == 'editar' %}
+            <a href="{% url 'inmobiliaria:tasaciones_detalle' tasacion.id %}" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-warning"><i class="fas fa-save me-1"></i>Guardar cambios</button>
+            {% else %}
+            <a href="{% url 'inmobiliaria:tasaciones_lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-warning"><i class="fas fa-save me-1"></i>Guardar tasación</button>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<script>
+(function () {
+    function num(id) {
+        var v = document.getElementById(id).value;
+        if (typeof window.parseMontoAR === 'function') return window.parseMontoAR(v);
+        var n = parseFloat(String(v || '').replace(/\./g, '').replace(',', '.'));
+        return isNaN(n) ? 0 : n;
+    }
+    function fmt(n) {
+        if (typeof window.formatMontoAR === 'function') return '$ ' + window.formatMontoAR(n);
+        return '$ ' + n.toFixed(2);
+    }
+    function actualizar() {
+        var usd = document.getElementById('moneda_usd').checked;
+        var pct = document.getElementById('tipo_pct').checked;
+        document.getElementById('bloque_cotizacion').style.display = usd ? '' : 'none';
+        document.getElementById('cotizacion_dolar').required = usd;
+        document.getElementById('bloque_pct').style.display = pct ? '' : 'none';
+        document.getElementById('bloque_monto_fijo').style.display = pct ? 'none' : '';
+        document.querySelectorAll('.simbolo-moneda').forEach(function (el) {
+            el.textContent = usd ? '(U$S)' : '($)';
+        });
+
+        var cot = usd ? num('cotizacion_dolar') : 1;
+        var montoArs = num('monto') * cot;
+        var comision = pct ? montoArs * num('porcentaje_comision') / 100 : num('comision_monto') * cot;
+        document.getElementById('res_monto_ars').textContent = montoArs > 0 ? fmt(montoArs) : '—';
+        document.getElementById('res_comision').textContent = comision > 0 ? fmt(comision) : '—';
+    }
+    var form = document.getElementById('form_tasacion');
+    form.addEventListener('input', actualizar);
+    form.addEventListener('change', actualizar);
+    actualizar();
+})();
+</script>
+{% endblock %}

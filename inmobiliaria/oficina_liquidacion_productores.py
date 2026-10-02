@@ -26,6 +26,7 @@ CLAVES_COMISION = (
     'por_invierno',
     'por_24_meses',
     'por_venta',
+    'por_tasacion',
     'otros',
 )
 
@@ -39,7 +40,7 @@ def _desglose_vacio():
 def _clave_desglose_comision(comision):
     """Misma clasificación que el historial: día / invierno / 24 / venta."""
     cat, _sub = comision.clasificacion_listado()
-    if cat in ('por_dia', 'por_invierno', 'por_24_meses', 'por_venta'):
+    if cat in ('por_dia', 'por_invierno', 'por_24_meses', 'por_venta', 'por_tasacion'):
         return cat
     if cat == 'operacion':
         return 'otros'
@@ -272,6 +273,7 @@ def construir_liquidacion_productores(sucursal, anio, mes):
             'por_invierno': desg['por_invierno'],
             'por_24_meses': desg['por_24_meses'],
             'por_venta': desg['por_venta'],
+            'por_tasacion': desg['por_tasacion'],
             'otros': desg['otros'],
             'comisiones': comis,
             'sueldo_basico': basico,
@@ -303,6 +305,7 @@ def construir_liquidacion_productores(sucursal, anio, mes):
         'total_por_invierno': tot_desglose['por_invierno'],
         'total_por_24_meses': tot_desglose['por_24_meses'],
         'total_por_venta': tot_desglose['por_venta'],
+        'total_por_tasacion': tot_desglose['por_tasacion'],
         'total_otros': tot_desglose['otros'],
         'total_comisiones': tot_desglose['total'],
         'total_basicos_aplicados': total_basicos_aplicados,
@@ -871,7 +874,22 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     fila_gestion = _celdas(n, oficina=gestion)
     fila_fondo = _celdas(n, oficina=total_fondo)
     fila_cochera = _celdas(n, oficina=total_cochera)
-    fila_tasacion = _celdas(n, oficina=0)
+    from inmobiliaria.models import Tasacion
+
+    total_tasaciones = (
+        Tasacion.objects.filter(
+            sucursal=sucursal,
+            estado='confirmada',
+            fecha__gte=fecha_desde,
+            fecha__lte=fecha_hasta,
+        ).aggregate(t=Sum('monto_ars'))['t']
+        or 0
+    )
+    fila_tasacion = _celdas(
+        n, oficina=total_tasaciones,
+        por_id=_montos_desglose(desglose, 'por_tasacion'),
+        columnas=columnas,
+    )
     fila_dif_inv = _celdas(n, oficina=0)
     fila_invierno = _celdas(
         n, oficina=invierno,

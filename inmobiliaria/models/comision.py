@@ -15,6 +15,7 @@ ROL_COMISION_OP_INVIERNO = 'operacion_invierno'
 ROL_COMISION_OP_24 = 'operacion_24_meses'
 ROL_COMISION_REVERSION = 'reversion_anulacion'
 ROL_COMISION_VENTA = 'venta_propiedad'
+ROL_COMISION_TASACION = 'tasacion'
 
 ROLES_COMISION_PRODUCTOR = (
     ROL_COMISION_GENERAL,
@@ -2097,6 +2098,7 @@ class ComisionVendedorQuerySet(models.QuerySet):
                 When(rol_comision=ROL_COMISION_OP_24, then=3),
                 When(rol_comision=ROL_COMISION_GENERAL, then=4),
                 When(rol_comision=ROL_COMISION_VENTA, then=5),
+                When(rol_comision=ROL_COMISION_TASACION, then=6),
                 When(rol_comision=ROL_COMISION_REVERSION, then=90),
                 When(estado='cancelada', then=80),
                 default=9,
@@ -2360,7 +2362,7 @@ class ComisionVendedor(models.Model):
     def clasificacion_listado(self):
         """
         Retorna (categoria, subtipo) para badges y agrupación.
-        categoria (filtro): por_dia | por_invierno | por_24_meses | por_venta | operacion
+        categoria (filtro): por_dia | por_invierno | por_24_meses | por_venta | por_tasacion | operacion
         (las devoluciones usan la categoría del tipo de operación original)
         subtipo: primer | segundo | fichaje_venta | None
         """
@@ -2369,6 +2371,8 @@ class ComisionVendedor(models.Model):
             return (self._categoria_filtro_de_reversion(), None)
         if rol == ROL_COMISION_VENTA:
             return ('por_venta', None)
+        if rol == ROL_COMISION_TASACION:
+            return ('por_tasacion', None)
         # Fichaje de venta (sin reserva/contrato): va al filtro «Por venta».
         if (
             rol == ROL_COMISION_FICHAJE
@@ -2453,6 +2457,9 @@ class ComisionVendedor(models.Model):
         m = re.search(r'Operaci[oó]n venta #(\d+)', obs, re.IGNORECASE)
         if m:
             return f'v:{m.group(1)}'
+        m = re.search(r'Tasaci[oó]n #(\d+)', obs, re.IGNORECASE)
+        if m:
+            return f't:{m.group(1)}'
         return f'cision:{self.pk}'
 
     def texto_categoria_comision_badge(self):
@@ -2470,6 +2477,7 @@ class ComisionVendedor(models.Model):
             'por_invierno': 'Por invierno',
             'por_24_meses': 'Por 24 meses',
             'por_venta': 'Por venta',
+            'por_tasacion': 'Por tasación',
             'operacion': 'Operación',
         }.get(cat, 'Operación')
 
@@ -2496,6 +2504,7 @@ class ComisionVendedor(models.Model):
             'por_invierno': 'bg-secondary',
             'por_24_meses': 'bg-dark',
             'por_venta': 'bg-success',
+            'por_tasacion': 'bg-warning text-dark',
             'operacion': 'bg-light text-dark border',
         }.get(cat, 'bg-secondary')
 
@@ -2510,6 +2519,7 @@ class ComisionVendedor(models.Model):
                 'por_invierno': 'invierno',
                 'por_24_meses': '24 meses',
                 'por_venta': 'venta',
+                'por_tasacion': 'tasación',
             }.get(cat)
             if suf:
                 return f'Devolución — comisión {suf}'
@@ -2532,6 +2542,8 @@ class ComisionVendedor(models.Model):
             return 'Comisión por 24 meses'
         if cat == 'por_venta':
             return 'Comisión por venta'
+        if cat == 'por_tasacion':
+            return 'Comisión por tasación'
         return 'Comisión operación'
 
     def label_estado_historial(self):

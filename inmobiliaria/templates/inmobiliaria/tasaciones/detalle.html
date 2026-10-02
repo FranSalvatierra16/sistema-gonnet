@@ -1,0 +1,121 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Tasación #{{ tasacion.id }}{% endblock %}
+
+{% block content %}
+<div class="container mt-3" style="max-width: 760px;">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h1 class="h4 mb-1">Tasación #{{ tasacion.id }}</h1>
+            <p class="text-muted small mb-0">{{ tasacion.fecha|date:"d/m/Y" }} · {{ tasacion.sucursal.nombre }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'inmobiliaria:tasaciones_lista' %}" class="btn btn-outline-secondary btn-sm">Listado</a>
+            <a href="{% url 'inmobiliaria:tasaciones_nueva' %}" class="btn btn-outline-warning btn-sm">Nueva tasación</a>
+        </div>
+    </div>
+
+    {% if tasacion.estado == 'anulada' %}
+    <div class="alert alert-secondary">Esta tasación está <strong>anulada</strong>.</div>
+    {% else %}
+    <div class="alert alert-success py-2">Estado: <strong>confirmada</strong></div>
+    {% endif %}
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-7">
+                    <div class="small text-muted">Propiedad</div>
+                    <div class="fw-semibold">{{ tasacion.propiedad_nombre }}</div>
+                    {% if tasacion.cliente_nombre %}
+                    <div class="small text-muted mt-1">Solicitante: {{ tasacion.cliente_nombre }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-5">
+                    <div class="small text-muted">Productor</div>
+                    <div class="fw-semibold">{{ tasacion.vendedor.apellido }}, {{ tasacion.vendedor.nombre }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="border rounded p-3 bg-white h-100">
+                <div class="small text-muted">Monto de la tasación</div>
+                <div class="fs-5 fw-bold">{% if tasacion.es_usd %}U$S{% else %}${% endif %} {{ tasacion.monto|format_price }}</div>
+                {% if tasacion.es_usd %}<div class="small text-muted mt-1">cambio del día ${{ tasacion.cotizacion_dolar|format_price }}</div>{% endif %}
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="border rounded p-3 bg-white h-100">
+                <div class="small text-muted">Monto en pesos</div>
+                <div class="fs-5 fw-bold text-success">${{ tasacion.monto_ars|format_price }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="border rounded p-3 bg-white h-100">
+                <div class="small text-muted">Comisión del productor</div>
+                <div class="fs-5 fw-bold">${{ tasacion.comision_ars|format_price }}</div>
+                <div class="small text-muted mt-1">
+                    {% if tasacion.tipo_comision == 'porcentaje' %}{{ tasacion.porcentaje_comision|format_price }}% del monto{% else %}monto fijo{% if tasacion.es_usd %} (U$S {{ tasacion.comision_monto|format_price }}){% endif %}{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            {% if tasacion.observaciones %}
+            <div class="mb-2"><span class="text-muted">Observaciones:</span> {{ tasacion.observaciones }}</div>
+            {% endif %}
+            {% if comisiones %}
+            <div class="text-muted mb-1">Comisión:</div>
+            <ul class="list-unstyled mb-0">
+                {% for c in comisiones %}
+                <li class="mb-1">
+                    #{{ c.id }} — {{ c.vendedor.apellido }}, {{ c.vendedor.nombre }}
+                    · ${{ c.monto_comision|format_price }}
+                    · acreditada el {{ c.fecha_operacion|date:"d/m/Y" }}
+                    <span class="badge bg-{% if c.estado == 'pagada' %}success{% elif c.estado == 'cancelada' %}secondary{% else %}warning text-dark{% endif %}">
+                        {{ c.get_estado_display }}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+            <a class="small" href="{% url 'inmobiliaria:historial_comisiones_vendedor' tasacion.vendedor_id %}">Ver comisiones del productor</a>
+            {% else %}
+            <div class="text-muted">Sin comisión (el monto de comisión es 0).</div>
+            {% endif %}
+            {% if tasacion.creado_por %}
+            <div class="small text-muted mt-2">Cargada por {{ tasacion.creado_por }} el {{ tasacion.creado_en|date:"d/m/Y H:i" }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if tasacion.estado == 'confirmada' %}
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'inmobiliaria:tasaciones_editar' tasacion.id %}" class="btn btn-outline-warning btn-sm">
+            <i class="fas fa-edit me-1"></i>Editar tasación
+        </a>
+        <form method="post" action="{% url 'inmobiliaria:tasaciones_anular' tasacion.id %}"
+              onsubmit="return confirm('¿Anular esta tasación? La comisión se cancela si no estaba pagada.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Anular tasación</button>
+        </form>
+        <form method="post" action="{% url 'inmobiliaria:tasaciones_eliminar' tasacion.id %}"
+              onsubmit="return confirm('¿Eliminar definitivamente la tasación #{{ tasacion.id }}? Se borra la comisión.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar tasación</button>
+        </form>
+    </div>
+    {% else %}
+    <form method="post" action="{% url 'inmobiliaria:tasaciones_eliminar' tasacion.id %}"
+          onsubmit="return confirm('¿Eliminar definitivamente la tasación #{{ tasacion.id }}?');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar tasación</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}
