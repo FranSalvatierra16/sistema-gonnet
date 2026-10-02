@@ -73,6 +73,7 @@ def _cotizacion_dolar_ultimo_dia_mes(sucursal, fecha_hasta):
 
 # Subcategorías de Ingresos (seed PDF) alimentadas desde honorarios/liquidaciones.
 ETIQUETA_COMISION_VENTAS = 'Comisión por ventas'
+ETIQUETA_TASACION = 'Tasación'
 ETIQUETA_24 = '24 meses'
 ETIQUETA_TEMPORARIOS = 'Com. alq. temporarios'
 ETIQUETA_ANIO_INVIERNO = 'Com. alq. año e invierno'
@@ -116,7 +117,8 @@ def _etiqueta_ingreso_desde_fila_honorario(fila):
     """
     Asigna una fila de honorarios a la subcategoría de Ingresos del cierre.
     Fondo y cochera no van acá: van a «Recaudación fondos».
-    Tasación / Gastos bancarios / Honorarios Marbella quedan para carga manual.
+    Gastos bancarios / Honorarios Marbella quedan para carga manual
+    (Tasación sale del módulo Tasaciones).
     """
     tipo = (fila.get('tipo') or '').strip()
     cat = (fila.get('categoria_operacion') or '').strip().lower()
@@ -241,6 +243,24 @@ def _honorarios_ventas_cerradas(sucursal, fecha_desde, fecha_hasta):
     return Decimal(str(total))
 
 
+def _total_tasaciones(sucursal, fecha_desde, fecha_hasta):
+    """Monto ARS de tasaciones confirmadas en el mes (fecha de la tasación)."""
+    from inmobiliaria.models import Tasacion
+
+    if not sucursal or not fecha_desde or not fecha_hasta:
+        return Decimal('0')
+    total = (
+        Tasacion.objects.filter(
+            sucursal=sucursal,
+            estado='confirmada',
+            fecha__gte=fecha_desde,
+            fecha__lte=fecha_hasta,
+        ).aggregate(t=Sum('monto_ars'))['t']
+        or Decimal('0')
+    )
+    return Decimal(str(total))
+
+
 def _es_concepto_gestion_cobranza(concepto_caja_id=None, descripcion=None):
     """True si es el concepto de gestión de cobranza (catálogo ~19 o por nombre)."""
     cid = str(concepto_caja_id or '').strip()
@@ -334,6 +354,10 @@ def _honorarios_por_etiqueta(sucursal, fecha_desde, fecha_hasta):
         ventas_ars = _honorarios_ventas_cerradas(sucursal, fecha_desde, fecha_hasta)
         if ventas_ars:
             totales[ETIQUETA_COMISION_VENTAS] += ventas_ars
+
+        tasaciones_ars = _total_tasaciones(sucursal, fecha_desde, fecha_hasta)
+        if tasaciones_ars:
+            totales[ETIQUETA_TASACION] += tasaciones_ars
 
         # Gestión cobranza (concepto liquidación / catálogo 19)
         try:
