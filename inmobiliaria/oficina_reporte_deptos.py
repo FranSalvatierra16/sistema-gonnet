@@ -228,10 +228,15 @@ def totales_alquileres_propios_para_fondo_oscar(sucursal, anio: int, mes: int) -
     depto (mismos totales que el reporte mensual de departamentos).
     """
     reporte = construir_reporte_mensual_deptos_oficina(sucursal, int(anio), int(mes))
+    dia = _q(reporte.get('total_tarifa_dia'))
+    invierno = _q(reporte.get('total_tarifa_invierno'))
+    meses_24 = _q(reporte.get('total_tarifa_24'))
     return {
-        'total_tarifa_dia': _q(reporte.get('total_tarifa_dia')),
-        'total_tarifa_invierno': _q(reporte.get('total_tarifa_invierno')),
-        'total_tarifa_24': _q(reporte.get('total_tarifa_24')),
+        'total_tarifa_dia': dia,
+        'total_tarifa_invierno': invierno,
+        'total_tarifa_24': meses_24,
+        # Neto positivo sin tipo de alquiler (ni día, ni invierno, ni 24 meses).
+        'total_no_asociado': _q(_q(reporte.get('total_neto')) - dia - invierno - meses_24),
     }
 
 

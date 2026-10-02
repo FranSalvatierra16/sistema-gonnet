@@ -74,6 +74,7 @@ def _cotizacion_dolar_ultimo_dia_mes(sucursal, fecha_hasta):
 # Subcategorías de Ingresos (seed PDF) alimentadas desde honorarios/liquidaciones.
 ETIQUETA_COMISION_VENTAS = 'Comisión por ventas'
 ETIQUETA_TASACION = 'Tasación'
+ETIQUETA_FONDO_NO_ASOCIADO = 'No asociado'
 ETIQUETA_24 = '24 meses'
 ETIQUETA_TEMPORARIOS = 'Com. alq. temporarios'
 ETIQUETA_ANIO_INVIERNO = 'Com. alq. año e invierno'
@@ -574,6 +575,11 @@ def _bloque_fondo_oscar(raiz, totales_por_cat, extras_por_nombre=None):
         total += firmado
         usados.add(clave)
     # Si falta la subcategoría (p. ej. 24 meses aún no sincronizada), igual mostrar fila.
+    # Van debajo de la última fila de alquileres propios.
+    pos = 0
+    for i, f in enumerate(filas):
+        if _norm_nombre_cat(f['nombre']).startswith('alquileres propios'):
+            pos = i + 1
     for nombre_extra, monto_e in extras.items():
         clave = _norm_nombre_cat(nombre_extra)
         if clave in usados:
@@ -581,12 +587,13 @@ def _bloque_fondo_oscar(raiz, totales_por_cat, extras_por_nombre=None):
         monto = Decimal(str(monto_e or 0)).quantize(Decimal('0.01'))
         signo = signo_fondo_oscar(nombre_extra)
         firmado = (monto * Decimal(signo)).quantize(Decimal('0.01'))
-        filas.append({
+        filas.insert(pos, {
             'nombre': nombre_extra,
             'monto': monto,
             'monto_firmado': firmado,
             'signo': signo,
         })
+        pos += 1
         total += firmado
     return {
         'titulo': 'FONDO OSCAR',
@@ -732,6 +739,9 @@ def construir_resumen_cierre(sucursal, anio, mes):
             'Alquileres propios temp. inv': tarifas.get('total_tarifa_invierno') or Decimal('0'),
             'Alquileres propios 24 meses': tarifas.get('total_tarifa_24') or Decimal('0'),
         }
+        no_asociado = tarifas.get('total_no_asociado') or Decimal('0')
+        if no_asociado > Decimal('0.009'):
+            extras_fondo_oscar[ETIQUETA_FONDO_NO_ASOCIADO] = no_asociado
     except Exception:
         logger.exception(
             'resumen_cierre: falló alquileres propios liquidados (sucursal_id=%s, %s-%02d)',
