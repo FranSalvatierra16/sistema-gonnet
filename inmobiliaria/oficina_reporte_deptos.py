@@ -224,38 +224,14 @@ def mapa_ingresos_liquidaciones_por_modalidad(propiedad_ids, anio: int, mes: int
 
 def totales_alquileres_propios_para_fondo_oscar(sucursal, anio: int, mes: int) -> dict:
     """
-    Totales día / invierno / 24 para Fondo Oscar.
-    Solo liquidaciones confirmadas de la cartera de oficina (sin armar el
-    reporte mensual completo de cada depto, que es muy costoso).
+    Totales día / invierno / 24 para Fondo Oscar = ingreso neto positivo de cada
+    depto (mismos totales que el reporte mensual de departamentos).
     """
-    from inmobiliaria.views_oficina import _qs_propiedades_oficina
-
-    anio = int(anio)
-    mes = int(mes)
-    prop_ids = list(
-        _qs_propiedades_oficina(sucursal).values_list('id', flat=True)
-    )
-    ocultos, _forzados = preferencias_reporte_deptos(sucursal, anio, mes)
-    ocultos_str = {str(x) for x in ocultos}
-    tarifas_por_prop = mapa_ingresos_liquidaciones_por_modalidad(
-        prop_ids, anio, mes, sucursal=sucursal
-    )
-    total_dia = Decimal('0')
-    total_inv = Decimal('0')
-    total_24 = Decimal('0')
-    for pid, tarifas in tarifas_por_prop.items():
-        if str(pid) in ocultos_str:
-            continue
-        if tarifas.get('por_dia'):
-            total_dia += tarifas['por_dia']
-        if tarifas.get('invierno'):
-            total_inv += tarifas['invierno']
-        if tarifas.get('meses_24'):
-            total_24 += tarifas['meses_24']
+    reporte = construir_reporte_mensual_deptos_oficina(sucursal, int(anio), int(mes))
     return {
-        'total_tarifa_dia': _q(total_dia),
-        'total_tarifa_invierno': _q(total_inv),
-        'total_tarifa_24': _q(total_24),
+        'total_tarifa_dia': _q(reporte.get('total_tarifa_dia')),
+        'total_tarifa_invierno': _q(reporte.get('total_tarifa_invierno')),
+        'total_tarifa_24': _q(reporte.get('total_tarifa_24')),
     }
 
 
