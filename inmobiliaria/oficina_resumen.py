@@ -934,8 +934,12 @@ def construir_resumen_cierre(sucursal, anio, mes):
 
     cotizacion_cierre = _cotizacion_dolar_ultimo_dia_mes(sucursal, fecha_hasta)
     saldo_usd = None
+    resultado_financiero_oscar_usd = None
     if cotizacion_cierre and cotizacion_cierre > 0:
         saldo_usd = (saldo / cotizacion_cierre).quantize(Decimal('0.01'))
+        resultado_financiero_oscar_usd = (
+            resultado_financiero_oscar / cotizacion_cierre
+        ).quantize(Decimal('0.01'))
 
     return {
         'anio': anio,
@@ -957,5 +961,6 @@ def construir_resumen_cierre(sucursal, anio, mes):
         'bloque_fondo_oscar': bloque_fondo_oscar,
         'bloque_gastos_oscar': bloque_gastos_oscar,
         'resultado_financiero_oscar': resultado_financiero_oscar,
+        'resultado_financiero_oscar_usd': resultado_financiero_oscar_usd,
         'sucursal': sucursal,
     }

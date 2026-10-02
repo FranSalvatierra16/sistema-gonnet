@@ -219,8 +219,16 @@
                 </div>
                 {% endif %}
 
-                <div class="resumen-total-grande bg-success-subtle border text-center py-2 fw-bold mt-2">
+                <div class="resumen-total-grande bg-warning text-center py-2 fw-bold mt-2">
                     RESULTADO FINANCIERO OSCAR: ${{ resultado_financiero_oscar|format_price }}
+                    <div class="fw-semibold">
+                        {% if resultado_financiero_oscar_usd is not None %}
+                        U$S {{ resultado_financiero_oscar_usd|format_price }}
+                        <span class="small fw-normal">(TC ${{ cotizacion_cierre|format_price }})</span>
+                        {% else %}
+                        U$S — <span class="small fw-normal">(sin cotización del mes)</span>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="small text-muted text-center mb-1 no-print">Total gral. + fondo Oscar − gastos Oscar</div>
 
