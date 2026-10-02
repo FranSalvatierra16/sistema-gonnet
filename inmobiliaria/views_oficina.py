@@ -2,12 +2,12 @@
 import logging
 import re
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import NoReverseMatch, reverse
@@ -329,8 +329,10 @@ _MESES_LIBRO_ES = (
 
 
 def _periodo_liquidacion_libro(liq):
-    """Etiqueta de período (ej. «Septiembre de 2026») desde fecha_desde de la liquidación."""
-    fd = getattr(liq, 'fecha_desde', None)
+    """Etiqueta de período (ej. «Agosto de 2026»): período de locación de la liquidación."""
+    from inmobiliaria.views import fecha_periodo_libro_liquidacion
+
+    fd = fecha_periodo_libro_liquidacion(liq)
     if not fd:
         return ''
     try:
@@ -437,15 +439,19 @@ def _filas_liquidaciones_confirmadas_libro(
         .select_related('contrato', 'reserva', 'reserva__cliente', 'contrato__inquilino')
         .order_by('fecha_desde', 'id')
     )
+    # fecha_desde puede ser el vencimiento de la cuota (posterior al período): margen amplio.
+    margen = timedelta(days=75)
+    if dr_desde:
+        qs = qs.filter(Q(fecha_desde__isnull=True) | Q(fecha_desde__gte=dr_desde - margen))
+    if dr_hasta:
+        qs = qs.filter(Q(fecha_desde__isnull=True) | Q(fecha_desde__lte=dr_hasta + margen))
+
+    from inmobiliaria.views import fecha_periodo_libro_liquidacion
 
     filas = []
     for liq in qs:
-        # Mes que le corresponde = período de la liquidación (fecha_desde).
-        fecha_raw = (
-            getattr(liq, 'fecha_desde', None)
-            or getattr(liq, 'fecha_procesamiento', None)
-            or getattr(liq, 'fecha_creacion', None)
-        )
+        # Mes que le corresponde = período de locación (cuotas) o fecha_desde.
+        fecha_raw = fecha_periodo_libro_liquidacion(liq)
         if fecha_raw is None:
             continue
         if isinstance(fecha_raw, datetime):

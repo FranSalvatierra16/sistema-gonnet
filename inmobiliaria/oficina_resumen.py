@@ -602,6 +602,42 @@ def _bloque_fondo_oscar(raiz, totales_por_cat, extras_por_nombre=None):
     }
 
 
+ETIQUETA_FONDO_GASTOS_DEPTOS = 'Gastos totales deptos'
+
+
+def _separar_ingresos_gastos_fondo_oscar(bloque, gastos_deptos):
+    """
+    Fondo Oscar en dos partes: ingresos (día / invierno / 24 / no asociado = total ingresos)
+    y gastos (gastos totales de los deptos + ítems «−»). El total es la diferencia.
+    """
+    gastos_deptos = Decimal(str(gastos_deptos or 0)).quantize(Decimal('0.01'))
+    filas_ingresos = []
+    filas_gastos = [{
+        'nombre': ETIQUETA_FONDO_GASTOS_DEPTOS,
+        'monto': gastos_deptos,
+        'monto_firmado': -gastos_deptos,
+        'signo': -1,
+    }]
+    for f in bloque.get('filas') or []:
+        if int(f.get('signo') or 1) < 0:
+            filas_gastos.append(f)
+        else:
+            filas_ingresos.append(f)
+    total_ingresos = sum(
+        (Decimal(str(f.get('monto') or 0)) for f in filas_ingresos), Decimal('0')
+    ).quantize(Decimal('0.01'))
+    total_gastos = sum(
+        (Decimal(str(f.get('monto') or 0)) for f in filas_gastos), Decimal('0')
+    ).quantize(Decimal('0.01'))
+    bloque['filas'] = filas_ingresos + filas_gastos
+    bloque['filas_ingresos'] = filas_ingresos
+    bloque['filas_gastos'] = filas_gastos
+    bloque['total_ingresos'] = total_ingresos
+    bloque['total_gastos'] = total_gastos
+    bloque['total'] = (total_ingresos - total_gastos).quantize(Decimal('0.01'))
+    return bloque
+
+
 def construir_resumen_cierre(sucursal, anio, mes):
     # El sync de categorías lo hace la vista con try/except; no repetirlo acá
     # (IntegrityError / unique en sync tumba la pantalla con 500).
@@ -728,6 +764,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
     # Alquileres propios liquidados (día / invierno / 24) → Fondo Oscar.
     # Consulta liviana: no armar el reporte completo de cada depto.
     extras_fondo_oscar = {}
+    gastos_deptos_fondo_oscar = Decimal('0')
     try:
         from inmobiliaria.oficina_reporte_deptos import (
             totales_alquileres_propios_para_fondo_oscar,
@@ -742,6 +779,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
         no_asociado = tarifas.get('total_no_asociado') or Decimal('0')
         if no_asociado > Decimal('0.009'):
             extras_fondo_oscar[ETIQUETA_FONDO_NO_ASOCIADO] = no_asociado
+        gastos_deptos_fondo_oscar = tarifas.get('total_gastos') or Decimal('0')
     except Exception:
         logger.exception(
             'resumen_cierre: falló alquileres propios liquidados (sucursal_id=%s, %s-%02d)',
@@ -923,6 +961,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
             bloque_fondo_oscar = {'titulo': 'FONDO OSCAR', 'filas': [], 'total': Decimal('0')}
     if bloque_gastos_oscar is None:
         bloque_gastos_oscar = {'titulo': 'GASTOS OSCAR', 'filas': [], 'total': Decimal('0')}
+    _separar_ingresos_gastos_fondo_oscar(bloque_fondo_oscar, gastos_deptos_fondo_oscar)
 
     saldo = total_ingresos - total_egresos
     total_gral_ofic_fondo_tomados = (

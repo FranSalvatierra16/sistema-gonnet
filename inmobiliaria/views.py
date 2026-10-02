@@ -32586,6 +32586,26 @@ def _periodo_liquidado_display(liquidacion):
     return getattr(liquidacion, 'fecha_desde', None), getattr(liquidacion, 'fecha_hasta', None)
 
 
+def fecha_periodo_libro_liquidacion(liquidacion):
+    """
+    Fecha que define el mes de la liquidación en el libro / reporte de deptos:
+    inicio del período de locación de las cuotas (como en el listado), no el vencimiento.
+    """
+    try:
+        cuotas = _cuotas_resueltas_liquidacion(liquidacion)
+        if cuotas:
+            d, _ = _periodo_fechas_desde_cuotas(cuotas)
+            if d:
+                return d
+    except Exception:
+        pass
+    return (
+        getattr(liquidacion, 'fecha_desde', None)
+        or getattr(liquidacion, 'fecha_procesamiento', None)
+        or getattr(liquidacion, 'fecha_creacion', None)
+    )
+
+
 def _periodo_detalle_alquiler_liquidacion(liquidacion):
     """
     Por día (reserva): «DEL 5 AL 11 DE JUNIO DE 2026».

@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import calendar
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
+from django.db.models import Q
 from django.utils import timezone
 
 # A partir de esta fecha cuenta el libro de departamentos de oficina.
@@ -199,12 +200,9 @@ def _monto_ars_liquidacion_propietario(liq) -> Decimal:
 
 def _fecha_periodo_liquidacion(liq):
     """Fecha de período de la liquidación (misma regla que el libro del depto)."""
-    fecha_raw = (
-        getattr(liq, 'fecha_desde', None)
-        or getattr(liq, 'fecha_procesamiento', None)
-        or getattr(liq, 'fecha_creacion', None)
-    )
-    return _fecha_sola(fecha_raw)
+    from inmobiliaria.views import fecha_periodo_libro_liquidacion
+
+    return _fecha_sola(fecha_periodo_libro_liquidacion(liq))
 
 
 def _vacios_modalidad():
@@ -255,6 +253,12 @@ def mapa_ingresos_liquidaciones_por_modalidad(propiedad_ids, anio: int, mes: int
     )
     if sucursal is not None:
         qs = qs.filter(sucursal=sucursal)
+    # fecha_desde puede ser el vencimiento de la cuota (posterior al período): margen amplio.
+    margen = timedelta(days=75)
+    qs = qs.filter(
+        Q(fecha_desde__isnull=True)
+        | Q(fecha_desde__gte=inicio - margen, fecha_desde__lte=fin + margen)
+    )
 
     for liq in qs.iterator(chunk_size=500):
         f_date = _fecha_periodo_liquidacion(liq)
@@ -270,19 +274,21 @@ def mapa_ingresos_liquidaciones_por_modalidad(propiedad_ids, anio: int, mes: int
 
 def totales_alquileres_propios_para_fondo_oscar(sucursal, anio: int, mes: int) -> dict:
     """
-    Totales día / invierno / 24 para Fondo Oscar = ingreso neto positivo de cada
-    depto (mismos totales que el reporte mensual de departamentos).
+    Totales para Fondo Oscar desde el reporte mensual de departamentos:
+    ingreso bruto (total, no neto) por día / invierno / 24 meses, lo no asociado
+    a ningún tipo de alquiler, y los gastos totales de los deptos.
     """
     reporte = construir_reporte_mensual_deptos_oficina(sucursal, int(anio), int(mes))
-    dia = _q(reporte.get('total_tarifa_dia'))
-    invierno = _q(reporte.get('total_tarifa_invierno'))
-    meses_24 = _q(reporte.get('total_tarifa_24'))
+    dia = _q(reporte.get('total_bruto_dia'))
+    invierno = _q(reporte.get('total_bruto_invierno'))
+    meses_24 = _q(reporte.get('total_bruto_24'))
     return {
         'total_tarifa_dia': dia,
         'total_tarifa_invierno': invierno,
         'total_tarifa_24': meses_24,
-        # Neto positivo sin tipo de alquiler (ni día, ni invierno, ni 24 meses).
-        'total_no_asociado': _q(_q(reporte.get('total_neto')) - dia - invierno - meses_24),
+        # Ingreso bruto sin tipo de alquiler (ni día, ni invierno, ni 24 meses).
+        'total_no_asociado': _q(_q(reporte.get('total_bruto')) - dia - invierno - meses_24),
+        'total_gastos': _q(reporte.get('total_gastos')),
     }
 
 
@@ -483,16 +489,27 @@ def _repartir_neto_por_modalidad(neto, liquidado: dict, prop, anio: int, mes: in
     Con liquidaciones de un solo tipo va todo ahí; con varios, proporcional a lo
     liquidado. Sin liquidación: tipo de ocupación del mes (contrato / reserva).
     """
-    columnas = _vacios_modalidad()
     neto = _q(neto)
     if neto <= Decimal('0.009'):
-        return columnas
+        return _vacios_modalidad()
     pesos = {k: _q(v) for k, v in (liquidado or {}).items() if v and _q(v) > 0}
     if not pesos:
+        columnas = _vacios_modalidad()
         clave = _CLAVE_COLUMNA_POR_MODALIDAD.get(_modalidad_ocupacion_mes(prop, anio, mes))
         if clave:
             columnas[clave] = neto
         return columnas
+    return _repartir_por_pesos(neto, pesos)
+
+
+def _repartir_por_pesos(monto, pesos: dict) -> dict:
+    """Reparte `monto` entre columnas proporcional a `pesos` (el mayor se lleva el redondeo)."""
+    columnas = _vacios_modalidad()
+    monto = _q(monto)
+    pesos = {k: _q(v) for k, v in (pesos or {}).items() if v and _q(v) > 0}
+    if monto <= Decimal('0.009') or not pesos:
+        return columnas
+    neto = monto
     total = sum(pesos.values(), Decimal('0'))
     claves = sorted(pesos, key=lambda k: pesos[k], reverse=True)
     asignado = Decimal('0')
@@ -538,6 +555,7 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     total_tarifa_dia = Decimal('0')
     total_tarifa_invierno = Decimal('0')
     total_tarifa_24 = Decimal('0')
+    total_bruto_mod = {'dia': Decimal('0'), 'invierno': Decimal('0'), '24': Decimal('0')}
 
     filas = []
     ocultos_labels = []
@@ -585,15 +603,21 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         elif calc['negativo']:
             n_negativos += 1
 
+        # Ingreso bruto por tipo de alquiler (para Fondo Oscar: totales, no netos).
+        bruto_mod = _repartir_neto_por_modalidad(
+            calc['bruto'],
+            tarifas_por_prop.get(prop.id),
+            prop,
+            anio,
+            mes,
+        )
+        for clave, acum in (('por_dia', 'dia'), ('invierno', 'invierno'), ('meses_24', '24')):
+            if bruto_mod.get(clave):
+                total_bruto_mod[acum] += bruto_mod[clave]
+
         # Día / invierno / 24 = ingreso neto según tipo de alquiler, solo si es positivo.
         if calc['entra_en_total']:
-            tarifas = _repartir_neto_por_modalidad(
-                calc['monto_a_total'],
-                tarifas_por_prop.get(prop.id),
-                prop,
-                anio,
-                mes,
-            )
+            tarifas = _repartir_por_pesos(calc['monto_a_total'], bruto_mod)
         else:
             tarifas = _vacios_modalidad()
         if tarifas.get('por_dia'):
@@ -646,6 +670,9 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         'total_tarifa_dia': _q(total_tarifa_dia),
         'total_tarifa_invierno': _q(total_tarifa_invierno),
         'total_tarifa_24': _q(total_tarifa_24),
+        'total_bruto_dia': _q(total_bruto_mod['dia']),
+        'total_bruto_invierno': _q(total_bruto_mod['invierno']),
+        'total_bruto_24': _q(total_bruto_mod['24']),
         'n_positivos': n_positivos,
         'n_negativos': n_negativos,
         'cantidad': len(filas),
