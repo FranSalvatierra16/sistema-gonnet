@@ -30713,7 +30713,8 @@ def _crear_gasto_desde_egreso_caja(liquidacion, movimiento, propiedad=None):
             pendiente.liquidacion = liquidacion
             pendiente.propiedad = pendiente.propiedad or propiedad
             pendiente.aceptado = True
-            pendiente.moneda = liquidacion.moneda
+            if not liquidacion.gasto_en_dolares_aparte(pendiente):
+                pendiente.moneda = liquidacion.moneda
             pendiente.save(update_fields=['liquidacion', 'propiedad', 'aceptado', 'moneda'])
             return pendiente, None
         if GastoPropietario.objects.filter(
@@ -30784,7 +30785,8 @@ def _asociar_gastos_seleccionados_a_liquidacion(liquidacion, gastos_ids, propied
                     if gasto.propietario_id and liquidacion.propietario_id and gasto.propietario_id != liquidacion.propietario_id:
                         errores.append(f'El gasto #{gasto_id} es de otra propiedad/propietario.')
                         continue
-                gasto.moneda = liquidacion.moneda
+                if not liquidacion.gasto_en_dolares_aparte(gasto):
+                    gasto.moneda = liquidacion.moneda
                 gasto.liquidacion = liquidacion
                 gasto.propiedad = gasto.propiedad or propiedad
                 gasto.aceptado = True

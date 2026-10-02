@@ -997,8 +997,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         const gMoneda = (cb.getAttribute('data-moneda') || 'ARS').toUpperCase();
         const liqMoneda = String(window.monedaLiquidacion || 'ARS').toUpperCase();
-        if (gMoneda !== liqMoneda) {
-            alert('Ese movimiento está en ' + (gMoneda === 'USD' ? 'dólares' : 'pesos') + ' y la liquidación en ' + (liqMoneda === 'USD' ? 'dólares' : 'pesos') + '.');
+        // U$S en liquidación en pesos: se permite y se liquida aparte en dólares.
+        if (gMoneda !== liqMoneda && !(gMoneda === 'USD' && liqMoneda === 'ARS')) {
+            alert('Ese movimiento está en pesos y la liquidación en dólares.');
             cb.checked = false;
             return;
         }
@@ -2301,12 +2302,24 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
+        const liqMonResumen = String(window.monedaLiquidacion || 'ARS').toUpperCase();
+        function esUsdAparte(cb) {
+            return liqMonResumen === 'ARS'
+                && (cb.getAttribute('data-moneda') || 'ARS').toUpperCase() === 'USD';
+        }
+        let usdAparte = 0;
+
         document.querySelectorAll('.gasto-checkbox:checked').forEach(function(cb) {
             const operacion = cb.getAttribute('data-operacion') || 'resta';
             if (operacion !== 'suma') return;
             const monto = parseFloat(cb.getAttribute('data-monto')) || 0;
             const concepto = (cb.getAttribute('data-descripcion') || 'Movimiento').trim();
             if (monto <= 0.009) return;
+            if (esUsdAparte(cb)) {
+                filasAFavor.push({ concepto: concepto, monto: monto, moneda: 'USD' });
+                usdAparte += monto;
+                return;
+            }
             filasAFavor.push({ concepto: concepto, monto: monto });
             totalAFavor += monto;
         });
@@ -2316,7 +2329,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (pagosFoot) pagosFoot.classList.add('d-none');
         } else {
             pagosBody.innerHTML = filasAFavor.map(function(f) {
-                return '<tr><td>' + f.concepto + '</td><td class="text-end">' + fmtMonedaLiq(f.monto.toFixed(2)) + '</td></tr>';
+                return '<tr><td>' + f.concepto + '</td><td class="text-end">' + fmtMonedaLiq(f.monto.toFixed(2), f.moneda) + '</td></tr>';
             }).join('');
             const elTotalPagos = document.getElementById('resumen-total-pagos');
             if (elTotalPagos) elTotalPagos.textContent = formatearNumero(totalAFavor.toFixed(2));
@@ -2324,12 +2337,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const contraMap = {};
+        const contraUsd = [];
         document.querySelectorAll('.gasto-checkbox:checked').forEach(function(cb) {
             const operacion = cb.getAttribute('data-operacion') || 'resta';
             if (operacion === 'suma') return;
             const monto = parseFloat(cb.getAttribute('data-monto')) || 0;
             const concepto = (cb.getAttribute('data-descripcion') || 'Movimiento').trim();
             if (monto <= 0.009) return;
+            if (esUsdAparte(cb)) {
+                contraUsd.push({ concepto: concepto, monto: monto, moneda: 'USD' });
+                usdAparte -= monto;
+                return;
+            }
             contraMap[String(cb.value)] = { id: String(cb.value), concepto: concepto, monto: monto };
         });
         const filasContra = [];
@@ -2348,6 +2367,7 @@ document.addEventListener('DOMContentLoaded', function() {
             filasContra.push(item);
             totalContra += item.monto;
         });
+        contraUsd.forEach(function(item) { filasContra.push(item); });
 
         // Fondo y cochera son ingreso de oficina: no se listan como descuento al propietario.
 
@@ -2356,7 +2376,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (gastosFoot) gastosFoot.classList.add('d-none');
         } else {
             gastosBody.innerHTML = filasContra.map(function(f) {
-                return '<tr><td>' + f.concepto + '</td><td class="text-end">' + fmtMonedaLiq(f.monto.toFixed(2)) + '</td></tr>';
+                return '<tr><td>' + f.concepto + '</td><td class="text-end">' + fmtMonedaLiq(f.monto.toFixed(2), f.moneda) + '</td></tr>';
             }).join('');
             const elTotalGastos = document.getElementById('resumen-total-gastos');
             if (elTotalGastos) elTotalGastos.textContent = formatearNumero(totalContra.toFixed(2));
@@ -2376,6 +2396,20 @@ document.addEventListener('DOMContentLoaded', function() {
             montoFinalPagar.classList.toggle('text-danger', neto < -0.009);
             montoFinalPagar.classList.toggle('text-success', neto >= -0.009);
         }
+        [elNeto, montoFinalPagar].forEach(function(el) {
+            if (!el || !el.parentNode) return;
+            let extra = el.parentNode.querySelector('.resumen-usd-aparte');
+            if (Math.abs(usdAparte) <= 0.009) {
+                if (extra) extra.remove();
+                return;
+            }
+            if (!extra) {
+                extra = document.createElement('span');
+                extra.className = 'resumen-usd-aparte ms-2 text-primary fw-semibold';
+                el.insertAdjacentElement('afterend', extra);
+            }
+            extra.textContent = (usdAparte >= 0 ? '+ ' : '− ') + 'U$S ' + formatearNumero(Math.abs(usdAparte).toFixed(2));
+        });
         return neto;
     }
 
@@ -2712,11 +2746,8 @@ document.addEventListener('DOMContentLoaded', function() {
             gastosMarcados.forEach(function(g) {
                 monedasGastos.add((g.getAttribute('data-moneda') || 'ARS').toUpperCase());
             });
-            if (monedasGastos.size > 1) {
-                alert('Los movimientos de servicios/gastos deben estar todos en la misma moneda.');
-                return false;
-            }
-            actualizarUiMonedaLiquidacion(Array.from(monedasGastos)[0]);
+            // Mezcla pesos + U$S: liquidación en pesos y los dólares van aparte.
+            actualizarUiMonedaLiquidacion(monedasGastos.has('ARS') ? 'ARS' : Array.from(monedasGastos)[0]);
         }
 
         if (opsMarcadas.length === 0 && gastosMarcados.length === 0) {
@@ -2738,8 +2769,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const gMon = (gastosMarcados[j].getAttribute('data-moneda') || 'ARS').toUpperCase();
             const liqMon = String(window.monedaLiquidacion || 'ARS').toUpperCase();
-            if (gMon !== liqMon) {
-                alert('Hay movimientos en contra con moneda distinta a la liquidación.');
+            if (gMon !== liqMon && !(gMon === 'USD' && liqMon === 'ARS')) {
+                alert('Hay movimientos en pesos y la liquidación es en dólares.');
                 return false;
             }
         }
