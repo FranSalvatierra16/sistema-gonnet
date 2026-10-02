@@ -7,7 +7,16 @@ Uso: {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='
 @page { size: A4 {{ orientacion|default:'portrait' }}; margin: 7mm; }
 @media print {
     html, body { margin: 0 !important; padding: 0 !important; }
+    body > nav, body > .navbar, body > footer { display: none !important; }
+    /* El .container de base.html centra y limita el ancho: corre la tabla a la derecha. */
+    .main-page-wrapper {
+        max-width: none !important;
+        width: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
     {{ selector }} { margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+    {{ selector }} .card, {{ selector }} .card-body { margin: 0 !important; border: none !important; }
     {{ selector }} .table-responsive { overflow: visible !important; }
     {{ selector }} tr { page-break-inside: avoid; break-inside: avoid; }
     {{ selector }} thead { display: table-header-group; }
@@ -22,7 +31,7 @@ Uso: {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='
     var ANCHO_PX = ((APAISADA ? 297 : 210) - 2 * MARGEN_MM) * PX_MM;
     var ALTO_PX = ((APAISADA ? 210 : 297) - 2 * MARGEN_MM) * PX_MM;
     // Margen de seguridad: el navegador mide con estilos de pantalla y redondea distinto al imprimir.
-    var SEGURIDAD = 0.94;
+    var SEGURIDAD = 0.9;
     // Si al ajustar al ancho ocupa hasta 1,3 hojas, se achica a una sola hoja.
     var TOLERANCIA_UNA_HOJA = 1.3;
     var aplicado = false;
