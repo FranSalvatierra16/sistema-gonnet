@@ -1,13 +1,11 @@
 """Reporte mensual de departamentos de oficina (libro por depto).
 
-Regla de saldos (como la planilla en papel):
-- ING. NETO del mes = bruto − gastos − arrastre de meses anteriores.
-- Si el neto queda negativo: se muestra entre paréntesis, NO suma al total,
-  y ese monto se arrastra en contra del mismo depto al mes siguiente.
+Regla de saldos:
+- ING. NETO del mes = bruto − gastos del mes (sin arrastre entre meses).
+- Si el neto queda negativo: se muestra entre paréntesis y NO suma al total.
 - Al total del mes solo entran los netos positivos.
 
 Conteo: solo movimientos desde FECHA_INICIO_CONTEO_DEPTOS_OFICINA (8/6/2026).
-Lo anterior no entra ni genera arrastre.
 """
 from __future__ import annotations
 
@@ -18,7 +16,7 @@ from decimal import Decimal
 
 from django.utils import timezone
 
-# A partir de esta fecha cuenta el libro / arrastre de departamentos de oficina.
+# A partir de esta fecha cuenta el libro de departamentos de oficina.
 FECHA_INICIO_CONTEO_DEPTOS_OFICINA = date(2026, 6, 8)
 
 MESES_ES = (
@@ -456,82 +454,24 @@ def _buckets_mensuales(filas):
     return buckets
 
 
-def _meses_entre(desde: date, hasta: date):
-    """Genera (anio, mes) desde el mes de `desde` hasta el de `hasta` inclusive."""
-    y, m = desde.year, desde.month
-    y2, m2 = hasta.year, hasta.month
-    while (y, m) <= (y2, m2):
-        yield y, m
-        m += 1
-        if m > 12:
-            m = 1
-            y += 1
-
-
-def _aplicar_arrastre(buckets, anio, mes, fecha_corte=None):
-    """
-    Recorre meses hasta (anio, mes) aplicando arrastre de negativos.
-    Devuelve dict del mes pedido + arrastre_siguiente.
-    """
-    if fecha_corte:
-        start = date(fecha_corte.year, fecha_corte.month, 1)
-    else:
-        if not buckets:
-            start = date(anio, mes, 1)
-        else:
-            y0, m0 = min(buckets.keys())
-            start = date(y0, m0, 1)
-
-    fin = date(anio, mes, 1)
-    if start > fin:
-        start = fin
-
-    arrastre = Decimal('0')
-    resultado_mes = None
-
-    for y, m in _meses_entre(start, fin):
-        b = buckets.get((y, m), {'bruto': Decimal('0'), 'gastos': Decimal('0')})
-        bruto = _q(b['bruto'])
-        gastos = _q(b['gastos'])
-        neto_periodo = _q(bruto - gastos)
-        neto_ajustado = _q(neto_periodo - arrastre)
-        arrastre_aplicado = arrastre
-
-        if neto_ajustado < 0:
-            entra_en_total = False
-            monto_a_total = Decimal('0')
-            arrastre = _q(-neto_ajustado)
-        else:
-            entra_en_total = neto_ajustado > Decimal('0.009')
-            monto_a_total = neto_ajustado if entra_en_total else Decimal('0')
-            arrastre = Decimal('0')
-
-        if (y, m) == (anio, mes):
-            resultado_mes = {
-                'bruto': bruto,
-                'gastos': gastos,
-                'neto_periodo': neto_periodo,
-                'arrastre_anterior': arrastre_aplicado,
-                'neto': neto_ajustado,
-                'negativo': neto_ajustado < 0,
-                'entra_en_total': entra_en_total,
-                'monto_a_total': monto_a_total,
-                'arrastre_siguiente': arrastre,
-            }
-
-    if resultado_mes is None:
-        resultado_mes = {
-            'bruto': Decimal('0'),
-            'gastos': Decimal('0'),
-            'neto_periodo': Decimal('0'),
-            'arrastre_anterior': Decimal('0'),
-            'neto': Decimal('0'),
-            'negativo': False,
-            'entra_en_total': False,
-            'monto_a_total': Decimal('0'),
-            'arrastre_siguiente': Decimal('0'),
-        }
-    return resultado_mes
+def _calcular_mes(buckets, anio, mes):
+    """Neto del mes = ingreso bruto − gastos del mes (sin arrastre de meses anteriores)."""
+    b = buckets.get((anio, mes), {'bruto': Decimal('0'), 'gastos': Decimal('0')})
+    bruto = _q(b['bruto'])
+    gastos = _q(b['gastos'])
+    neto = _q(bruto - gastos)
+    entra_en_total = neto > Decimal('0.009')
+    return {
+        'bruto': bruto,
+        'gastos': gastos,
+        'neto_periodo': neto,
+        'arrastre_anterior': Decimal('0'),
+        'neto': neto,
+        'negativo': neto < 0,
+        'entra_en_total': entra_en_total,
+        'monto_a_total': neto if entra_en_total else Decimal('0'),
+        'arrastre_siguiente': Decimal('0'),
+    }
 
 
 _CLAVE_COLUMNA_POR_MODALIDAD = {'dia': 'por_dia', 'invierno': 'invierno', '24': 'meses_24'}
@@ -621,7 +561,7 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
             dr_hasta=fecha_hasta,
         )
         buckets = _buckets_mensuales(filas_libro)
-        calc = _aplicar_arrastre(buckets, anio, mes, fecha_corte=fecha_corte)
+        calc = _calcular_mes(buckets, anio, mes)
 
         # Omitir deptos que nunca tuvieron movimiento desde el inicio del conteo,
         # salvo que estén forzados. Si ya tuvo alguno, sigue apareciendo (en 0)

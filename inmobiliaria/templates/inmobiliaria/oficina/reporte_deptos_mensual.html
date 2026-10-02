@@ -13,12 +13,12 @@
             </h1>
             <p class="text-muted small mb-0">
                 Ingresos y gastos del libro por depto.
-                Los saldos negativos (entre paréntesis) <strong>no suman</strong> al total
-                y se arrastran en contra al mes siguiente.
+                Neto = ingreso − gastos del mes (no se arrastra a otros meses).
+                Los saldos negativos (entre paréntesis) <strong>no suman</strong> al total.
                 Día / Invierno / 24 meses = ingreso neto del mes según el tipo de alquiler
                 (solo netos positivos).
                 {% if reporte.fecha_inicio_conteo %}
-                <br>Conteo desde el <strong>{{ reporte.fecha_inicio_conteo|date:"d/m/Y" }}</strong>; lo anterior no se considera ni genera arrastre.
+                <br>Conteo desde el <strong>{{ reporte.fecha_inicio_conteo|date:"d/m/Y" }}</strong>; lo anterior no se considera.
                 {% endif %}
             </p>
         </div>
@@ -118,11 +118,6 @@
                             <td class="text-center">{{ f.nro }}</td>
                             <td>
                                 {{ f.propiedad_label }}
-                                {% if f.arrastre_anterior %}
-                                <div class="small text-muted">
-                                    Arrastre mes ant.: ${{ f.arrastre_anterior|format_price }}
-                                </div>
-                                {% endif %}
                             </td>
                             <td class="text-nowrap">{{ f.apellido_propietario|default:"—" }}</td>
                             <td class="text-nowrap">{{ f.periodo }}</td>
