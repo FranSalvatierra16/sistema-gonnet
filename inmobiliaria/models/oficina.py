@@ -466,19 +466,17 @@ class CuadroHonorariosColumna(models.Model):
         on_delete=models.CASCADE,
         related_name='cuadro_honorarios_columnas',
     )
+    # 1° del mes desde el que aparece (vacío = desde siempre).
+    vigente_desde = models.DateField(null=True, blank=True)
+    # 1° del mes desde el que deja de aparecer (vacío = sigue).
+    oculto_desde = models.DateField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Columna de planilla de honorarios'
         verbose_name_plural = 'Columnas de planilla de honorarios'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['sucursal', 'vendedor'],
-                name='uniq_cuadro_honorarios_sucursal_vendedor',
-            ),
-        ]
 
     def __str__(self):
-        return f'{self.sucursal_id} · {self.vendedor_id}'
+        return f'{self.sucursal_id} · {self.vendedor_id} ({self.vigente_desde} → {self.oculto_desde})'
 
 
 class CuadroHonorariosTotalGral(models.Model):

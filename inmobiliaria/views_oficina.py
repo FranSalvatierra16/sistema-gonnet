@@ -1198,18 +1198,18 @@ def oficina_liquidacion_productores(request):
     if request.method == 'POST':
         accion = (request.POST.get('accion') or 'basicos').strip()
         if accion == 'columnas':
-            n = guardar_columnas_cuadro(sucursal, request.POST.getlist('columna'))
+            n = guardar_columnas_cuadro(sucursal, request.POST.getlist('columna'), anio, mes)
             if n:
                 messages.success(
                     request,
-                    f'Se muestran {n} productor{"es" if n != 1 else ""} en la planilla. '
-                    'La elección se mantiene al cambiar el mes.',
+                    f'Se muestran {n} productor{"es" if n != 1 else ""} en la planilla '
+                    f'desde {mes:02d}/{anio} en adelante. Los meses anteriores no cambian.',
                 )
             else:
                 messages.info(
                     request,
-                    'No quedó ningún productor marcado: se muestran todos. '
-                    'Marcá los que quieras ver y guardá de nuevo.',
+                    f'No quedó ningún productor marcado desde {mes:02d}/{anio}: '
+                    'la planilla muestra solo OFICINA. Marcá los que quieras ver y guardá de nuevo.',
                 )
         elif accion == 'columnas_todos':
             borrar_columnas_cuadro(sucursal)
@@ -1251,7 +1251,7 @@ def oficina_liquidacion_productores(request):
         )
 
     liquidacion = construir_cuadro_honorarios(sucursal, anio, mes)
-    columnas_opts, columnas_filtradas = opciones_columnas_vendedores(sucursal)
+    columnas_opts, columnas_filtradas = opciones_columnas_vendedores(sucursal, anio, mes)
     anios_opts = list(range(today.year - 2, today.year + 2))
     meses_opts = list(enumerate(
         ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',

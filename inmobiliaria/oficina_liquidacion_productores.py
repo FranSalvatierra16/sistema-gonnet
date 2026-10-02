@@ -572,12 +572,24 @@ def vendedores_en_sueldos(sucursal):
     return out or _vendedores_activos_sucursal(sucursal)
 
 
-def ids_columnas_vendedores(sucursal):
-    """IDs guardados para la planilla. Set vacío = todavía no se eligió (mostrar todos)."""
+def _q_columna_vigente(dia):
+    return (
+        (Q(vigente_desde__isnull=True) | Q(vigente_desde__lte=dia))
+        & (Q(oculto_desde__isnull=True) | Q(oculto_desde__gt=dia))
+    )
+
+
+def hay_columnas_elegidas(sucursal):
+    """False = todavía no se eligió nunca (se muestran todos los de Sueldos)."""
+    return CuadroHonorariosColumna.objects.filter(sucursal=sucursal).exists()
+
+
+def ids_columnas_vendedores(sucursal, anio, mes):
+    """IDs de las columnas vigentes ese mes."""
     return set(
-        CuadroHonorariosColumna.objects.filter(sucursal=sucursal).values_list(
-            'vendedor_id', flat=True
-        )
+        CuadroHonorariosColumna.objects.filter(sucursal=sucursal)
+        .filter(_q_columna_vigente(primer_dia_mes(anio, mes)))
+        .values_list('vendedor_id', flat=True)
     )
 
 
@@ -637,11 +649,11 @@ def _vendedores_columnas_disponibles(sucursal):
     return locales, externos
 
 
-def opciones_columnas_vendedores(sucursal):
-    """Lista de vendedores de Sueldos (y de la otra sucursal) con el tilde de la planilla."""
+def opciones_columnas_vendedores(sucursal, anio, mes):
+    """Lista de vendedores de Sueldos (y de la otra sucursal) con el tilde de la planilla del mes."""
     locales, externos = _vendedores_columnas_disponibles(sucursal)
-    guardados = ids_columnas_vendedores(sucursal)
-    hay_filtro = bool(guardados)
+    hay_filtro = hay_columnas_elegidas(sucursal)
+    guardados = ids_columnas_vendedores(sucursal, anio, mes) if hay_filtro else set()
     opciones = []
     for v, es_externo in [(v, False) for v in locales] + [(v, True) for v in externos]:
         opciones.append({
@@ -655,21 +667,25 @@ def opciones_columnas_vendedores(sucursal):
     return opciones, hay_filtro
 
 
-def vendedores_para_columnas(sucursal):
-    """Vendedores de la planilla; los de la otra sucursal llevan ``externo=True``."""
+def vendedores_para_columnas(sucursal, anio, mes):
+    """Vendedores de la planilla del mes; los de la otra sucursal llevan ``externo=True``."""
     locales, externos = _vendedores_columnas_disponibles(sucursal)
     for v in locales:
         v.externo = False
     for v in externos:
         v.externo = True
-    guardados = ids_columnas_vendedores(sucursal)
-    if not guardados:
+    if not hay_columnas_elegidas(sucursal):
         return locales
+    guardados = ids_columnas_vendedores(sucursal, anio, mes)
     return [v for v in locales + externos if v.id in guardados]
 
 
-def guardar_columnas_cuadro(sucursal, vendedor_ids):
-    """Reemplaza las columnas de productores. Vale para todos los meses."""
+def guardar_columnas_cuadro(sucursal, vendedor_ids, anio, mes):
+    """
+    Columnas desde el mes indicado en adelante: los que se agregan aparecen
+    desde ese mes y los que se quitan dejan de aparecer desde ese mes.
+    Los meses anteriores no cambian.
+    """
     ids = set()
     for raw in vendedor_ids:
         try:
@@ -679,11 +695,33 @@ def guardar_columnas_cuadro(sucursal, vendedor_ids):
     locales, externos = _vendedores_columnas_disponibles(sucursal)
     permitidos = {v.id for v in locales + externos}
     validos = {vid for vid in ids if vid in permitidos}
+    dia = primer_dia_mes(anio, mes)
+    qs = CuadroHonorariosColumna.objects.filter(sucursal=sucursal)
     with transaction.atomic():
-        CuadroHonorariosColumna.objects.filter(sucursal=sucursal).delete()
+        if not qs.exists():
+            # Hasta ahora se veían todos los de Sueldos en todos los meses.
+            CuadroHonorariosColumna.objects.bulk_create([
+                CuadroHonorariosColumna(sucursal=sucursal, vendedor_id=v.id)
+                for v in locales
+            ])
+        qs.filter(vigente_desde__gt=dia).delete()
+        vigentes = list(qs.filter(_q_columna_vigente(dia)))
+        activos = {c.vendedor_id for c in vigentes}
+
+        for c in vigentes:
+            if c.vendedor_id in validos:
+                if c.oculto_desde:
+                    c.oculto_desde = None
+                    c.save(update_fields=['oculto_desde'])
+            elif c.vigente_desde == dia:
+                c.delete()
+            else:
+                c.oculto_desde = dia
+                c.save(update_fields=['oculto_desde'])
+
         CuadroHonorariosColumna.objects.bulk_create([
-            CuadroHonorariosColumna(sucursal=sucursal, vendedor_id=vid)
-            for vid in validos
+            CuadroHonorariosColumna(sucursal=sucursal, vendedor_id=vid, vigente_desde=dia)
+            for vid in validos - activos
         ])
     return len(validos)
 
@@ -763,7 +801,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
 
     fecha_desde, fecha_hasta = _rango_mes(anio, mes)
     vendedores_sueldos = vendedores_en_sueldos(sucursal)
-    vendedores = vendedores_para_columnas(sucursal)
+    vendedores = vendedores_para_columnas(sucursal, anio, mes)
     locales = [v for v in vendedores if not getattr(v, 'externo', False)]
     fallbacks = {v.id: getattr(v, 'sueldo_basico', None) for v in locales}
     basicos = sueldos_basicos_vigentes([v.id for v in locales], anio, mes, fallbacks)
