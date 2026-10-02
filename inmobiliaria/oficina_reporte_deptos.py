@@ -538,15 +538,6 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     total_tarifa_dia = Decimal('0')
     total_tarifa_invierno = Decimal('0')
     total_tarifa_24 = Decimal('0')
-    for pid, tarifas in tarifas_por_prop.items():
-        if pid in ocultos:
-            continue
-        if tarifas.get('por_dia'):
-            total_tarifa_dia += tarifas['por_dia']
-        if tarifas.get('invierno'):
-            total_tarifa_invierno += tarifas['invierno']
-        if tarifas.get('meses_24'):
-            total_tarifa_24 += tarifas['meses_24']
 
     filas = []
     ocultos_labels = []
@@ -592,7 +583,17 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         elif calc['negativo']:
             n_negativos += 1
 
-        tarifas = tarifas_por_prop.get(prop.id) or _vacios_modalidad()
+        # Día / invierno / 24 solo para deptos con neto positivo (los que suman al total).
+        if calc['entra_en_total']:
+            tarifas = tarifas_por_prop.get(prop.id) or _vacios_modalidad()
+        else:
+            tarifas = _vacios_modalidad()
+        if tarifas.get('por_dia'):
+            total_tarifa_dia += tarifas['por_dia']
+        if tarifas.get('invierno'):
+            total_tarifa_invierno += tarifas['invierno']
+        if tarifas.get('meses_24'):
+            total_tarifa_24 += tarifas['meses_24']
         prop_obj = getattr(prop, 'propietario', None)
         apellido_prop = (getattr(prop_obj, 'apellido', None) or '').strip() if prop_obj else ''
         filas.append({
