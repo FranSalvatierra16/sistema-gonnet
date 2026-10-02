@@ -990,6 +990,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         if checked:
             total_prod += monto
 
+    total_gral = tot_final[0] if tot_final else _d(0)
     return {
         'anio': anio,
         'mes': mes,
@@ -999,7 +1000,8 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         'n_cols': n + 1,
         'filas': filas,
         'productores': productores,
-        'productores_total': total_prod,
+        # Total del cuadro = TOTAL GRAL de honorarios + sueldos marcados.
+        'productores_total': _d(total_gral or 0) + total_prod,
         'productores_filtrados': hay_filtro_total,
-        'total_gral': tot_final[0] if tot_final else _d(0),
+        'total_gral': total_gral,
     }
