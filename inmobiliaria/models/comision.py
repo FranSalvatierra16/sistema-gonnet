@@ -1,3 +1,5 @@
+from datetime import date as _date
+
 from django.db import models
 from django.utils import timezone
 from decimal import Decimal
@@ -1791,6 +1793,21 @@ def _filtro_caratula_confirmada_comision():
     )
 
 
+# Desde esta fecha (botón Confirmar carátula), una comisión de reserva/contrato
+# solo suma si la carátula está confirmada. Antes no se exige (liquidaciones ya cerradas).
+FECHA_DESDE_EXIGE_CARATULA_CONFIRMADA = _date(2026, 7, 1)
+
+
+def _filtro_caratula_permite_comision():
+    """Comisión cuenta: venta/otro, anterior al corte, o carátula de la operación confirmada."""
+    from django.db.models import Q
+
+    return (
+        Q(fecha_operacion__date__lt=FECHA_DESDE_EXIGE_CARATULA_CONFIRMADA)
+        | _filtro_caratula_confirmada_comision()
+    )
+
+
 def _filtro_operacion_vigente_comision():
     """Operación no anulada/rescindida (sin exigir carátula confirmada).
 
@@ -1982,8 +1999,8 @@ class ComisionVendedorQuerySet(models.QuerySet):
         si no las contáramos, el mes del descuento quedaría con el negativo huérfano
         (p. ej. +38.000 reales − 36.000 de una anulación = 2.000 en lugar de 38.000).
 
-        No se exige carátula confirmada: si ya están acreditadas (confirmada/pagada),
-        deben aparecer aunque la carátula haya quedado o vuelto a pendiente.
+        Desde FECHA_DESDE_EXIGE_CARATULA_CONFIRMADA, las de reserva/contrato solo suman
+        con la carátula confirmada (aunque ya estén acreditadas).
 
         Contratos rescindidos: no cobran comisión (ni crédito ni devolución).
         """
@@ -2017,8 +2034,10 @@ class ComisionVendedorQuerySet(models.QuerySet):
             & ~Q(rol_comision=ROL_COMISION_REVERSION)
             & tuvo_devolucion
         )
-        return self.exclude(contrato__estado='rescindido').filter(
-            creditadas | originales_con_devolucion
+        return (
+            self.exclude(contrato__estado='rescindido')
+            .filter(creditadas | originales_con_devolucion)
+            .filter(_filtro_caratula_permite_comision())
         )
 
     def visibles_en_historial(self):
@@ -2053,10 +2072,14 @@ class ComisionVendedorQuerySet(models.QuerySet):
             | operaciones_vigentes
             | historicas_acreditadas
         )
-        return self.exclude(contrato__estado='rescindido').filter(
-            pendientes_visibles
-            | acreditadas_visibles
-            | (Q(estado='cancelada') & tuvo_devolucion)
+        return (
+            self.exclude(contrato__estado='rescindido')
+            .filter(
+                pendientes_visibles
+                | acreditadas_visibles
+                | (Q(estado='cancelada') & tuvo_devolucion)
+            )
+            .filter(_filtro_caratula_permite_comision())
         )
 
     def ordenadas_para_listado_historial(self):
