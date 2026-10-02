@@ -143,8 +143,9 @@ def _norm_nombre_cat(nombre):
 # id de Concepto → (raíz oficina, subcategoría).
 MAPA_CONCEPTOS_CAJA_A_OFICINA = {
     '130': ('Gastos generales', 'Veraz'),
-    # Concepto 22 de caja → Ingresos › Gastos bancarios (combinado con carga manual de oficina).
-    '22': ('Ingresos', 'Gastos bancarios'),
+    # Concepto 22 de caja (gastos bancarios) → Pago IIBB, sumado a la carga manual de oficina.
+    # Ingresos › Gastos bancarios queda solo con lo cargado en oficina.
+    '22': ('Gastos contables e impuestos', 'Pago IIBB'),
     # Concepto 19: Comisión Gestión Cobranzas → Honorarios gestión cob.
     '19': ('Ingresos', 'Honorarios gestión cob.'),
     # Concepto 24: ingresos y egresos de caja → Recaudación fondos.
@@ -154,7 +155,7 @@ MAPA_CONCEPTOS_CAJA_A_OFICINA = {
 # Por nombre normalizado del concepto (por si el id difiere entre ambientes).
 MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
     'veraz': ('Gastos generales', 'Veraz'),
-    'gastos bancarios': ('Ingresos', 'Gastos bancarios'),
+    'gastos bancarios': ('Gastos contables e impuestos', 'Pago IIBB'),
     'comision gestion cobranzas': ('Ingresos', 'Honorarios gestión cob.'),
     'comision gestion cobranza': ('Ingresos', 'Honorarios gestión cob.'),
     'gestion cobranzas': ('Ingresos', 'Honorarios gestión cob.'),
@@ -173,6 +174,10 @@ MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
         'Ingreso boletas desc. dep. gtia',
     ),
 }
+
+# La carga manual en estas subcategorías no se guarda en caja con el id del concepto
+# (Pago IIBB manual ≠ concepto 22 «Gastos bancarios»).
+CONCEPTOS_CAJA_SIN_VINCULO_INVERSO = frozenset({'22'})
 
 # Solo estos pueden aparecer en medio del texto (ej. "RETIRO VERAZ COLON").
 # El resto (gastos bancarios, boletas…) es match exacto/prefijo: si no, cobros
@@ -355,12 +360,14 @@ def concepto_caja_id_para_categoria_oficina(categoria):
     clave_ruta = (_norm_nombre_cat(raiz.nombre), _norm_nombre_cat(categoria.nombre))
     for cid, (r, s) in MAPA_CONCEPTOS_CAJA_A_OFICINA.items():
         if (_norm_nombre_cat(r), _norm_nombre_cat(s)) == clave_ruta:
+            if cid in CONCEPTOS_CAJA_SIN_VINCULO_INVERSO:
+                return None
             return cid
     for nom, (r, s) in MAPA_NOMBRE_CONCEPTO_A_OFICINA.items():
         if (_norm_nombre_cat(r), _norm_nombre_cat(s)) == clave_ruta:
             # Buscar id por mapa inverso de ids
             for cid, (rr, ss) in MAPA_CONCEPTOS_CAJA_A_OFICINA.items():
-                if _norm_nombre_cat(ss) == nom:
+                if _norm_nombre_cat(ss) == nom and cid not in CONCEPTOS_CAJA_SIN_VINCULO_INVERSO:
                     return cid
             return None
     return None
@@ -545,23 +552,25 @@ def vincular_movimiento_concepto_a_gasto_oficina(
 
 def _reubicar_gastos_bancarios_mal_categorizados(sucursal, fecha_desde, fecha_hasta):
     """
-    Auto-vinculados del concepto 22 que quedaron en Gastos generales › Bancos
-    (mapeo viejo) → Ingresos › Gastos bancarios.
+    Auto-vinculados del concepto 22 que quedaron en mapeos viejos
+    (Gastos generales › Bancos, Ingresos › Gastos bancarios) → ruta actual del 22.
     """
+    from django.db.models import Q
+
     if not sucursal or not fecha_desde or not fecha_hasta:
         return 0
-    cat_destino = resolver_categoria_oficina_por_ruta(
-        sucursal, 'Ingresos', 'Gastos bancarios'
-    )
+    raiz_22, sub_22 = MAPA_CONCEPTOS_CAJA_A_OFICINA['22']
+    cat_destino = resolver_categoria_oficina_por_ruta(sucursal, raiz_22, sub_22)
     if not cat_destino:
         return 0
     cat_origen_ids = list(
-        CategoriaGastoOficina.objects.filter(
-            sucursal=sucursal,
-            activa=True,
-            parent__nombre__iexact='Gastos generales',
-            nombre__iexact='Bancos',
-        ).values_list('id', flat=True)
+        CategoriaGastoOficina.objects.filter(sucursal=sucursal)
+        .filter(
+            Q(parent__nombre__iexact='Gastos generales', nombre__iexact='Bancos')
+            | Q(parent__nombre__iexact='Ingresos', nombre__iexact='Gastos bancarios')
+        )
+        .exclude(id=cat_destino.id)
+        .values_list('id', flat=True)
     )
     if not cat_origen_ids:
         return 0
@@ -625,10 +634,11 @@ def _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta):
         for gasto in qs.iterator(chunk_size=100):
             mov = gasto.movimiento_caja
             obs = (gasto.observaciones or '')
-            # Sin movimiento: solo borrar si fue auto (manual legítimo se conserva).
+            # Carga manual (con o sin movimiento) se conserva; solo se resetean los auto.
+            if 'Vinculado automáticamente' not in obs:
+                continue
             if not mov:
-                if 'Vinculado automáticamente' in obs:
-                    ids_borrar.append(gasto.id)
+                ids_borrar.append(gasto.id)
                 continue
             ruta_ok = _ruta_oficina_desde_movimiento_caja(mov)
             if (
@@ -636,8 +646,6 @@ def _limpiar_gastos_mapeados_incorrectos(sucursal, fecha_desde, fecha_hasta):
                 and _norm_nombre_cat(ruta_ok[0]) == _norm_nombre_cat(raiz_n)
                 and _norm_nombre_cat(ruta_ok[1]) == _norm_nombre_cat(sub_n)
             ):
-                if 'Vinculado automáticamente' not in obs:
-                    continue
                 monto_g = Decimal(str(gasto.monto or 0))
                 es_ingreso_mov = (
                     (mov.tipo or '').strip().upper() == TipoMovimientoCajaEnum.INGRESO
@@ -832,6 +840,19 @@ def _q_movimientos_concepto_mapeado_oficina():
     for nom in NOMBRES_CONCEPTO_PERMITE_CONTIENE:
         q |= Q(concepto__icontains=nom)
     return q
+
+
+def movimiento_cuenta_en_neto_caja_mapeada(movimiento):
+    """True si el movimiento ya entra en _neto_gastos_oficina_desde_caja_mapeada."""
+    if not movimiento:
+        return False
+    for cid in MAPA_CONCEPTOS_CAJA_A_OFICINA:
+        if _movimiento_es_concepto_id_estricto(movimiento, cid):
+            return True
+    return (
+        'veraz' in _norm_nombre_cat(getattr(movimiento, 'concepto', None) or '')
+        and not _parse_lineas_concepto_movimiento(movimiento)
+    )
 
 
 def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):

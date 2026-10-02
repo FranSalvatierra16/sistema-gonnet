@@ -635,6 +635,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
             _neto_gastos_oficina_desde_caja_mapeada,
             _norm_nombre_cat as _norm_of,
             _reubicar_gastos_bancarios_mal_categorizados,
+            movimiento_cuenta_en_neto_caja_mapeada,
             resolver_categoria_oficina_por_ruta,
         )
 
@@ -677,22 +678,26 @@ def construir_resumen_cierre(sucursal, anio, mes):
         for cat_id, neto in netos_mapa.items():
             totales_por_cat[cat_id] = neto
         if cats_mapeadas_ids:
-            for row in (
+            # Carga manual de oficina en la categoría (ej. Pago IIBB), salvo que su
+            # movimiento ya esté en el neto de caja del concepto.
+            for g in (
                 GastoOficina.objects.filter(
                     sucursal=sucursal,
                     categoria_id__in=cats_mapeadas_ids,
                     fecha__gte=fecha_desde,
                     fecha__lte=fecha_hasta,
-                    movimiento_caja__isnull=True,
                 )
                 .exclude(observaciones__icontains='Vinculado automáticamente')
-                .values('categoria_id')
-                .annotate(total=Sum('monto'))
+                .select_related('movimiento_caja')
             ):
-                cid = row['categoria_id']
-                extras = Decimal(str(row['total'] or 0))
+                if g.movimiento_caja_id and movimiento_cuenta_en_neto_caja_mapeada(
+                    g.movimiento_caja
+                ):
+                    continue
+                cid = g.categoria_id
                 totales_por_cat[cid] = (
-                    Decimal(str(totales_por_cat.get(cid, 0) or 0)) + extras
+                    Decimal(str(totales_por_cat.get(cid, 0) or 0))
+                    + Decimal(str(g.monto or 0))
                 ).quantize(Decimal('0.01'))
     except Exception:
         logger.exception(

@@ -1,4 +1,4 @@
-"""Lista de dónde sale Gastos bancarios del cierre."""
+"""Lista de dónde sale el concepto 22 (gastos bancarios) del cierre."""
 from datetime import date
 from decimal import Decimal
 
@@ -8,11 +8,13 @@ from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
 from inmobiliaria.models.oficina import GastoOficina
 from inmobiliaria.models.sucursal import Sucursal
 from inmobiliaria.oficina_gastos import (
+    MAPA_CONCEPTOS_CAJA_A_OFICINA,
     _importe_solo_lineas_concepto_id,
     _movimiento_es_concepto_id_estricto,
     _neto_gastos_oficina_desde_caja_mapeada,
     _parse_lineas_concepto_movimiento,
     _q_movimientos_por_concepto_id_estricto,
+    movimiento_cuenta_en_neto_caja_mapeada,
     resolver_categoria_oficina_por_ruta,
 )
 from django.db.models.functions import TruncDate
@@ -38,7 +40,7 @@ class Command(BaseCommand):
         else:
             fh = date(anio, mes + 1, 1) - __import__('datetime').timedelta(days=1)
 
-        cat = resolver_categoria_oficina_por_ruta(suc, 'Ingresos', 'Gastos bancarios')
+        cat = resolver_categoria_oficina_por_ruta(suc, *MAPA_CONCEPTOS_CAJA_A_OFICINA['22'])
         self.stdout.write(f'Sucursal: {suc.nombre} ({suc.id})  rango {fd}..{fh}')
         self.stdout.write(f'Categoría: {cat}')
 
@@ -53,8 +55,13 @@ class Command(BaseCommand):
                 categoria=cat,
                 fecha__gte=fd,
                 fecha__lte=fh,
-                movimiento_caja__isnull=True,
-            ).exclude(observaciones__icontains='Vinculado automáticamente'):
+            ).exclude(observaciones__icontains='Vinculado automáticamente').select_related(
+                'movimiento_caja'
+            ):
+                if g.movimiento_caja_id and movimiento_cuenta_en_neto_caja_mapeada(
+                    g.movimiento_caja
+                ):
+                    continue
                 extras += Decimal(str(g.monto or 0))
                 self.stdout.write(
                     f'  MANUAL GO#{g.id} {g.fecha} ${g.monto} {(g.descripcion or "")[:60]}'
