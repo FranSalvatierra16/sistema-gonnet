@@ -375,6 +375,7 @@ def _sumar_celdas(lista_celdas, n):
 def _vendedores_activos_sucursal(sucursal):
     return list(
         Vendedor.objects.filter(sucursal=sucursal, is_active=True)
+        .select_related('sucursal')
         .order_by('apellido', 'nombre', 'id')
     )
 
@@ -580,28 +581,133 @@ def ids_columnas_vendedores(sucursal):
     )
 
 
+def _sucursal_par(sucursal):
+    """Colón ↔ Corrientes. None si la sucursal no tiene par."""
+    from inmobiliaria.oficina_gastos import par_sucursales_reparto_gasto_oficina
+
+    par = par_sucursales_reparto_gasto_oficina(sucursal)
+    if not par:
+        return None
+    return par['corrientes'] if par['local_key'] == 'colon' else par['colon']
+
+
+def _clave_persona(v):
+    """Apellido + primer nombre: identifica al mismo productor con usuario en ambas sucursales."""
+    ap = _norm_tokens_nombre(v.apellido)
+    nom = _norm_tokens_nombre(v.nombre)
+    if not ap or not nom:
+        return None
+    return (frozenset(ap), nom[0])
+
+
+def _misma_persona(v, otros):
+    clave = _clave_persona(v)
+    nombre_v = f'{v.apellido or ""} {v.nombre or ""}'
+    for o in otros:
+        if clave and clave == _clave_persona(o):
+            return True
+        if _nombres_sueldo_compatibles(nombre_v, f'{o.apellido or ""} {o.nombre or ""}'):
+            return True
+    return False
+
+
+def vendedores_otra_sucursal(sucursal, locales):
+    """
+    Productores activos de la sucursal par que no están entre los de Sueldos
+    de esta (comisionan en operaciones de acá con su usuario de la otra sucursal).
+    """
+    otra = _sucursal_par(sucursal)
+    if not otra:
+        return []
+    ids_locales = {v.id for v in locales}
+    out = []
+    for v in _vendedores_activos_sucursal(otra):
+        if v.id in ids_locales or _misma_persona(v, locales) or _misma_persona(v, out):
+            continue
+        if set(_norm_tokens_nombre(v.apellido) + _norm_tokens_nombre(v.nombre)) == {'oficina'}:
+            continue
+        out.append(v)
+    return out
+
+
+def _vendedores_columnas_disponibles(sucursal):
+    """(locales de Sueldos, de la otra sucursal) elegibles como columna."""
+    locales = vendedores_en_sueldos(sucursal)
+    externos = vendedores_otra_sucursal(sucursal, locales)
+    return locales, externos
+
+
+def _alias_vendedores_columnas(sucursal, vendedores):
+    """
+    {vendedor_id: vid_columna}: otro usuario del mismo productor (en esta
+    sucursal o en la par) cuyas comisiones suman en su columna.
+    """
+    ids_columnas = {v.id for v in vendedores}
+    por_clave = {}
+    for v in vendedores:
+        clave = _clave_persona(v)
+        if clave:
+            por_clave.setdefault(clave, v.id)
+    if not por_clave:
+        return {}
+    otra = _sucursal_par(sucursal)
+    sucursales = [sucursal] + ([otra] if otra else [])
+    alias = {}
+    for v in Vendedor.objects.filter(sucursal__in=sucursales).only('id', 'nombre', 'apellido'):
+        if v.id in ids_columnas:
+            continue
+        vid = por_clave.get(_clave_persona(v))
+        if vid:
+            alias[v.id] = vid
+    return alias
+
+
+def _reasignar_desglose(desglose, alias):
+    out = defaultdict(_desglose_vacio)
+    for vid, row in desglose.items():
+        destino = out[alias.get(vid, vid)]
+        for k, monto in row.items():
+            destino[k] += monto
+    return out
+
+
+def _reasignar_por_venta(por_venta, alias):
+    out = defaultdict(lambda: defaultdict(lambda: Decimal('0.00')))
+    for venta_id, por_vid in por_venta.items():
+        for vid, monto in por_vid.items():
+            out[venta_id][alias.get(vid, vid)] += monto
+    return out
+
+
 def opciones_columnas_vendedores(sucursal):
-    """Lista de vendedores de Sueldos con el tilde de la planilla."""
-    todos = vendedores_en_sueldos(sucursal)
+    """Lista de vendedores de Sueldos (y de la otra sucursal) con el tilde de la planilla."""
+    locales, externos = _vendedores_columnas_disponibles(sucursal)
     guardados = ids_columnas_vendedores(sucursal)
     hay_filtro = bool(guardados)
     opciones = []
-    for v in todos:
+    for v, es_externo in [(v, False) for v in locales] + [(v, True) for v in externos]:
         opciones.append({
             'id': v.id,
             'label': _col_label_vendedor(v),
             'nombre': f'{(v.apellido or "").strip()}, {(v.nombre or "").strip()}'.strip(', ') or str(v),
-            'checked': (v.id in guardados) if hay_filtro else True,
+            'checked': (v.id in guardados) if hay_filtro else not es_externo,
+            'externo': es_externo,
+            'sucursal_nombre': v.sucursal.nombre if es_externo and v.sucursal_id else '',
         })
     return opciones, hay_filtro
 
 
 def vendedores_para_columnas(sucursal):
-    todos = vendedores_en_sueldos(sucursal)
+    """Vendedores de la planilla; los de la otra sucursal llevan ``externo=True``."""
+    locales, externos = _vendedores_columnas_disponibles(sucursal)
+    for v in locales:
+        v.externo = False
+    for v in externos:
+        v.externo = True
     guardados = ids_columnas_vendedores(sucursal)
     if not guardados:
-        return todos
-    return [v for v in todos if v.id in guardados]
+        return locales
+    return [v for v in locales + externos if v.id in guardados]
 
 
 def guardar_columnas_cuadro(sucursal, vendedor_ids):
@@ -612,7 +718,8 @@ def guardar_columnas_cuadro(sucursal, vendedor_ids):
             ids.add(int(raw))
         except (TypeError, ValueError):
             continue
-    permitidos = {v.id for v in vendedores_en_sueldos(sucursal)}
+    locales, externos = _vendedores_columnas_disponibles(sucursal)
+    permitidos = {v.id for v in locales + externos}
     validos = {vid for vid in ids if vid in permitidos}
     with transaction.atomic():
         CuadroHonorariosColumna.objects.filter(sucursal=sucursal).delete()
@@ -699,22 +806,30 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     fecha_desde, fecha_hasta = _rango_mes(anio, mes)
     vendedores_sueldos = vendedores_en_sueldos(sucursal)
     vendedores = vendedores_para_columnas(sucursal)
-    fallbacks = {v.id: getattr(v, 'sueldo_basico', None) for v in vendedores}
-    basicos = sueldos_basicos_vigentes([v.id for v in vendedores], anio, mes, fallbacks)
-    desglose = comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta)
+    locales = [v for v in vendedores if not getattr(v, 'externo', False)]
+    fallbacks = {v.id: getattr(v, 'sueldo_basico', None) for v in locales}
+    basicos = sueldos_basicos_vigentes([v.id for v in locales], anio, mes, fallbacks)
+    alias = _alias_vendedores_columnas(sucursal, vendedores)
+    desglose = _reasignar_desglose(
+        comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta), alias
+    )
     hon_map, total_fondo, total_cochera = _honorarios_por_etiqueta(
         sucursal, fecha_desde, fecha_hasta
     )
 
     columnas = [{'key': 'oficina', 'label': 'OFICINA', 'vid': None, 'es_oficina': True, 'basico': None}]
     for v in vendedores:
+        externo = getattr(v, 'externo', False)
         columnas.append({
             'key': f'v{v.id}',
             'label': _col_label_vendedor(v),
             'vid': v.id,
             'es_oficina': False,
             'vendedor': v,
-            'basico': basicos.get(v.id, _d(0)),
+            # El básico lo cobra en su sucursal: acá solo comisiones.
+            'externo': externo,
+            'sucursal_nombre': v.sucursal.nombre if externo and v.sucursal_id else '',
+            'basico': None if externo else basicos.get(v.id, _d(0)),
         })
     n = len(columnas)
 
@@ -733,7 +848,9 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     filas = []
     filas.append({'tipo': 'seccion', 'label': 'VENTAS', 'celdas': [None] * n})
 
-    por_venta_detalle = comisiones_por_venta_vendedores(sucursal, fecha_desde, fecha_hasta)
+    por_venta_detalle = _reasignar_por_venta(
+        comisiones_por_venta_vendedores(sucursal, fecha_desde, fecha_hasta), alias
+    )
     celdas_ventas = []
     for op in ventas:
         celdas = _celdas(
@@ -805,7 +922,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
 
     celdas_basico = [None] * n
     for i, col in enumerate(columnas):
-        if col.get('vid'):
+        if col.get('vid') and not col.get('externo'):
             celdas_basico[i] = basicos.get(col['vid'], _d(0))
     filas.append({
         'tipo': 'basico',
@@ -826,7 +943,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     basico_para_total = list(celdas_basico)
     for i, col in enumerate(columnas):
         vend = col.get('vendedor')
-        if not vend or not getattr(vend, 'basico_no_suma_si_comisiones_superan', False):
+        if col.get('externo') or not vend or not getattr(vend, 'basico_no_suma_si_comisiones_superan', False):
             continue
         comis = _d(tot_honorarios[i]) + _d(fila_comis[i])
         _total, basico_aplicado = total_a_pagar_productor(

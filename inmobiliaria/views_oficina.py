@@ -1236,16 +1236,16 @@ def oficina_liquidacion_productores(request):
                 request,
                 'TOTAL GRAL volvió al listado automático (quienes tienen comisión).',
             )
-        else:
-            cambiados = guardar_sueldos_basicos_mes(sucursal, anio, mes, request.POST)
-            if cambiados:
-                messages.success(
-                    request,
-                    f'Se actualizó el básico de {cambiados} productor{"es" if cambiados != 1 else ""} '
-                    f'desde {mes:02d}/{anio} en adelante. Los meses anteriores no cambian.',
-                )
-            else:
-                messages.info(request, 'No hubo cambios en los básicos.')
+        # Los básicos editados viajan con cualquier botón de guardar de la página.
+        cambiados = guardar_sueldos_basicos_mes(sucursal, anio, mes, request.POST)
+        if cambiados:
+            messages.success(
+                request,
+                f'Se actualizó el básico de {cambiados} productor{"es" if cambiados != 1 else ""} '
+                f'desde {mes:02d}/{anio} en adelante. Los meses anteriores no cambian.',
+            )
+        elif accion not in ('columnas', 'columnas_todos', 'total_gral', 'total_gral_todos'):
+            messages.info(request, 'No hubo cambios en los básicos.')
         return redirect(
             f"{reverse('inmobiliaria:oficina_liquidacion_productores')}?mes={mes}&anio={anio}"
         )
@@ -1267,7 +1267,8 @@ def oficina_liquidacion_productores(request):
             'mes': mes,
             'anios_opts': anios_opts,
             'meses_opts': meses_opts,
-            'columnas_opts': columnas_opts,
+            'columnas_opts_locales': [o for o in columnas_opts if not o['externo']],
+            'columnas_opts_externos': [o for o in columnas_opts if o['externo']],
             'columnas_filtradas': columnas_filtradas,
         },
     )

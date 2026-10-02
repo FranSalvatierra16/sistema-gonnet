@@ -69,7 +69,7 @@
                     </div>
                 </div>
                 <div class="columnas-checks">
-                    {% for v in columnas_opts %}
+                    {% for v in columnas_opts_locales %}
                     <label class="columnas-check">
                         <input type="checkbox" name="columna" value="{{ v.id }}" {% if v.checked %}checked{% endif %}>
                         <span>{{ v.label }}</span>
@@ -78,6 +78,20 @@
                     <span class="text-muted small">No hay productores activos.</span>
                     {% endfor %}
                 </div>
+                {% if columnas_opts_externos %}
+                <div class="text-muted small mt-2 mb-1">
+                    De <strong>{{ columnas_opts_externos.0.sucursal_nombre }}</strong>
+                    (comisionan en esta sucursal sin tener usuario acá; el básico lo cobran allá):
+                </div>
+                <div class="columnas-checks">
+                    {% for v in columnas_opts_externos %}
+                    <label class="columnas-check" title="{{ v.nombre }}">
+                        <input type="checkbox" name="columna" value="{{ v.id }}" {% if v.checked %}checked{% endif %}>
+                        <span>{{ v.label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </form>
             {% if columnas_filtradas %}
             <form method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" class="mt-2">
@@ -117,7 +131,7 @@
                     <tr class="fila-cols">
                         <th class="celda-label">Concepto</th>
                         {% for col in liquidacion.columnas %}
-                        <th>{{ col.label }}</th>
+                        <th>{{ col.label }}{% if col.externo %}<small class="col-sucursal"> ({{ col.sucursal_nombre }})</small>{% endif %}</th>
                         {% endfor %}
                     </tr>
                 </thead>
@@ -128,7 +142,9 @@
                         {% if fila.tipo == 'basico' %}
                             {% for col in liquidacion.columnas %}
                             <td class="celda-num">
-                                {% if col.vid %}
+                                {% if col.externo %}
+                                <small class="text-muted no-print" title="El básico lo cobra en {{ col.sucursal_nombre }}">en {{ col.sucursal_nombre }}</small>
+                                {% elif col.vid %}
                                 <span class="solo-imprimir">{% if col.basico is not None %}{% if col.basico_no_suma %}<s>$ {{ col.basico|format_price }}</s>{% else %}$ {{ col.basico|format_price }}{% endif %}{% endif %}</span>
                                 <label class="basico-edit no-print">
                                     <input type="text"
@@ -153,6 +169,9 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+        <div class="d-flex justify-content-end mt-2 no-print">
+            <button type="submit" class="btn btn-primary btn-sm">Guardar básicos</button>
         </div>
     </form>
 
@@ -369,6 +388,7 @@
     font-weight: 700;
     border: 3px solid #000;
 }
+.col-sucursal { font-weight: 400; text-transform: none; font-size: 0.75em; }
 .basico-edit { display: block; margin: 0; }
 .basico-no-suma { display: block; font-size: 0.7em; color: #b02a37; line-height: 1.1; }
 .input-basico {
@@ -457,6 +477,38 @@
     }
     wire('form-columnas', 'columna', 'btn-cols-todos', 'btn-cols-ninguno');
     wire('form-total-gral', 'total_gral', 'btn-tg-todos', 'btn-tg-ninguno');
+
+    function numero(v) {
+        if (typeof window.parseMontoAR === 'function') return window.parseMontoAR(v);
+        var t = String(v || '').replace(/\./g, '').replace(',', '.');
+        var n = parseFloat(t);
+        return isNaN(n) ? 0 : n;
+    }
+    function basicosModificados() {
+        return Array.prototype.filter.call(
+            document.querySelectorAll('#form-basicos .input-basico'),
+            function (el) { return numero(el.value) !== numero(el.defaultValue); }
+        );
+    }
+    var enviando = false;
+    document.querySelectorAll('form[method="post"]').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            enviando = true;
+            if (form.id === 'form-basicos') return;
+            basicosModificados().forEach(function (el) {
+                var h = document.createElement('input');
+                h.type = 'hidden';
+                h.name = el.name;
+                h.value = el.value;
+                form.appendChild(h);
+            });
+        });
+    });
+    window.addEventListener('beforeunload', function (e) {
+        if (enviando || !basicosModificados().length) return;
+        e.preventDefault();
+        e.returnValue = '';
+    });
 })();
 </script>
 {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.liquidacion-wrap' orientacion='landscape' %}
