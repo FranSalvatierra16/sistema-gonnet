@@ -637,48 +637,6 @@ def _vendedores_columnas_disponibles(sucursal):
     return locales, externos
 
 
-def _alias_vendedores_columnas(sucursal, vendedores):
-    """
-    {vendedor_id: vid_columna}: otro usuario del mismo productor (en esta
-    sucursal o en la par) cuyas comisiones suman en su columna.
-    """
-    ids_columnas = {v.id for v in vendedores}
-    por_clave = {}
-    for v in vendedores:
-        clave = _clave_persona(v)
-        if clave:
-            por_clave.setdefault(clave, v.id)
-    if not por_clave:
-        return {}
-    otra = _sucursal_par(sucursal)
-    sucursales = [sucursal] + ([otra] if otra else [])
-    alias = {}
-    for v in Vendedor.objects.filter(sucursal__in=sucursales).only('id', 'nombre', 'apellido'):
-        if v.id in ids_columnas:
-            continue
-        vid = por_clave.get(_clave_persona(v))
-        if vid:
-            alias[v.id] = vid
-    return alias
-
-
-def _reasignar_desglose(desglose, alias):
-    out = defaultdict(_desglose_vacio)
-    for vid, row in desglose.items():
-        destino = out[alias.get(vid, vid)]
-        for k, monto in row.items():
-            destino[k] += monto
-    return out
-
-
-def _reasignar_por_venta(por_venta, alias):
-    out = defaultdict(lambda: defaultdict(lambda: Decimal('0.00')))
-    for venta_id, por_vid in por_venta.items():
-        for vid, monto in por_vid.items():
-            out[venta_id][alias.get(vid, vid)] += monto
-    return out
-
-
 def opciones_columnas_vendedores(sucursal):
     """Lista de vendedores de Sueldos (y de la otra sucursal) con el tilde de la planilla."""
     locales, externos = _vendedores_columnas_disponibles(sucursal)
@@ -809,10 +767,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     locales = [v for v in vendedores if not getattr(v, 'externo', False)]
     fallbacks = {v.id: getattr(v, 'sueldo_basico', None) for v in locales}
     basicos = sueldos_basicos_vigentes([v.id for v in locales], anio, mes, fallbacks)
-    alias = _alias_vendedores_columnas(sucursal, vendedores)
-    desglose = _reasignar_desglose(
-        comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta), alias
-    )
+    desglose = comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta)
     hon_map, total_fondo, total_cochera = _honorarios_por_etiqueta(
         sucursal, fecha_desde, fecha_hasta
     )
@@ -848,9 +803,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     filas = []
     filas.append({'tipo': 'seccion', 'label': 'VENTAS', 'celdas': [None] * n})
 
-    por_venta_detalle = _reasignar_por_venta(
-        comisiones_por_venta_vendedores(sucursal, fecha_desde, fecha_hasta), alias
-    )
+    por_venta_detalle = comisiones_por_venta_vendedores(sucursal, fecha_desde, fecha_hasta)
     celdas_ventas = []
     for op in ventas:
         celdas = _celdas(
