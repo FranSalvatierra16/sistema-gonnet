@@ -65,10 +65,52 @@ def etiqueta_propiedad_oficina(prop) -> str:
     return label or f'#{prop.id}'
 
 
+def _modalidad_contrato(contrato) -> str | None:
+    try:
+        cat = contrato.categoria_tipo_operacion()
+    except Exception:
+        cat = None
+    dur = int(getattr(contrato, 'duracion_meses', 0) or 0)
+    if cat == 'invierno' or dur == 9:
+        return 'invierno'
+    if cat in ('24', '6') or dur >= 12:
+        return '24'
+    return None
+
+
+def _modalidad_desde_cobros_contrato_mes(prop, inicio: date, fin: date) -> str | None:
+    import re
+
+    from inmobiliaria.models import ContratoAlquiler, MovimientoCaja
+    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+
+    conceptos = MovimientoCaja.objects.filter(
+        propiedad_id=prop.id,
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+        fecha_eliminacion__isnull=True,
+        fecha__date__gte=inicio,
+        fecha__date__lte=fin,
+        concepto__icontains='Contrato #',
+    ).values_list('concepto', flat=True)
+    ids = []
+    for conc in conceptos:
+        m = re.search(r'Contrato\s*#\s*(\d+)', conc or '', re.IGNORECASE)
+        if m:
+            ids.append(int(m.group(1)))
+    if not ids:
+        return None
+    for c in ContratoAlquiler.objects.filter(id__in=set(ids)).order_by('-fecha_inicio', '-id'):
+        mod = _modalidad_contrato(c)
+        if mod:
+            return mod
+    return None
+
+
 def _modalidad_ocupacion_mes(prop, anio: int, mes: int) -> str | None:
     """
     Qué tipo de alquiler cubre el mes: 'invierno', '24', 'dia' o None.
-    Prioridad: contrato invierno / 24 meses vigente; si no, operaciones por día.
+    Prioridad: contrato invierno / 24 meses vigente; cobros del mes de un contrato;
+    operaciones por día; último contrato con carátula confirmada (aunque esté vencido).
     """
     from inmobiliaria.models import ContratoAlquiler, Reserva
 
@@ -85,15 +127,15 @@ def _modalidad_ocupacion_mes(prop, anio: int, mes: int) -> str | None:
         .order_by('-fecha_inicio', '-id')
     )
     for c in contratos:
-        try:
-            cat = c.categoria_tipo_operacion()
-        except Exception:
-            cat = None
-        dur = int(getattr(c, 'duracion_meses', 0) or 0)
-        if cat == 'invierno' or dur == 9:
-            return 'invierno'
-        if cat in ('24', '6') or dur >= 12:
-            return '24'
+        mod = _modalidad_contrato(c)
+        if mod:
+            return mod
+
+    # Cobros del mes en caja que nombran un contrato («Contrato #N»), aunque
+    # sus fechas no cubran el mes (vencido, renovado sin cargar, fechas mal cargadas).
+    mod = _modalidad_desde_cobros_contrato_mes(prop, inicio, fin)
+    if mod:
+        return mod
 
     # Sin contrato largo: ¿hubo reserva/operación por día que toque el mes?
     hay_dia = (
@@ -108,6 +150,21 @@ def _modalidad_ocupacion_mes(prop, anio: int, mes: int) -> str | None:
     )
     if hay_dia:
         return 'dia'
+
+    # Contrato vencido o renovado sin cargar: sigue contando mientras tenga la carátula hecha.
+    con_caratula = (
+        ContratoAlquiler.objects.filter(
+            propiedad_id=prop.id,
+            fecha_inicio__lte=fin,
+            estado_confirmacion_caratula='confirmada',
+        )
+        .exclude(estado='rescindido')
+        .order_by('-fecha_inicio', '-id')
+    )
+    for c in con_caratula:
+        mod = _modalidad_contrato(c)
+        if mod:
+            return mod
     return None
 
 
@@ -121,16 +178,7 @@ def _modalidad_desde_liquidacion(liq) -> str | None:
     contrato = getattr(liq, 'contrato', None)
     if contrato is None:
         return None
-    try:
-        cat = contrato.categoria_tipo_operacion()
-    except Exception:
-        cat = None
-    dur = int(getattr(contrato, 'duracion_meses', 0) or 0)
-    if cat == 'invierno' or dur == 9:
-        return 'invierno'
-    if cat in ('24', '6') or dur >= 12:
-        return '24'
-    return None
+    return _modalidad_contrato(contrato)
 
 
 def _monto_ars_liquidacion_propietario(liq) -> Decimal:

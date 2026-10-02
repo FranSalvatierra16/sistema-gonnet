@@ -79,8 +79,8 @@
                     </div>
                     {% endif %}
                 </td>
-                <td class="col-importe text-end">{% if fila.debe %}{{ fila.debe|format_importe_moneda:moneda_liquidacion }}{% endif %}</td>
-                <td class="col-importe text-end">{% if fila.haber %}{{ fila.haber|format_importe_moneda:moneda_liquidacion }}{% endif %}</td>
+                <td class="col-importe text-end">{% if fila.debe %}{% if fila.moneda %}{{ fila.debe|format_importe_moneda:fila.moneda }}{% else %}{{ fila.debe|format_importe_moneda:moneda_liquidacion }}{% endif %}{% endif %}</td>
+                <td class="col-importe text-end">{% if fila.haber %}{% if fila.moneda %}{{ fila.haber|format_importe_moneda:fila.moneda }}{% else %}{{ fila.haber|format_importe_moneda:moneda_liquidacion }}{% endif %}{% endif %}</td>
             </tr>
             {% empty %}
             <tr>
@@ -94,6 +94,13 @@
                 <td class="col-importe text-end"><strong>{{ total_debe|format_importe_moneda:moneda_liquidacion }}</strong></td>
                 <td class="col-importe text-end"><strong>{{ total_haber|format_importe_moneda:moneda_liquidacion }}</strong></td>
             </tr>
+            {% if liq_usd %}
+            <tr class="liq-cobranzas-totales">
+                <td class="col-detalle"><strong>TOTALES U$S</strong></td>
+                <td class="col-importe text-end"><strong>{{ liq_usd.total_debe|format_importe_moneda:'USD' }}</strong></td>
+                <td class="col-importe text-end"><strong>{{ liq_usd.total_haber|format_importe_moneda:'USD' }}</strong></td>
+            </tr>
+            {% endif %}
             <tr class="liq-cobranzas-saldo">
                 <td colspan="3" class="text-center">
                     {% if saldo_favor < 0 %}
@@ -101,13 +108,22 @@
                     {% else %}
                     <span class="liq-cobranzas-saldo-texto">Saldo a SU favor: {{ saldo_favor|format_importe_moneda:moneda_liquidacion }}</span>
                     {% endif %}
+                    {% if liq_usd %}
+                    <span class="liq-cobranzas-saldo-texto">
+                        {% if liq_usd.saldo_favor < 0 %} — en SU contra: {% else %} y {% endif %}{{ liq_usd.saldo_favor|format_importe_moneda:'USD' }}
+                    </span>
+                    {% endif %}
                 </td>
             </tr>
         </tfoot>
     </table>
 
     <div class="liq-cobranzas-pie">
+        {% if liq_usd %}
+        <p class="liq-cobranzas-letras"><strong>LA SUMA DE:</strong> PESOS {{ monto_letras }} Y DÓLARES ESTADOUNIDENSES {{ monto_letras_usd }}</p>
+        {% else %}
         <p class="liq-cobranzas-letras"><strong>LA SUMA DE:</strong> {{ monto_letras }}</p>
+        {% endif %}
         <p class="liq-cobranzas-legal small">
             Recibí conforme el importe que antecede en concepto de liquidación de cobranzas Nº {{ liquidacion.id }}.
             Mar del Plata, {{ fecha_impresion|date:"d/m/Y" }}.

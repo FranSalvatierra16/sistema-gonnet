@@ -14,6 +14,9 @@
                     <h1 class="mb-2">💰 Detalle de Liquidación #{{ liquidacion.id }}</h1>
                     <p class="lead mb-0 text-success fw-semibold">
                         Monto total a pagar al propietario: {{ liquidacion.monto_a_pagar|format_importe_moneda:liquidacion.moneda }}
+                        {% if liq_usd %}
+                        <span class="text-primary">+ {{ liq_usd.saldo_favor|format_importe_moneda:'USD' }}</span>
+                        {% endif %}
                     </p>
                 </div>
                 <div class="d-flex flex-wrap gap-2">
@@ -317,9 +320,17 @@
                         <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">Movimientos del propietario</h5>
                             {% if liq_editable %}
-                            <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#modalAgregarGasto">
-                                <i class="fas fa-plus me-2"></i>Agregar Movimiento
-                            </button>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% if deposito_garantia_liq %}
+                                <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#modalDepositoGarantia">
+                                    <i class="fas fa-hand-holding-usd me-2"></i>{% if deposito_garantia_liq.existente %}Editar depósito{% else %}Depósito en garantía{% endif %}
+                                    {% if deposito_garantia_liq.monto %}({{ deposito_garantia_liq.monto|format_importe_moneda:deposito_garantia_liq.moneda }}){% endif %}
+                                </button>
+                                {% endif %}
+                                <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#modalAgregarGasto">
+                                    <i class="fas fa-plus me-2"></i>Agregar Movimiento
+                                </button>
+                            </div>
                             {% endif %}
                         </div>
                         <div class="card-body">
@@ -351,7 +362,7 @@
                                                     {% if gasto.tipo_movimiento == 'ingreso' %}A favor prop.{% else %}Contra prop.{% endif %}
                                                 </span>
                                             </td>
-                                            <td>{% if gasto.tipo_movimiento == 'ingreso' %}+{% else %}−{% endif %}${{ gasto.monto|floatformat:2 }}</td>
+                                            <td class="text-nowrap">{% if gasto.tipo_movimiento == 'ingreso' %}+{% else %}−{% endif %}{% if gasto.moneda == 'USD' %}U$S {% else %}${% endif %}{{ gasto.monto|floatformat:2 }}</td>
                                             <td>{% if gasto.fecha_gasto %}{{ gasto.fecha_gasto|date:"d/m/Y" }}{% else %}-{% endif %}</td>
                                             <td>
                                                 {% if gasto.aceptado %}
@@ -539,6 +550,12 @@
                                 {% csrf_token %}
                                 <div class="alert alert-warning">
                                     <strong>Monto a Pagar:</strong> $<span id="monto-a-pagar">{{ liquidacion.monto_a_pagar|floatformat:2 }}</span>
+                                    {% if liq_usd and liq_usd.saldo_favor > 0 %}
+                                    <div class="mt-1">
+                                        <strong>Además en dólares:</strong> {{ liq_usd.saldo_favor|format_importe_moneda:'USD' }}
+                                        <span class="small text-muted">(sale de caja en U$S en el mismo egreso; abajo cargá solo los pesos)</span>
+                                    </div>
+                                    {% endif %}
                                 </div>
                                 <div class="row mb-3">
                                     <div class="col-md-3">
@@ -625,6 +642,67 @@
         </div>
     </div>
 </div>
+
+{% if deposito_garantia_liq %}
+<!-- Modal Depósito en garantía -->
+<div class="modal fade" id="modalDepositoGarantia" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Depósito en garantía al propietario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{% url 'inmobiliaria:agregar_deposito_garantia_liquidacion' liquidacion.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p class="small text-muted">
+                        Se suma en el <strong>HABER</strong> (a favor del propietario) en su moneda.
+                        Si es en dólares y la liquidación es en pesos, se liquida aparte en U$S.
+                    </p>
+                    {% if deposito_garantia_liq.origen == 'caja' %}
+                    <div class="alert alert-info py-2 small">
+                        Precargado con lo cobrado en caja (concepto 10) para este contrato.
+                        {% if deposito_garantia_liq.monto_ars_extra %}
+                        También hay {{ deposito_garantia_liq.monto_ars_extra|format_importe_moneda:'ARS' }} cobrados en pesos.
+                        {% endif %}
+                    </div>
+                    {% elif deposito_garantia_liq.origen == 'contrato' %}
+                    <div class="alert alert-secondary py-2 small">
+                        No se encontró el cobro en caja: precargado con el depósito del contrato.
+                    </div>
+                    {% elif deposito_garantia_liq.existente %}
+                    <div class="alert alert-warning py-2 small">
+                        Ya está cargado: al guardar se actualiza el importe/moneda.
+                    </div>
+                    {% endif %}
+                    <div class="row g-2">
+                        <div class="col-7">
+                            <label class="form-label">Importe</label>
+                            <input type="text" name="monto" class="form-control" required
+                                   value="{% if deposito_garantia_liq.monto %}{{ deposito_garantia_liq.monto|floatformat:2 }}{% endif %}">
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label">Moneda</label>
+                            <select name="moneda" class="form-select">
+                                <option value="ARS"{% if deposito_garantia_liq.moneda != 'USD' %} selected{% endif %}>Pesos ($)</option>
+                                <option value="USD"{% if deposito_garantia_liq.moneda == 'USD' %} selected{% endif %}>Dólares (U$S)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <label class="form-label">Observaciones</label>
+                        <input type="text" name="observaciones" class="form-control" maxlength="250">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Guardar depósito</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Modal Agregar Movimiento -->
 <div class="modal fade" id="modalAgregarGasto" tabindex="-1">

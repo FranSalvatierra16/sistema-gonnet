@@ -644,6 +644,11 @@ urlpatterns = [
     ),
     path('liquidaciones/<int:liquidacion_id>/agregar-gasto/', views.agregar_gasto, name='agregar_gasto'),
     path(
+        'liquidaciones/<int:liquidacion_id>/deposito-garantia/',
+        views.agregar_deposito_garantia_liquidacion,
+        name='agregar_deposito_garantia_liquidacion',
+    ),
+    path(
         'liquidaciones/<int:liquidacion_id>/vincular-gasto-pendiente/',
         views.vincular_gasto_pendiente_liquidacion,
         name='vincular_gasto_pendiente_liquidacion',

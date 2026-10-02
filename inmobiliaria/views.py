@@ -33107,34 +33107,56 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
         )
     total_ingresos = Decimal('0')
     total_egresos = Decimal('0')
+    usd_haber = Decimal('0')
+    usd_debe = Decimal('0')
+    hay_usd_aparte = False
     for gasto in gastos_qs:
         m = Decimal(str(gasto.monto or 0))
         if m <= Decimal('0.01'):
             continue
         det = _detalle_impreso_gasto_liquidacion(gasto)
+        en_usd = liquidacion.gasto_en_dolares_aparte(gasto)
+        if en_usd:
+            hay_usd_aparte = True
         if gasto.tipo_movimiento == 'ingreso':
-            total_ingresos += m
+            if en_usd:
+                usd_haber += m
+            else:
+                total_ingresos += m
             filas.append({
                 'detalle': det,
                 'debe': Decimal('0'),
                 'haber': m.quantize(Decimal('0.01')),
+                'moneda': 'USD' if en_usd else None,
             })
         else:
-            total_egresos += m
+            if en_usd:
+                usd_debe += m
+            else:
+                total_egresos += m
             filas.append({
                 'detalle': det,
                 'debe': m.quantize(Decimal('0.01')),
                 'haber': Decimal('0'),
+                'moneda': 'USD' if en_usd else None,
             })
 
     total_haber = monto_prop_haber + total_ingresos
     total_debe = total_egresos
     saldo_favor = (total_haber - total_debe).quantize(Decimal('0.01'))
+    usd = None
+    if hay_usd_aparte:
+        usd = {
+            'total_haber': usd_haber.quantize(Decimal('0.01')),
+            'total_debe': usd_debe.quantize(Decimal('0.01')),
+            'saldo_favor': (usd_haber - usd_debe).quantize(Decimal('0.01')),
+        }
     return {
         'filas': filas,
         'total_debe': total_debe.quantize(Decimal('0.01')),
         'total_haber': total_haber.quantize(Decimal('0.01')),
         'saldo_favor': saldo_favor,
+        'usd': usd,
     }
 
 
@@ -33220,6 +33242,10 @@ def _context_liquidacion_cobranzas(liquidacion, request=None):
         'total_debe': dh['total_debe'],
         'saldo_favor': dh['saldo_favor'],
         'monto_letras': _monto_liquidacion_en_letras(dh['saldo_favor']),
+        'liq_usd': dh.get('usd'),
+        'monto_letras_usd': (
+            _monto_liquidacion_en_letras(dh['usd']['saldo_favor']) if dh.get('usd') else ''
+        ),
         'forma_pago': ' · '.join(fpago_parts),
         'datos_pago': datos_pago,
         'locacion_mensual': locacion_mensual,
@@ -33494,9 +33520,40 @@ def detalle_liquidacion(request, liquidacion_id):
     liquidacion.periodo_desde_display = pd
     liquidacion.periodo_hasta_display = ph
 
+    deposito_garantia_liq = None
+    if liq_editable:
+        existente = next(
+            (
+                g for g in gastos_list
+                if (g.concepto_caja_id or '') == '10' and g.tipo_movimiento == 'ingreso'
+            ),
+            None,
+        )
+        if existente:
+            deposito_garantia_liq = {
+                'monto': existente.monto,
+                'moneda': (existente.moneda or 'ARS').upper(),
+                'origen': 'cargado',
+                'existente': True,
+            }
+        else:
+            try:
+                from inmobiliaria.caja_devolucion_deposito import deposito_sugerido_liquidacion
+
+                deposito_garantia_liq = deposito_sugerido_liquidacion(liquidacion)
+            except Exception:
+                logger.exception('No se pudo calcular el depósito sugerido de la liquidación %s', liquidacion.id)
+                deposito_garantia_liq = {
+                    'monto': Decimal('0'),
+                    'moneda': (liquidacion.moneda or 'ARS').upper(),
+                    'origen': '',
+                }
+            deposito_garantia_liq['existente'] = False
+
     context = {
         'liquidacion': liquidacion,
         'info_operacion_liquidacion': info_op,
+        'deposito_garantia_liq': deposito_garantia_liq,
         'gastos': gastos_list,
         'division_operaciones': division_operaciones,
         'division_meta': division_meta,
@@ -33969,6 +34026,7 @@ def agregar_gasto(request, liquidacion_id):
             observaciones=observaciones,
             aceptado=True,
             sucursal=liquidacion.sucursal,
+            moneda=(liquidacion.moneda or 'ARS'),
         )
 
         # Recalcular monto a pagar
@@ -33985,6 +34043,77 @@ def agregar_gasto(request, liquidacion_id):
         return JsonResponse({'success': False, 'error': f'Error en el formato de datos: {str(e)}'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Error al agregar el gasto: {str(e)}'})
+
+
+DESCRIPCION_DEPOSITO_GARANTIA_LIQ = 'DEPÓSITO EN GARANTÍA'
+
+
+def _gasto_deposito_garantia_liquidacion(liquidacion):
+    return (
+        liquidacion.gastos.filter(concepto_caja_id='10', tipo_movimiento='ingreso')
+        .order_by('id')
+        .first()
+    )
+
+
+@login_required
+@require_POST
+def agregar_deposito_garantia_liquidacion(request, liquidacion_id):
+    """Pasa el depósito en garantía al propietario (HABER) en su moneda (ARS o U$S)."""
+    liquidacion = get_object_or_404(
+        LiquidacionPropietario,
+        id=liquidacion_id,
+        sucursal=request.user.sucursal,
+    )
+    if not _liquidacion_permite_editar_movimientos(liquidacion):
+        messages.error(
+            request,
+            'Solo se puede agregar el depósito mientras la liquidación está pendiente o cerrada (antes de pagar).',
+        )
+        return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
+
+    monto = parse_decimal_monto(request.POST.get('monto', '0'))
+    if monto <= 0:
+        messages.error(request, 'El importe del depósito debe ser mayor a cero.')
+        return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
+    moneda = (request.POST.get('moneda') or 'ARS').strip().upper()
+    if moneda not in ('ARS', 'USD'):
+        moneda = 'ARS'
+    observaciones = (request.POST.get('observaciones') or '').strip()
+
+    existente = _gasto_deposito_garantia_liquidacion(liquidacion)
+    if existente:
+        existente.monto = monto
+        existente.moneda = moneda
+        existente.aceptado = True
+        if observaciones:
+            existente.observaciones = observaciones
+        existente.save()
+        accion = 'actualizado'
+    else:
+        GastoPropietario.objects.create(
+            liquidacion=liquidacion,
+            propietario=liquidacion.propietario,
+            propiedad=liquidacion.propiedad,
+            descripcion=DESCRIPCION_DEPOSITO_GARANTIA_LIQ,
+            concepto_caja_id='10',
+            monto=monto,
+            moneda=moneda,
+            tipo_movimiento='ingreso',
+            fecha_gasto=timezone.now().date(),
+            observaciones=observaciones,
+            aceptado=True,
+            sucursal=liquidacion.sucursal,
+        )
+        accion = 'agregado'
+
+    liquidacion.calcular_monto_a_pagar()
+    simbolo = 'U$S' if moneda == 'USD' else '$'
+    messages.success(
+        request,
+        f'Depósito en garantía {accion}: {simbolo} {format_monto_argentino(monto, 2)} a favor del propietario.',
+    )
+    return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
 
 def _eliminar_linea_gasto_pendiente(propiedad, propietario, linea_id, sucursal):
@@ -34717,13 +34846,19 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
         (Decimal(str(liq.monto_a_pagar or 0)) for liq in liquidaciones),
         Decimal('0'),
     ).quantize(Decimal('0.01'))
-    if total_a_pagar <= Decimal('0.01'):
+    usd_aparte = sum(
+        (max(liq.saldo_dolares_aparte, Decimal('0')) for liq in liquidaciones),
+        Decimal('0'),
+    ).quantize(Decimal('0.01'))
+    if total_a_pagar <= Decimal('0.01') and usd_aparte <= Decimal('0.01'):
         raise ValueError(
             'El total a pagar del lote debe ser mayor a cero '
             '(revisá liquidaciones con saldo en contra).'
         )
 
     medios = _medios_pago_liquidacion_desde_post(request)
+    if total_a_pagar <= Decimal('0.01'):
+        total_a_pagar = Decimal('0')
     if medios['total_pago'] != total_a_pagar:
         raise ValueError(
             f'El total del pago (${medios["total_pago"]}) no coincide con el monto a pagar '
@@ -34743,7 +34878,7 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
     monto_cheque = medios['monto_cheque']
     monto_tarjeta = medios['monto_tarjeta']
     monto_deposito = medios['monto_deposito']
-    monto_dolares = total_a_pagar if es_usd else Decimal('0')
+    monto_dolares = total_a_pagar if es_usd else usd_aparte
     destino_deposito = medios.get('destino_deposito')
     fecha_transferencia = medios.get('fecha_transferencia')
     tarjeta_numero = medios.get('tarjeta_numero') or ''
@@ -34845,11 +34980,14 @@ def procesar_liquidacion(request, liquidacion_id):
     )
 
     try:
-        _, total, es_usd = _pagar_liquidaciones_en_caja(request, [liquidacion])
+        mov, total, es_usd = _pagar_liquidaciones_en_caja(request, [liquidacion])
         simbolo = 'U$S ' if es_usd else '$'
+        extra_usd = ''
+        if not es_usd and Decimal(str(mov.monto_dolares or 0)) > 0:
+            extra_usd = f' y U$S {mov.monto_dolares}'
         messages.success(
             request,
-            f'Liquidación procesada correctamente. Se descontó {simbolo}{total} de la caja '
+            f'Liquidación procesada correctamente. Se descontó {simbolo}{total}{extra_usd} de la caja '
             f'(imputado a oficina).',
         )
         return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)

@@ -208,18 +208,50 @@ class LiquidacionPropietario(models.Model):
         verbose_name="Usuario que creó la liquidación"
     )
 
+    def gasto_en_dolares_aparte(self, gasto) -> bool:
+        """
+        Movimiento en U$S dentro de una liquidación en pesos (ej. depósito en garantía en dólares):
+        no se suma al neto en pesos, se liquida aparte en dólares.
+        """
+        return (self.moneda or 'ARS').upper() != 'USD' and (
+            (getattr(gasto, 'moneda', None) or '').upper() == 'USD'
+        )
+
+    def _gastos_aceptados_iter(self):
+        if not self.pk:
+            return []
+        if 'gastos' in getattr(self, '_prefetched_objects_cache', {}):
+            return [g for g in self.gastos.all() if g.aceptado]
+        return list(self.gastos.filter(aceptado=True))
+
+    def totales_dolares_aparte(self):
+        """(haber, debe, saldo) de los movimientos en U$S de una liquidación en pesos."""
+        haber = Decimal('0')
+        debe = Decimal('0')
+        for g in self._gastos_aceptados_iter():
+            if not self.gasto_en_dolares_aparte(g):
+                continue
+            m = g.monto if g.monto is not None else Decimal('0')
+            if g.tipo_movimiento == 'ingreso':
+                haber += m
+            else:
+                debe += m
+        q = Decimal('0.01')
+        return haber.quantize(q), debe.quantize(q), (haber - debe).quantize(q)
+
+    @property
+    def saldo_dolares_aparte(self):
+        return self.totales_dolares_aparte()[2]
+
     def _recalcular_monto_a_pagar_fields(self):
         """Neto al propietario: depto ± movimientos. Cochera y fondo son ingreso de oficina."""
         prop = self.monto_propietario if self.monto_propietario is not None else Decimal('0')
         ingresos = Decimal('0')
         egresos = Decimal('0')
         if self.pk:
-            # Preferir prefetch en memoria para no disparar N+1.
-            if 'gastos' in getattr(self, '_prefetched_objects_cache', {}):
-                gastos_iter = [g for g in self.gastos.all() if g.aceptado]
-            else:
-                gastos_iter = self.gastos.filter(aceptado=True)
-            for g in gastos_iter:
+            for g in self._gastos_aceptados_iter():
+                if self.gasto_en_dolares_aparte(g):
+                    continue
                 m = g.monto if g.monto is not None else Decimal('0')
                 if g.tipo_movimiento == 'ingreso':
                     ingresos += m

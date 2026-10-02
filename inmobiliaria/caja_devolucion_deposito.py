@@ -630,6 +630,83 @@ def movimientos_ingreso_contratos_por_ids(sucursal_id, contrato_ids, propiedad_i
     return dict(out)
 
 
+def deposito_cobrado_contrato_por_moneda(contrato) -> dict:
+    """
+    Concepto 10 cobrado en caja para el contrato, separado por moneda: {'ARS': x, 'USD': y}.
+    La moneda sale de la línea del concepto; si la línea no la indica y el ingreso
+    fue solo en dólares, cuenta como U$S.
+    """
+    out = {'ARS': Decimal('0'), 'USD': Decimal('0')}
+    if not contrato or not getattr(contrato, 'id', None):
+        return out
+    cid_ct = int(contrato.id)
+    movs = MovimientoCaja.objects.filter(
+        sucursal_id=contrato.sucursal_id,
+        propiedad_id=contrato.propiedad_id,
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+        fecha_eliminacion__isnull=True,
+        concepto__icontains=f'Contrato #{cid_ct}',
+    )
+    for mov in movs:
+        m = re.search(r'Contrato\s*#\s*(\d+)', mov.concepto or '', re.IGNORECASE)
+        if not m or int(m.group(1)) != cid_ct:
+            continue
+        ars_mov = (
+            Decimal(str(mov.monto_efectivo or 0))
+            + Decimal(str(mov.monto_cheque or 0))
+            + Decimal(str(mov.monto_tarjeta or 0))
+            + Decimal(str(mov.monto_deposito or 0))
+        )
+        solo_usd = Decimal(str(getattr(mov, 'monto_dolares', None) or 0)) > 0 and ars_mov <= 0
+        for item in _parse_conceptos_movimiento(mov):
+            cid = str(item.get('id') or item.get('codigo') or '').strip()
+            if cid != CONCEPTO_DEPOSITO_RESERVA_ID:
+                continue
+            mon_raw = str(item.get('moneda') or '').strip().upper()
+            if mon_raw in ('ARS', 'USD'):
+                moneda = mon_raw
+            else:
+                moneda = 'USD' if solo_usd else 'ARS'
+            out[moneda] += parse_decimal_monto(item.get('importe'))
+    return out
+
+
+def deposito_sugerido_liquidacion(liquidacion) -> dict:
+    """
+    Depósito en garantía para pasar al propietario en la liquidación:
+    lo cobrado en caja (concepto 10) del contrato con su moneda; si no hay, el de la carátula.
+    """
+    from inmobiliaria.liquidacion_operacion import contrato_desde_liquidacion
+
+    vacio = {'monto': Decimal('0'), 'moneda': (liquidacion.moneda or 'ARS').upper(), 'origen': ''}
+    contrato = contrato_desde_liquidacion(liquidacion)
+    if not contrato:
+        return vacio
+    try:
+        cobrado = deposito_cobrado_contrato_por_moneda(contrato)
+    except Exception:
+        cobrado = {'ARS': Decimal('0'), 'USD': Decimal('0')}
+    if cobrado['USD'] > Decimal('0.01') and cobrado['ARS'] <= Decimal('0.01'):
+        return {'monto': cobrado['USD'], 'moneda': 'USD', 'origen': 'caja'}
+    if cobrado['ARS'] > Decimal('0.01') and cobrado['USD'] <= Decimal('0.01'):
+        return {'monto': cobrado['ARS'], 'moneda': 'ARS', 'origen': 'caja'}
+    if cobrado['ARS'] > Decimal('0.01') and cobrado['USD'] > Decimal('0.01'):
+        return {
+            'monto': cobrado['USD'],
+            'moneda': 'USD',
+            'origen': 'caja',
+            'monto_ars_extra': cobrado['ARS'],
+        }
+    dep = Decimal(str(getattr(contrato, 'deposito_garantia', None) or 0))
+    if dep > Decimal('0.01'):
+        return {
+            'monto': dep,
+            'moneda': (getattr(contrato, 'moneda', None) or 'ARS').upper(),
+            'origen': 'contrato',
+        }
+    return vacio
+
+
 def queryset_reservas_pendientes_cobro(qs):
     """
     Reservas para «Reservas pendientes»: en espera o reservadas sin cobro.
