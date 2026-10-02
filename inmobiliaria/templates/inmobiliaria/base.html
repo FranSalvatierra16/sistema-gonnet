@@ -184,8 +184,8 @@
                             {% endif %}
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:mis_propiedades' %}"><i class="fas fa-folder-open"></i> Mis propiedades</a></li>
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:buscar_propiedades_por_fechas' %}">Buscar Propiedades por Fechas</a></li>
-                            {% if user.nivel >= 3 %}
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:reservas' %}">Lista Reservas</a></li>
+                            {% if user.nivel >= 3 %}
                             <li><a class="dropdown-item" href="{% url 'inmobiliaria:operaciones' %}"><i class="fas fa-receipt me-2"></i>Operaciones y recibos</a></li>
                             {% endif %}
                             {% if user.nivel >= 4 %}
