@@ -178,8 +178,10 @@ MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
     ),
 }
 
-# La carga manual en estas subcategorías no se guarda en caja con el id del concepto
-# (Pago IIBB manual ≠ concepto 22 «Gastos bancarios»).
+# Conceptos donde solo lo cargado en caja SIN marcar «gasto de oficina» va a la ruta
+# del mapa (22 → Pago IIBB). Si el movimiento se marcó como gasto de oficina, queda
+# en la categoría elegida (ej. Ingresos › Gastos bancarios). La carga manual en la
+# subcategoría destino tampoco se guarda en caja con el id del concepto.
 CONCEPTOS_CAJA_SIN_VINCULO_INVERSO = frozenset({'22'})
 
 # Solo estos pueden aparecer en medio del texto (ej. "RETIRO VERAZ COLON").
@@ -857,6 +859,10 @@ def movimiento_cuenta_en_neto_caja_mapeada(movimiento):
     if not movimiento:
         return False
     for cid in MAPA_CONCEPTOS_CAJA_A_OFICINA:
+        # Se llama con movimientos que tienen gasto de oficina manual: en estos
+        # conceptos el neto los excluye.
+        if cid in CONCEPTOS_CAJA_SIN_VINCULO_INVERSO:
+            continue
         if _movimiento_es_concepto_id_estricto(movimiento, cid):
             return True
     return (
@@ -904,8 +910,18 @@ def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
             .distinct()
         )
 
+        movs_marcados_oficina = set()
+        if cid in CONCEPTOS_CAJA_SIN_VINCULO_INVERSO:
+            movs_marcados_oficina = set(
+                GastoOficina.objects.filter(movimiento_caja_id__in=qs.values('id'))
+                .exclude(observaciones__icontains='Vinculado automáticamente')
+                .values_list('movimiento_caja_id', flat=True)
+            )
+
         acum = Decimal('0')
         for mov in qs.iterator(chunk_size=200):
+            if mov.id in movs_marcados_oficina:
+                continue
             es_veraz_texto = False
             if cid == '130':
                 raw = _norm_nombre_cat(mov.concepto or '')
