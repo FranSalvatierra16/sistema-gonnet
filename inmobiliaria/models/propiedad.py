@@ -740,6 +740,11 @@ class Reserva(models.Model):
         verbose_name='Estado carátula',
         help_text='Revisión administrativa de la carátula (independiente de comisiones y pagos).',
     )
+    sin_fichaje = models.BooleanField(
+        default=False,
+        verbose_name='Sin comisión de fichaje',
+        help_text='Fichaje eliminado desde la carátula: no se genera comisión de fichaje para esta operación.',
+    )
 
     def montos_liquidacion_efectivos(self, total, prop, inm):
         """Aplica overrides guardados en carátula sobre montos calculados."""

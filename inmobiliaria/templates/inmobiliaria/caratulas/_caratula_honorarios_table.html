@@ -76,11 +76,36 @@
         </form>
 
         <div class="border-top p-3">
-            {% if honorarios_ctx.fichador_nombre or honorarios_ctx.comisiones_fichaje or honorarios_ctx.pct_productor.pct_fichaje %}
+            {% if honorarios_ctx.sin_fichaje %}
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3 px-2 py-2 border rounded bg-light">
+                <strong class="small">Comisión de fichaje</strong>
+                <span class="badge bg-secondary">Fichaje eliminado</span>
+                {% if puede_editar_caratula %}
+                <form method="post" class="ms-auto mb-0"
+                      onsubmit="return confirm('¿Restaurar la comisión de fichaje de esta operación?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="restaurar_fichaje_caratula">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-undo me-1"></i>Restaurar fichaje
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            {% elif honorarios_ctx.fichador_nombre or honorarios_ctx.comisiones_fichaje or honorarios_ctx.pct_productor.pct_fichaje %}
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                 <strong class="small">Comisión de fichaje</strong>
                 {% if honorarios_ctx.pct_productor.fichador %}
                 <span class="badge bg-info">{{ honorarios_ctx.pct_productor.fichador }}</span>
+                {% endif %}
+                {% if puede_editar_caratula %}
+                <form method="post" class="ms-auto mb-0"
+                      onsubmit="return confirm('¿Eliminar la comisión de fichaje de esta operación? Las pendientes se borran y las acreditadas se cancelan.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="eliminar_fichaje_caratula">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <i class="fas fa-trash-alt me-1"></i>Eliminar fichaje
+                    </button>
+                </form>
                 {% endif %}
             </div>
             <div class="table-responsive mb-3">

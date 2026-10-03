@@ -108,6 +108,11 @@ class ContratoAlquiler(models.Model):
         verbose_name='Estado carátula',
         help_text='Revisión administrativa de la carátula (independiente de comisiones y pagos).',
     )
+    sin_fichaje = models.BooleanField(
+        default=False,
+        verbose_name='Sin comisión de fichaje',
+        help_text='Fichaje eliminado desde la carátula: no se genera comisión de fichaje para este contrato.',
+    )
     caratula_comision_locador = models.DecimalField(
         max_digits=12,
         decimal_places=2,

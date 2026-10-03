@@ -377,6 +377,20 @@ def _cancelar_o_borrar_comisiones_qs(qs):
         ComisionVendedor.objects.filter(pk=c.pk).update(estado='cancelada')
 
 
+def cancelar_fichaje_operacion(*, reserva=None, contrato=None):
+    """Quita la comisión de fichaje de la operación (pendientes se borran, acreditadas se cancelan)."""
+    if reserva is None and contrato is None:
+        return
+    qs = ComisionVendedor.objects.filter(rol_comision=ROL_COMISION_FICHAJE).exclude(
+        estado='cancelada'
+    )
+    if reserva is not None:
+        qs = qs.filter(reserva=reserva)
+    else:
+        qs = qs.filter(contrato=contrato)
+    _cancelar_o_borrar_comisiones_qs(qs)
+
+
 def _monto_base_fichaje_reserva(reserva, honorarios_hint=None):
     """
     Base de comisión por fichaje en la reserva.
@@ -461,7 +475,12 @@ def _sincronizar_comisiones_fichaje_reserva(reserva):
         rol_comision=ROL_COMISION_FICHAJE,
     ).exclude(estado='cancelada')
 
-    activo = bool(vend_fichaje and pct_fichaje is not None and pct_fichaje > 0)
+    activo = bool(
+        vend_fichaje
+        and pct_fichaje is not None
+        and pct_fichaje > 0
+        and not getattr(reserva, 'sin_fichaje', False)
+    )
     if not activo:
         _cancelar_o_borrar_comisiones_qs(qs)
         return
@@ -519,6 +538,8 @@ def _crear_o_actualizar_linea_fichaje_reserva(
     if not reserva:
         return None
     _sincronizar_comisiones_fichaje_reserva(reserva)
+    if getattr(reserva, 'sin_fichaje', False):
+        return None
 
     prop = getattr(reserva, 'propiedad', None)
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer' if prop else 'primer'
@@ -947,6 +968,9 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
     vend_fichaje = vendedor_fichaje_desde_propiedad(
         prop, sucursal=getattr(contrato, 'sucursal', None)
     )
+    if getattr(contrato, 'sin_fichaje', False):
+        cancelar_fichaje_operacion(contrato=contrato)
+        vend_fichaje = None
     cat = (
         contrato.categoria_tipo_operacion()
         if hasattr(contrato, 'categoria_tipo_operacion')

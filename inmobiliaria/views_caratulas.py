@@ -980,6 +980,41 @@ def _procesar_desconfirmar_operacion_caratula(request, reserva=None, contrato=No
     return True
 
 
+def _procesar_fichaje_caratula(request, reserva=None, contrato=None):
+    """Elimina o restaura la comisión de fichaje de la operación (marca sin_fichaje)."""
+    from django.contrib import messages
+
+    if not _puede_editar_caratula(request.user):
+        messages.error(request, 'No tenés permiso para modificar el fichaje.')
+        return False
+    obj = reserva or contrato
+    if not obj:
+        return False
+    eliminar = request.POST.get('action') == 'eliminar_fichaje_caratula'
+    obj.sin_fichaje = eliminar
+    obj.save(update_fields=['sin_fichaje'])
+    from inmobiliaria.models.comision import cancelar_fichaje_operacion
+
+    if eliminar:
+        cancelar_fichaje_operacion(reserva=reserva, contrato=contrato)
+        messages.success(request, 'Fichaje eliminado de esta operación.')
+    else:
+        # Contratos: el fichaje se regenera al abrir la carátula (_alinear_comisiones_grabadas...).
+        try:
+            if reserva is not None:
+                from inmobiliaria.models.comision import asegurar_comisiones_reserva
+
+                asegurar_comisiones_reserva(reserva, movimientos_caja=_movimientos_operacion_reserva(reserva))
+        except Exception:
+            logger.exception(
+                'caratula: no se pudo regenerar fichaje reserva=%s contrato=%s',
+                getattr(reserva, 'id', None),
+                getattr(contrato, 'id', None),
+            )
+        messages.success(request, 'Fichaje restaurado para esta operación.')
+    return True
+
+
 def _procesar_productores_caratula(request, reserva=None, contrato=None):
     from django.contrib import messages
     from inmobiliaria.models.comision import (
@@ -3046,10 +3081,13 @@ def _ctx_honorarios_comisiones_caratula_contrato(
     _alinear_comisiones_grabadas_a_caratula_contrato(
         contrato, base_comisiones, movimientos
     )
+    sin_fichaje = bool(getattr(contrato, 'sin_fichaje', False))
     comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, base_comisiones)
     _normalizar_lineas_fichaje_caratula(comisiones_vendedor, contrato)
+    if sin_fichaje:
+        comisiones_vendedor = [cv for cv in comisiones_vendedor if cv.get('rol') != 'fichaje']
     comisiones_fichaje = [cv for cv in comisiones_vendedor if cv.get('rol') == 'fichaje']
-    if not comisiones_fichaje:
+    if not comisiones_fichaje and not sin_fichaje:
         linea_fichaje = _linea_fichaje_contrato_caratula(contrato, base_comisiones)
         if linea_fichaje:
             comisiones_vendedor.insert(0, linea_fichaje)
@@ -3106,6 +3144,9 @@ def _ctx_honorarios_comisiones_caratula_contrato(
         )
     if pct.get('pct_fichaje') is None and comisiones_fichaje:
         pct['pct_fichaje'] = float(comisiones_fichaje[0].get('porcentaje') or 0)
+    if sin_fichaje:
+        pct['pct_fichaje'] = None
+    pct['sin_fichaje'] = sin_fichaje
 
     from inmobiliaria.models.comision import fecha_acreditacion_compartida_operacion
 
@@ -3131,6 +3172,7 @@ def _ctx_honorarios_comisiones_caratula_contrato(
         'comision_productor_total': comision_productor_total,
         'comision_productor_total_fmt': format_monto_argentino(comision_productor_total),
         'fichador_nombre': fichador_nombre,
+        'sin_fichaje': sin_fichaje,
         'pct_productor': pct,
         'pct_productor_json': _json.dumps(pct),
         'liquidacion_id': getattr(liquidacion, 'id', None),
@@ -3396,7 +3438,7 @@ def _build_legacy_reserva(
         productor = '—'
         terceros = '0'
 
-    fichador_nombre = _fichador_nombre_caratula(prop, comisiones)
+    fichador_nombre = '' if getattr(reserva, 'sin_fichaje', False) else _fichador_nombre_caratula(prop, comisiones)
 
     # Locación mensual es solo para contratos (invierno / 24 meses).
     # En reservas por día no aplica: antes se mostraba precio÷días y confundía.
@@ -3542,6 +3584,9 @@ def _build_legacy_contrato(
     )
     comisiones_vendedor = _comisiones_vendedor_contrato_caratula(contrato, base_comisiones)
     _normalizar_lineas_fichaje_caratula(comisiones_vendedor, contrato)
+    sin_fichaje = bool(getattr(contrato, 'sin_fichaje', False))
+    if sin_fichaje:
+        comisiones_vendedor = [cv for cv in comisiones_vendedor if cv.get('rol') != 'fichaje']
     comisiones_fichaje = [cv for cv in comisiones_vendedor if cv.get('rol') == 'fichaje']
     comisiones_total = base_comisiones
     comision_fichaje_total = sum(
@@ -3564,6 +3609,8 @@ def _build_legacy_contrato(
         fichador_nombre = comisiones_fichaje[0].get('vendedor_nombre', '')
     if not (fichador_nombre or '').strip():
         fichador_nombre = _fichador_nombre_caratula(prop, comisiones_fichaje)
+    if sin_fichaje:
+        fichador_nombre = ''
 
     senia_val = Decimal('0')
     if montos_override and montos_override.get('senia') is not None:
@@ -4182,6 +4229,13 @@ def caratula_reserva(request, reserva_id):
         if _procesar_guardar_fechas_comision_caratula(request, reserva=reserva):
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
 
+    if request.method == 'POST' and request.POST.get('action') in (
+        'eliminar_fichaje_caratula',
+        'restaurar_fichaje_caratula',
+    ):
+        _procesar_fichaje_caratula(request, reserva=reserva)
+        return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
+
     if request.method == 'POST' and request.POST.get('action') == 'save_caratula_reserva':
         if _guardar_caratula_reserva(request, reserva):
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
@@ -4243,6 +4297,11 @@ def caratula_reserva(request, reserva_id):
         'movimientos': movimientos,
         'recibos': recibos,
         'comisiones': comisiones,
+        'sin_fichaje': bool(getattr(reserva, 'sin_fichaje', False)),
+        'tiene_fichaje': any(
+            getattr(c, 'rol_comision', None) == 'fichaje' and getattr(c, 'estado', None) != 'cancelada'
+            for c in comisiones
+        ),
         'fecha_acreditacion_operacion': fecha_acreditacion_compartida_operacion(reserva=reserva),
         'total_movimientos': total_mov,
         'deposito_ya_devuelto': deposito_ya_devuelto,
@@ -4512,6 +4571,9 @@ def caratula_contrato(request, contrato_id):
         if action == 'save_fechas_comision_caratula':
             if _procesar_guardar_fechas_comision_caratula(request, contrato=contrato):
                 return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
+        if action in ('eliminar_fichaje_caratula', 'restaurar_fichaje_caratula'):
+            _procesar_fichaje_caratula(request, contrato=contrato)
+            return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
         if action == 'save_caratula_contrato':
             if _guardar_caratula_contrato(request, contrato):
                 return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
@@ -4761,9 +4823,9 @@ def imprimir_caratula_reserva(request, reserva_id):
         'deposito_fmt': cl['deposito'],
         'operacion_id': reserva.id,
         'productor_nombre': _nombres_productores_operacion(reserva=reserva),
-        'fichador_nombre': cl.get('fichador_nombre') or _fichador_nombre_caratula(
-            reserva.propiedad, comisiones
-        ),
+        'fichador_nombre': ''
+        if getattr(reserva, 'sin_fichaje', False)
+        else (cl.get('fichador_nombre') or _fichador_nombre_caratula(reserva.propiedad, comisiones)),
     }
     return render(request, 'inmobiliaria/caratulas/imprimir_caratula_papel.html', ctx)
 
@@ -4843,6 +4905,8 @@ def imprimir_caratula_contrato(request, contrato_id):
         'deposito_fmt': cl['deposito'],
         'operacion_id': contrato.id,
         'productor_nombre': _nombres_productores_operacion(contrato=contrato),
-        'fichador_nombre': cl.get('fichador_nombre') or _fichador_nombre_caratula(contrato.propiedad),
+        'fichador_nombre': ''
+        if getattr(contrato, 'sin_fichaje', False)
+        else (cl.get('fichador_nombre') or _fichador_nombre_caratula(contrato.propiedad)),
     }
     return render(request, 'inmobiliaria/caratulas/imprimir_caratula_papel.html', ctx)

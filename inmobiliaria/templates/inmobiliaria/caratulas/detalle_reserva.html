@@ -78,6 +78,30 @@
                         {% if puede_editar_caratula %}
                         <span class="text-muted fw-normal">Fechas de acreditación y devolución editables</span>
                         {% endif %}
+                        {% if sin_fichaje %}
+                        <span class="d-flex align-items-center gap-2">
+                            <span class="badge bg-secondary">Fichaje eliminado</span>
+                            {% if puede_editar_caratula and not operacion_eliminada %}
+                            <form method="post" class="mb-0"
+                                  onsubmit="return confirm('¿Restaurar la comisión de fichaje de esta operación?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="restaurar_fichaje_caratula">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary py-0">
+                                    <i class="fas fa-undo me-1"></i>Restaurar fichaje
+                                </button>
+                            </form>
+                            {% endif %}
+                        </span>
+                        {% elif tiene_fichaje and puede_editar_caratula and not operacion_eliminada %}
+                        <form method="post" class="mb-0"
+                              onsubmit="return confirm('¿Eliminar la comisión de fichaje de esta operación? Las pendientes se borran y las acreditadas se cancelan.');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="eliminar_fichaje_caratula">
+                            <button type="submit" class="btn btn-sm btn-outline-danger py-0">
+                                <i class="fas fa-trash-alt me-1"></i>Eliminar fichaje
+                            </button>
+                        </form>
+                        {% endif %}
                     </div>
                     <div class="card-body p-0">
                         <form method="post" id="form-fechas-comision-reserva">
