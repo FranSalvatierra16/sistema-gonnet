@@ -131,7 +131,7 @@
                     <tr class="fila-cols">
                         <th class="celda-label">Concepto</th>
                         {% for col in liquidacion.columnas %}
-                        <th>{{ col.label }}{% if col.externo %}<small class="col-sucursal"> ({{ col.sucursal_nombre }})</small>{% endif %}</th>
+                        <th{% if col.basico_no_suma %} class="col-supera-basico" title="Las comisiones superan el básico"{% endif %}>{{ col.label }}{% if col.externo %}<small class="col-sucursal"> ({{ col.sucursal_nombre }})</small>{% endif %}</th>
                         {% endfor %}
                     </tr>
                 </thead>
@@ -141,7 +141,7 @@
                         <td class="celda-label">{{ fila.label }}</td>
                         {% if fila.tipo == 'basico' %}
                             {% for col in liquidacion.columnas %}
-                            <td class="celda-num">
+                            <td class="celda-num{% if col.basico_no_suma %} basico-superado{% endif %}">
                                 {% if col.externo %}
                                 <small class="text-muted no-print" title="El básico lo cobra en {{ col.sucursal_nombre }}">en {{ col.sucursal_nombre }}</small>
                                 {% elif col.vid %}
@@ -392,6 +392,14 @@
 .col-sucursal { font-weight: 400; text-transform: none; font-size: 0.75em; }
 .basico-edit { display: flex; align-items: baseline; gap: 0.25em; margin: 0; }
 .basico-simbolo { flex: 0 0 auto; }
+.tabla-honorarios .fila-cols th.col-supera-basico,
+.tabla-honorarios td.basico-superado {
+    background: #ffe5d0;
+    color: #b02a37;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+.tabla-honorarios td.basico-superado { font-weight: 600; }
 .basico-no-suma { display: block; font-size: 0.7em; color: #b02a37; line-height: 1.1; }
 .input-basico {
     width: 100%;
