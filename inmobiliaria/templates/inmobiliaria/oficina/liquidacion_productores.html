@@ -157,6 +157,8 @@
                                 </label>
                                 {% if col.basico_no_suma %}
                                 <small class="basico-no-suma" title="Las comisiones superan el básico: no se suma al total.">no suma (comisiones superan el básico)</small>
+                                {% elif col.comisiones_no_suman %}
+                                <small class="basico-no-suma no-print" title="Las comisiones no superan el básico: cobra solo el básico.">cobra solo el básico (comisiones no lo superan)</small>
                                 {% endif %}
                                 {% endif %}
                             </td>

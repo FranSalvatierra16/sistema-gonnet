@@ -116,17 +116,19 @@ def total_a_pagar_productor(sueldo_basico, comisiones, no_suma_si_superan):
     """
     Regla de liquidación:
     - Flag OFF → comisiones + básico
-    - Flag ON y comisiones >= básico (>0) → solo comisiones (no suma el básico)
-    - Flag ON y comisiones < básico → comisiones + básico
+    - Flag ON y comisiones >= básico → solo comisiones (no suma el básico)
+    - Flag ON y comisiones < básico → solo básico (no suma las comisiones)
     """
     basico = Decimal(str(sueldo_basico or 0)).quantize(Decimal('0.01'))
     comis = Decimal(str(comisiones or 0)).quantize(Decimal('0.01'))
     basico_aplicado = True
-    if no_suma_si_superan and basico > 0 and comis >= basico:
-        total = comis
-        basico_aplicado = False
-    else:
+    if not no_suma_si_superan:
         total = (comis + basico).quantize(Decimal('0.01'))
+    elif comis >= basico:
+        total = comis
+        basico_aplicado = basico <= 0
+    else:
+        total = basico
     return total, basico_aplicado
 
 
@@ -300,7 +302,11 @@ def construir_liquidacion_productores(sucursal, anio, mes):
             'nota': (
                 'Solo comisiones (superó el básico)'
                 if flag and not basico_aplicado
-                else ('Básico + comisiones' if basico > 0 else 'Solo comisiones')
+                else (
+                    'Solo básico (comisiones no lo superan)'
+                    if flag and comis < basico
+                    else ('Básico + comisiones' if basico > 0 else 'Solo comisiones')
+                )
             ),
         })
         for k in CLAVES_COMISION:
@@ -965,21 +971,19 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     fila_comis = _celdas(n, por_id=por_resto, columnas=columnas)
     filas.append({'tipo': 'dato', 'label': 'Comisiones encargados.', 'celdas': fila_comis})
 
-    # Productor con «no suma el básico si las comisiones lo superan».
-    basico_para_total = list(celdas_basico)
+    # Productor con el tilde: cobra comisiones o básico, el mayor (nunca los dos).
+    tot_final = _sumar_celdas([tot_honorarios, celdas_basico, fila_comis], n)
     for i, col in enumerate(columnas):
         vend = col.get('vendedor')
         if col.get('externo') or not vend or not getattr(vend, 'basico_no_suma_si_comisiones_superan', False):
             continue
         comis = _d(tot_honorarios[i]) + _d(fila_comis[i])
-        _total, basico_aplicado = total_a_pagar_productor(
-            col.get('basico'), comis, True
-        )
+        total, basico_aplicado = total_a_pagar_productor(col.get('basico'), comis, True)
+        tot_final[i] = total
         if not basico_aplicado:
             col['basico_no_suma'] = True
-            basico_para_total[i] = None
-
-    tot_final = _sumar_celdas([tot_honorarios, basico_para_total, fila_comis], n)
+        elif comis != 0 and comis < _d(col.get('basico')):
+            col['comisiones_no_suman'] = True
     filas.append({'tipo': 'total-final', 'label': 'TOTAL.:', 'celdas': tot_final})
 
     filas_sg = filas_sueldos(sucursal)
