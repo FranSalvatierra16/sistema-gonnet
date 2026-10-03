@@ -147,6 +147,7 @@
                                 {% elif col.vid %}
                                 <span class="solo-imprimir">{% if col.basico is not None %}{% if col.basico_no_suma %}<s>$ {{ col.basico|format_price }}</s>{% else %}$ {{ col.basico|format_price }}{% endif %}{% endif %}</span>
                                 <label class="basico-edit no-print">
+                                    <span class="basico-simbolo">$</span>
                                     <input type="text"
                                            name="basico_{{ col.vid }}"
                                            class="input-basico"
@@ -389,7 +390,8 @@
     border: 3px solid #000;
 }
 .col-sucursal { font-weight: 400; text-transform: none; font-size: 0.75em; }
-.basico-edit { display: block; margin: 0; }
+.basico-edit { display: flex; align-items: baseline; gap: 0.25em; margin: 0; }
+.basico-simbolo { flex: 0 0 auto; }
 .basico-no-suma { display: block; font-size: 0.7em; color: #b02a37; line-height: 1.1; }
 .input-basico {
     width: 100%;
