@@ -1212,6 +1212,7 @@ def oficina_liquidacion_productores(request):
         borrar_total_gral,
         construir_cuadro_honorarios,
         guardar_columnas_cuadro,
+        guardar_flag_no_suma_basico,
         guardar_sueldos_basicos_mes,
         guardar_total_gral,
         opciones_columnas_vendedores,
@@ -1270,6 +1271,16 @@ def oficina_liquidacion_productores(request):
                 request,
                 'TOTAL GRAL volvió al listado automático (quienes tienen comisión).',
             )
+        elif accion == 'flag_no_suma':
+            activo = request.POST.get('activo') == '1'
+            v = guardar_flag_no_suma_basico(sucursal, request.POST.get('vid'), activo)
+            if v:
+                nombre = f'{(v.nombre or "").strip()} {(v.apellido or "").strip()}'.strip()
+                messages.success(
+                    request,
+                    f'{nombre}: si las comisiones superan el básico, '
+                    + ('el básico no se suma.' if activo else 'el básico se suma igual.'),
+                )
         # Los básicos editados viajan con cualquier botón de guardar de la página.
         cambiados = guardar_sueldos_basicos_mes(sucursal, anio, mes, request.POST)
         if cambiados:
@@ -1278,7 +1289,7 @@ def oficina_liquidacion_productores(request):
                 f'Se actualizó el básico de {cambiados} productor{"es" if cambiados != 1 else ""} '
                 f'desde {mes:02d}/{anio} en adelante. Los meses anteriores no cambian.',
             )
-        elif accion not in ('columnas', 'columnas_todos', 'total_gral', 'total_gral_todos'):
+        elif accion not in ('columnas', 'columnas_todos', 'total_gral', 'total_gral_todos', 'flag_no_suma'):
             messages.info(request, 'No hubo cambios en los básicos.')
         return redirect(
             f"{reverse('inmobiliaria:oficina_liquidacion_productores')}?mes={mes}&anio={anio}"

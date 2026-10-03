@@ -131,7 +131,7 @@
                     <tr class="fila-cols">
                         <th class="celda-label">Concepto</th>
                         {% for col in liquidacion.columnas %}
-                        <th{% if col.basico_no_suma %} class="col-supera-basico" title="Las comisiones superan el básico"{% endif %}>{{ col.label }}{% if col.externo %}<small class="col-sucursal"> ({{ col.sucursal_nombre }})</small>{% endif %}</th>
+                        <th{% if col.basico_no_suma %} class="col-supera-basico" title="Las comisiones superan el básico"{% endif %}>{{ col.label }}{% if col.externo %}<small class="col-sucursal"> ({{ col.sucursal_nombre }})</small>{% elif col.vid %}<input type="checkbox" class="chk-no-suma no-print" data-vid="{{ col.vid }}" {% if col.no_suma_si_superan %}checked{% endif %} title="Si las comisiones superan el básico, no sumar el básico">{% endif %}</th>
                         {% endfor %}
                     </tr>
                 </thead>
@@ -225,6 +225,14 @@
         <input type="hidden" name="mes" value="{{ mes }}">
         <input type="hidden" name="anio" value="{{ anio }}">
         <input type="hidden" name="accion" value="total_gral_todos">
+    </form>
+    <form id="form-flag-no-suma" method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" class="d-none">
+        {% csrf_token %}
+        <input type="hidden" name="mes" value="{{ mes }}">
+        <input type="hidden" name="anio" value="{{ anio }}">
+        <input type="hidden" name="accion" value="flag_no_suma">
+        <input type="hidden" name="vid" value="">
+        <input type="hidden" name="activo" value="">
     </form>
 </div>
 
@@ -390,8 +398,10 @@
     border: 3px solid #000;
 }
 .col-sucursal { font-weight: 400; text-transform: none; font-size: 0.75em; }
-.basico-edit { display: flex; align-items: baseline; gap: 0.25em; margin: 0; }
+.basico-edit { display: flex; justify-content: flex-end; align-items: baseline; gap: 0.2em; margin: 0; }
 .basico-simbolo { flex: 0 0 auto; }
+.basico-edit .input-basico { flex: 0 1 auto; width: auto; min-width: 3ch; field-sizing: content; }
+.chk-no-suma { margin-left: 0.35em; vertical-align: middle; cursor: pointer; }
 .tabla-honorarios .fila-cols th.col-supera-basico,
 .tabla-honorarios td.basico-superado {
     background: #ffe5d0;
@@ -518,6 +528,29 @@
         if (enviando || !basicosModificados().length) return;
         e.preventDefault();
         e.returnValue = '';
+    });
+
+    if (!(window.CSS && CSS.supports && CSS.supports('field-sizing', 'content'))) {
+        document.querySelectorAll('#form-basicos .input-basico').forEach(function (el) {
+            function ajustar() { el.size = Math.max(String(el.value || '').length, 3); }
+            ajustar();
+            el.addEventListener('input', ajustar);
+        });
+    }
+
+    var formFlag = document.getElementById('form-flag-no-suma');
+    document.querySelectorAll('.chk-no-suma').forEach(function (chk) {
+        chk.addEventListener('change', function () {
+            if (!formFlag) return;
+            formFlag.querySelector('[name="vid"]').value = chk.dataset.vid;
+            formFlag.querySelector('[name="activo"]').value = chk.checked ? '1' : '0';
+            if (typeof formFlag.requestSubmit === 'function') {
+                formFlag.requestSubmit();
+            } else {
+                formFlag.dispatchEvent(new Event('submit'));
+                formFlag.submit();
+            }
+        });
     });
 })();
 </script>

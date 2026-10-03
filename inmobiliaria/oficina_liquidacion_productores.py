@@ -225,6 +225,22 @@ def guardar_sueldos_basicos_mes(sucursal, anio, mes, post_data):
     return cambiados
 
 
+def guardar_flag_no_suma_basico(sucursal, vendedor_id, activo):
+    """Activa/desactiva 'si las comisiones superan el básico, no sumar el básico'. Devuelve el vendedor o None."""
+    try:
+        vid = int(vendedor_id)
+    except (TypeError, ValueError):
+        return None
+    v = Vendedor.objects.filter(sucursal=sucursal, id=vid).first()
+    if not v:
+        return None
+    activo = bool(activo)
+    if v.basico_no_suma_si_comisiones_superan != activo:
+        v.basico_no_suma_si_comisiones_superan = activo
+        v.save(update_fields=['basico_no_suma_si_comisiones_superan'])
+    return v
+
+
 def construir_liquidacion_productores(sucursal, anio, mes):
     """
     Filas por vendedor activo de la sucursal para el mes:
@@ -826,6 +842,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
             'externo': externo,
             'sucursal_nombre': v.sucursal.nombre if externo and v.sucursal_id else '',
             'basico': None if externo else basicos.get(v.id, _d(0)),
+            'no_suma_si_superan': bool(getattr(v, 'basico_no_suma_si_comisiones_superan', False)),
         })
     n = len(columnas)
 
