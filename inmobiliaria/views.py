@@ -735,6 +735,44 @@ def detalle_comision(request, comision_id):
     
     return render(request, 'inmobiliaria/comisiones/detalle_comision.html', context)
 
+
+@login_required
+@require_POST
+def eliminar_comision_vendedor(request, comision_id):
+    """Elimina una comisión del productor (queda cancelada y no se regenera)."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+    from inmobiliaria.models.comision import eliminar_comision_manual
+
+    if not usuario_es_nivel_administracion(request.user):
+        messages.error(request, 'No tienes permisos para eliminar comisiones.')
+        return redirect('inmobiliaria:dashboard')
+
+    comision = get_object_or_404(ComisionVendedor.objects.select_related('vendedor'), id=comision_id)
+    if comision.vendedor.sucursal_id != request.user.sucursal_id:
+        messages.error(request, 'No tienes permisos para eliminar esta comisión.')
+        return redirect('inmobiliaria:dashboard_comisiones')
+
+    next_url = (request.POST.get('next') or '').strip()
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        fecha = comision.fecha_operacion or timezone.now()
+        next_url = reverse(
+            'inmobiliaria:resumen_comisiones_mensual',
+            args=[comision.vendedor_id, fecha.year, fecha.month],
+        )
+
+    if comision.estado == 'pagada':
+        messages.error(request, 'La comisión ya está pagada: no se puede eliminar.')
+        return redirect(next_url)
+
+    eliminar_comision_manual(comision)
+    messages.success(
+        request,
+        f'Comisión eliminada (${format_monto_argentino(comision.monto_comision or 0)} — '
+        f'{(comision.concepto_operacion or "").strip() or f"#{comision.id}"}).',
+    )
+    return redirect(next_url)
+
+
 @login_required
 def resumen_comisiones_mensual(request, vendedor_id, anio=None, mes=None):
     """

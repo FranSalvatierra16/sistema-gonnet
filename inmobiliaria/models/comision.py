@@ -377,6 +377,13 @@ def _cancelar_o_borrar_comisiones_qs(qs):
         ComisionVendedor.objects.filter(pk=c.pk).update(estado='cancelada')
 
 
+def eliminar_comision_manual(comision):
+    """Cancela la comisión y la marca para que la carátula/cobros no la regeneren."""
+    ComisionVendedor.objects.filter(pk=comision.pk).update(
+        estado='cancelada', eliminada_manual=True
+    )
+
+
 def cancelar_fichaje_operacion(*, reserva=None, contrato=None):
     """Quita la comisión de fichaje de la operación (pendientes se borran, acreditadas se cancelan)."""
     if reserva is None and contrato is None:
@@ -1944,9 +1951,9 @@ def restaurar_comisiones_operacion_recuperada(*, reserva=None, contrato=None):
             ComisionVendedor.objects.filter(pk=rev.pk).update(estado='cancelada')
         if orig_id:
             # Solo reactivar si quedó cancelada (era pendiente al anular).
-            updated = ComisionVendedor.objects.filter(pk=orig_id, estado='cancelada').update(
-                estado='pendiente'
-            )
+            updated = ComisionVendedor.objects.filter(
+                pk=orig_id, estado='cancelada', eliminada_manual=False
+            ).update(estado='pendiente')
             restauradas += int(updated or 0)
     return restauradas
 
@@ -2222,7 +2229,12 @@ class ComisionVendedor(models.Model):
         blank=True,
         verbose_name="Observaciones"
     )
-    
+    eliminada_manual = models.BooleanField(
+        default=False,
+        verbose_name='Eliminada a mano',
+        help_text='Eliminada desde el detalle de comisiones: queda cancelada y no se vuelve a generar.',
+    )
+
     objects = ComisionVendedorQuerySet.as_manager()
 
     class Meta:
@@ -2700,6 +2712,14 @@ class ComisionVendedor(models.Model):
             return None
 
         if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
+            return None
+
+        if cls.objects.filter(
+            vendedor=vendedor,
+            reserva=reserva,
+            rol_comision=rol_comision,
+            eliminada_manual=True,
+        ).exists():
             return None
 
         # Una línea activa por vendedor + reserva + rol (el movimiento es metadata).

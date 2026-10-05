@@ -596,6 +596,7 @@ urlpatterns = [
         name='toggle_mes_comision_pagado',
     ),
     path('comisiones/<int:comision_id>/', views.detalle_comision, name='detalle_comision'),
+    path('comisiones/<int:comision_id>/eliminar/', views.eliminar_comision_vendedor, name='eliminar_comision_vendedor'),
     path('vendedores/<int:vendedor_id>/comisiones/mes/<int:anio>/<int:mes>/', views.resumen_comisiones_mensual, name='resumen_comisiones_mensual'),
     
     # ✅ URLs para Vales de Vendedores

@@ -1696,7 +1696,11 @@ def _guardar_caratula_reserva(request, reserva):
             c = comisiones[0]
             c.monto_comision = comision_locatario.quantize(Decimal('0.01'))
             c.save(update_fields=['monto_comision'])
-    elif comision_locatario > 0 and reserva.vendedor_id:
+    elif (
+        comision_locatario > 0
+        and reserva.vendedor_id
+        and not ComisionVendedor.objects.filter(reserva=reserva, eliminada_manual=True).exists()
+    ):
         ComisionVendedor.objects.create(
             vendedor=reserva.vendedor,
             reserva=reserva,
@@ -3092,6 +3096,8 @@ def _ctx_honorarios_comisiones_caratula_contrato(
         if linea_fichaje:
             comisiones_vendedor.insert(0, linea_fichaje)
             comisiones_fichaje = [linea_fichaje]
+    comisiones_vendedor = _sin_lineas_eliminadas_manual_contrato(comisiones_vendedor, contrato)
+    comisiones_fichaje = [cv for cv in comisiones_vendedor if cv.get('rol') == 'fichaje']
     comisiones_productor = [cv for cv in comisiones_vendedor if cv.get('rol') != 'fichaje']
     fecha_def = getattr(contrato, 'fecha_entrada_departamento', None) or contrato.fecha_inicio
     db_map = _mapa_comisiones_db_caratula(contrato=contrato)
@@ -3184,6 +3190,20 @@ def _ctx_honorarios_comisiones_caratula_contrato(
             fecha_acred.strftime('%d/%m/%Y') if fecha_acred else ''
         ),
     }
+
+
+def _sin_lineas_eliminadas_manual_contrato(lineas, contrato):
+    """Quita las líneas calculadas cuya comisión se eliminó a mano en el detalle de comisiones."""
+    if not lineas or not contrato:
+        return lineas
+    eliminadas = set(
+        ComisionVendedor.objects.filter(contrato=contrato, eliminada_manual=True).values_list(
+            'rol_comision', 'vendedor_id'
+        )
+    )
+    if not eliminadas:
+        return lineas
+    return [ln for ln in lineas if (ln.get('rol'), ln.get('vendedor_id')) not in eliminadas]
 
 
 def _comisiones_vendedor_contrato_caratula(contrato, base_monto):
@@ -3587,6 +3607,7 @@ def _build_legacy_contrato(
     sin_fichaje = bool(getattr(contrato, 'sin_fichaje', False))
     if sin_fichaje:
         comisiones_vendedor = [cv for cv in comisiones_vendedor if cv.get('rol') != 'fichaje']
+    comisiones_vendedor = _sin_lineas_eliminadas_manual_contrato(comisiones_vendedor, contrato)
     comisiones_fichaje = [cv for cv in comisiones_vendedor if cv.get('rol') == 'fichaje']
     comisiones_total = base_comisiones
     comision_fichaje_total = sum(
