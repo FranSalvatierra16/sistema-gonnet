@@ -5160,22 +5160,37 @@ def listado_entradas(request):
 
     # Solo contratos sin neto persistido necesitan movimientos de caja.
     # Antes se traían TODOS los ingresos "Contrato #" de la sucursal (muy lento).
-    ids_sin_neto = [
-        c.id
+    contratos_sin_neto = [
+        c
         for c in contratos
         if Decimal(str(getattr(c, 'neto_a_posesion_referencia', 0) or 0)) <= 0
     ]
+    ids_sin_neto = [c.id for c in contratos_sin_neto]
     movs_por_contrato = {}
     if ids_sin_neto:
         ids_sin_neto_set = set(ids_sin_neto)
         q_contratos = Q()
         for cid in ids_sin_neto:
             q_contratos |= Q(concepto__icontains=f'Contrato #{cid}')
+        # La primera operación se cobra cerca del alta del contrato: acotar por fecha
+        # evita recorrer toda la caja de la sucursal con LIKE '%Contrato #N%'.
+        fechas_alta = [fecha_obj]
+        for c in contratos_sin_neto:
+            if getattr(c, 'fecha_operacion', None):
+                fechas_alta.append(c.fecha_operacion)
+            if getattr(c, 'fecha_creacion', None):
+                fechas_alta.append(timezone.localtime(c.fecha_creacion).date())
+            if c.fecha_inicio:
+                fechas_alta.append(c.fecha_inicio)
+        desde_movs = min(fechas_alta) - timedelta(days=60)
+        hasta_movs = max(fechas_alta) + timedelta(days=60)
         movs_qs = MovimientoCaja.objects.filter(
             sucursal=request.user.sucursal,
             tipo=TipoMovimientoCajaEnum.INGRESO,
             fecha_eliminacion__isnull=True,
-        ).filter(q_contratos).only(
+            fecha__gte=timezone.make_aware(datetime.combine(desde_movs, time.min)),
+            fecha__lt=timezone.make_aware(datetime.combine(hasta_movs + timedelta(days=1), time.min)),
+        ).filter(q_contratos).order_by().only(
             'concepto',
             'monto_efectivo',
             'monto_cheque',
