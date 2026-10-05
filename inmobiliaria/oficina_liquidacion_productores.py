@@ -1039,7 +1039,11 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         if checked:
             total_prod += monto
 
-    total_gral = total_prod
+    # TOTAL GRAL = suma de la fila TOTAL.: de todas las columnas de productores (sin OFICINA).
+    total_gral = sum(
+        (_d(tot_final[i]) for i, col in enumerate(columnas) if col.get('vid')),
+        _d(0),
+    )
     return {
         'anio': anio,
         'mes': mes,
@@ -1049,7 +1053,6 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         'n_cols': n + 1,
         'filas': filas,
         'productores': productores,
-        # TOTAL GRAL = suma de lo que le queda a cada productor marcado.
         'productores_total': total_prod,
         'productores_filtrados': hay_filtro_total,
         'total_gral': total_gral,
