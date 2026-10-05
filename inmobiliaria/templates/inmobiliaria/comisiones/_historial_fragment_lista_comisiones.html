@@ -145,11 +145,21 @@
                                         <td>
                                             <span class="badge {{ comision.clase_badge_estado_historial }}">{{ comision.label_estado_historial }}</span>
                                         </td>
-                                        <td class="no-print">
+                                        <td class="no-print text-nowrap">
                                             <a href="{% url 'inmobiliaria:detalle_comision' comision.id %}"
                                                class="btn btn-sm btn-outline-primary">
                                                 <i class="fas fa-eye"></i>
                                             </a>
+                                            {% if comision.estado != 'pagada' %}
+                                            <form method="post" action="{% url 'inmobiliaria:eliminar_comision_vendedor' comision.id %}" class="d-inline"
+                                                  onsubmit="return confirm('¿Eliminar esta comisión de ${{ comision.monto_comision|format_price }}? No se vuelve a generar sola.');">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar comisión">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </form>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}
