@@ -731,16 +731,21 @@ def construir_resumen_cierre(sucursal, anio, mes):
                     fecha__lte=fecha_hasta,
                 )
                 .exclude(observaciones__icontains='Vinculado automáticamente')
-                .select_related('movimiento_caja')
+                .select_related('movimiento_caja', 'categoria__parent')
             ):
                 if g.movimiento_caja_id and movimiento_cuenta_en_neto_caja_mapeada(
                     g.movimiento_caja
                 ):
                     continue
                 cid = g.categoria_id
+                monto_manual = Decimal(str(g.monto or 0))
+                raiz_g = getattr(g.categoria, 'parent', None)
+                if raiz_g and _norm_of(raiz_g.nombre) == 'ingresos':
+                    # En Ingresos el bloque resta el neto: la carga manual siempre suma como ingreso.
+                    monto_manual = -abs(monto_manual)
                 totales_por_cat[cid] = (
                     Decimal(str(totales_por_cat.get(cid, 0) or 0))
-                    + Decimal(str(g.monto or 0))
+                    + monto_manual
                 ).quantize(Decimal('0.01'))
     except Exception:
         logger.exception(
