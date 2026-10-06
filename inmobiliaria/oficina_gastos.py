@@ -146,9 +146,10 @@ def _norm_nombre_cat(nombre):
 # id de Concepto → (raíz oficina, subcategoría).
 MAPA_CONCEPTOS_CAJA_A_OFICINA = {
     '130': ('Gastos generales', 'Veraz'),
-    # Concepto 22 de caja (gastos bancarios) → Pago IIBB, sumado a la carga manual de oficina.
-    # Ingresos › Gastos bancarios queda solo con lo cargado en oficina.
-    '22': ('Gastos contables e impuestos', 'Pago IIBB'),
+    # Concepto 22 de caja (gastos bancarios) → Ingresos › Gastos bancarios (ingresos − egresos).
+    '22': ('Ingresos', 'Gastos bancarios'),
+    # Concepto 54 de caja (ingresos brutos) → Pago IIBB, sumado a la carga manual de oficina.
+    '54': ('Gastos contables e impuestos', 'Pago IIBB'),
     # Concepto 19: Comisión Gestión Cobranzas → Honorarios gestión cob.
     '19': ('Ingresos', 'Honorarios gestión cob.'),
     # Concepto 24: ingresos y egresos de caja → Recaudación fondos.
@@ -158,7 +159,8 @@ MAPA_CONCEPTOS_CAJA_A_OFICINA = {
 # Por nombre normalizado del concepto (por si el id difiere entre ambientes).
 MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
     'veraz': ('Gastos generales', 'Veraz'),
-    'gastos bancarios': ('Gastos contables e impuestos', 'Pago IIBB'),
+    'gastos bancarios': ('Ingresos', 'Gastos bancarios'),
+    'ingresos brutos': ('Gastos contables e impuestos', 'Pago IIBB'),
     'comision gestion cobranzas': ('Ingresos', 'Honorarios gestión cob.'),
     'comision gestion cobranza': ('Ingresos', 'Honorarios gestión cob.'),
     'gestion cobranzas': ('Ingresos', 'Honorarios gestión cob.'),
@@ -179,10 +181,10 @@ MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
 }
 
 # Conceptos donde solo lo cargado en caja SIN marcar «gasto de oficina» va a la ruta
-# del mapa (22 → Pago IIBB). Si el movimiento se marcó como gasto de oficina, queda
-# en la categoría elegida (ej. Ingresos › Gastos bancarios). La carga manual en la
+# del mapa (54 → Pago IIBB, 22 → Ingresos › Gastos bancarios). Si el movimiento se
+# marcó como gasto de oficina, queda en la categoría elegida. La carga manual en la
 # subcategoría destino tampoco se guarda en caja con el id del concepto.
-CONCEPTOS_CAJA_SIN_VINCULO_INVERSO = frozenset({'22'})
+CONCEPTOS_CAJA_SIN_VINCULO_INVERSO = frozenset({'22', '54'})
 
 # Solo estos pueden aparecer en medio del texto (ej. "RETIRO VERAZ COLON").
 # El resto (gastos bancarios, boletas…) es match exacto/prefijo: si no, cobros
@@ -565,7 +567,7 @@ def vincular_movimiento_concepto_a_gasto_oficina(
 def _reubicar_gastos_bancarios_mal_categorizados(sucursal, fecha_desde, fecha_hasta):
     """
     Auto-vinculados del concepto 22 que quedaron en mapeos viejos
-    (Gastos generales › Bancos, Ingresos › Gastos bancarios) → ruta actual del 22.
+    (Gastos generales › Bancos, Gastos contables e impuestos › Pago IIBB) → ruta actual del 22.
     """
     from django.db.models import Q
 
@@ -579,6 +581,7 @@ def _reubicar_gastos_bancarios_mal_categorizados(sucursal, fecha_desde, fecha_ha
         CategoriaGastoOficina.objects.filter(sucursal=sucursal)
         .filter(
             Q(parent__nombre__iexact='Gastos generales', nombre__iexact='Bancos')
+            | Q(parent__nombre__iexact='Gastos contables e impuestos', nombre__iexact='Pago IIBB')
             | Q(parent__nombre__iexact='Ingresos', nombre__iexact='Gastos bancarios')
         )
         .exclude(id=cat_destino.id)
@@ -592,13 +595,16 @@ def _reubicar_gastos_bancarios_mal_categorizados(sucursal, fecha_desde, fecha_ha
         fecha__gte=fecha_desde,
         fecha__lte=fecha_hasta,
         movimiento_caja__isnull=False,
-    )
+    ).select_related('movimiento_caja')
     movidos = 0
     for gasto in qs.iterator(chunk_size=100):
         obs = (gasto.observaciones or '')
         if 'Vinculado automáticamente' not in obs:
             continue
         if gasto.categoria_id == cat_destino.id:
+            continue
+        # Pago IIBB también recibe el 54: solo mover lo que vino del 22.
+        if not _movimiento_es_concepto_id_estricto(gasto.movimiento_caja, '22'):
             continue
         gasto.categoria = cat_destino
         gasto.save(update_fields=['categoria'])
