@@ -116,7 +116,7 @@
                 <colgroup>
                     <col class="col-concepto">
                     {% for col in liquidacion.columnas %}
-                    <col>
+                    <col{% if col.es_oficina %} class="col-oficina"{% endif %}>
                     {% endfor %}
                 </colgroup>
                 <thead>
@@ -141,7 +141,7 @@
                                 {% if col.externo %}
                                 <small class="text-muted no-print" title="El básico lo cobra en {{ col.sucursal_nombre }}">en {{ col.sucursal_nombre }}</small>
                                 {% elif col.vid %}
-                                <span class="solo-imprimir">{% if col.basico is not None %}{% if col.basico_no_suma %}<s>$ {{ col.basico|format_price }}</s>{% else %}$ {{ col.basico|format_price }}{% endif %}{% endif %}</span>
+                                <span class="solo-imprimir">{% if col.basico is not None %}{% if col.basico_no_suma %}<s>${{ col.basico|format_price }}</s>{% else %}${{ col.basico|format_price }}{% endif %}{% endif %}</span>
                                 <label class="basico-edit no-print">
                                     <span class="basico-simbolo">$</span>
                                     <input type="text"
@@ -161,7 +161,7 @@
                             {% endfor %}
                         {% else %}
                             {% for c in fila.celdas %}
-                            <td class="celda-num">{% if c is not None %}$ {{ c|format_price }}{% endif %}</td>
+                            <td class="celda-num">{% if c is not None %}${{ c|format_price }}{% endif %}</td>
                             {% endfor %}
                         {% endif %}
                     </tr>
@@ -204,17 +204,17 @@
                             <span>{{ p.nombre }}</span>
                         </label>
                     </td>
-                    <td class="celda-num">$ {{ p.monto|format_price }}</td>
+                    <td class="celda-num">${{ p.monto|format_price }}</td>
                 </tr>
                 {% endfor %}
                 <tr class="fila-espacio"><td colspan="2"></td></tr>
                 <tr class="fila-sep">
                     <td class="celda-label">Productores</td>
-                    <td class="celda-num">$ {{ liquidacion.total_gral|format_price }}</td>
+                    <td class="celda-num">${{ liquidacion.total_gral|format_price }}</td>
                 </tr>
                 <tr class="fila-total-box">
                     <td class="celda-label">Total</td>
-                    <td class="celda-num">$ {{ liquidacion.total_final|format_price }}</td>
+                    <td class="celda-num">${{ liquidacion.total_final|format_price }}</td>
                 </tr>
             </tbody>
         </table>
@@ -450,25 +450,28 @@
         width: 100% !important;
         min-width: 0 !important;
         table-layout: fixed;
-        font-size: 9pt;
+        font-size: 11pt;
     }
-    .tabla-honorarios col.col-concepto { width: 16%; }
+    /* Armado al ancho de la hoja A4 (~740px): OFICINA más ancha por sus montos grandes. */
+    .tabla-honorarios col.col-concepto { width: 14%; }
+    .tabla-honorarios col.col-oficina { width: 13%; }
     .tabla-honorarios th,
     .tabla-honorarios td {
-        padding: 1px 4px;
+        padding: 3px 2px;
         overflow: hidden;
-        font-size: 9pt;
-        line-height: 1.2;
-        border-top-width: 0.5pt;
-        border-left-width: 0.5pt;
+        font-size: 8.5pt;
+        line-height: 1.3;
+        border-top-width: 0.75pt;
+        border-left-width: 0.75pt;
     }
-    .tabla-honorarios tr:last-child td { border-bottom-width: 0.5pt; }
+    .tabla-honorarios tr:last-child td { border-bottom-width: 0.75pt; }
     .tabla-honorarios th:last-child,
-    .tabla-honorarios td:last-child { border-right-width: 0.5pt; }
+    .tabla-honorarios td:last-child { border-right-width: 0.75pt; }
     .tabla-honorarios .celda-label {
         position: static;
         box-shadow: none;
-        font-size: 9pt;
+        font-size: 8.5pt;
+        padding-left: 4px;
         overflow-wrap: break-word;
     }
     .tabla-honorarios .fila-cols th {
@@ -478,10 +481,10 @@
         text-overflow: clip;
     }
     .tabla-honorarios .fila-titulo th {
-        font-size: 10pt;
-        padding: 2px 4px;
+        font-size: 10.5pt;
+        padding: 3px 4px;
     }
-    .tabla-honorarios .fila-vacio td { height: 0.9em; }
+    .tabla-honorarios .fila-vacio td { height: 1.2em; }
     .tabla-honorarios .fila-total-final td {
         border-top: 1.5pt solid #000;
         border-bottom: 1.5pt solid #000;
@@ -493,8 +496,8 @@
     }
     .celda-num {
         white-space: nowrap;
-        font-size: 8.5pt;
-        letter-spacing: -0.01em;
+        font-size: 8pt;
+        letter-spacing: 0;
     }
     .solo-imprimir { display: inline !important; }
     .basico-edit { display: none !important; }
@@ -511,9 +514,10 @@
     .tabla-productores th,
     .tabla-productores td {
         border: none;
-        padding: 0 10px 0 0;
+        padding: 2px 12px 2px 0;
+        font-size: 10pt;
     }
-    .tabla-productores .celda-label { text-transform: uppercase; min-width: 13rem; }
+    .tabla-productores .celda-label { text-transform: uppercase; min-width: 14rem; }
     .tabla-productores .celda-num { min-width: 9rem; font-size: 10pt; }
     .tabla-productores .fila-desmarcada .celda-label,
     .tabla-productores .fila-desmarcada .celda-num { color: #000; font-weight: 700; }
@@ -601,5 +605,5 @@
     });
 })();
 </script>
-{% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.liquidacion-wrap' %}
+{% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.liquidacion-wrap' ancho_hoja='1' %}
 {% endblock %}

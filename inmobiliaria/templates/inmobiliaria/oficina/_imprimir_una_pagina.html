@@ -2,6 +2,8 @@
 Imprime el bloque `selector` en A4 vertical: ajusta al ancho de la hoja y, si casi
 entra en una sola hoja, lo achica para que entre; si es largo, sigue en varias hojas.
 Uso: {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.mi-bloque' %}
+Con ancho_hoja='1' el bloque se arma al ancho de la hoja (no al de la pantalla): la letra
+impresa queda del tamaño del CSS de impresión en vez de achicarse según el monitor.
 {% endcomment %}
 <style>
 @page { size: A4 {{ orientacion|default:'portrait' }}; margin: 7mm; }
@@ -26,6 +28,7 @@ Uso: {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='
 (function () {
     var SELECTOR = '{{ selector|escapejs }}';
     var APAISADA = '{{ orientacion|default:"portrait"|escapejs }}' === 'landscape';
+    var ANCHO_HOJA = '{{ ancho_hoja|default:""|escapejs }}' === '1';
     var PX_MM = 96 / 25.4;
     var MARGEN_MM = 7;
     var ANCHO_PX = ((APAISADA ? 297 : 210) - 2 * MARGEN_MM) * PX_MM;
@@ -46,7 +49,7 @@ Uso: {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='
             n.style.display = 'none';
         });
         el.style.zoom = '';
-        var anchoDiseno = Math.max(ANCHO_PX, Math.min(el.scrollWidth, 1500));
+        var anchoDiseno = ANCHO_HOJA ? ANCHO_PX : Math.max(ANCHO_PX, Math.min(el.scrollWidth, 1500));
         el.style.width = anchoDiseno + 'px';
         var alto = el.scrollHeight;
         var ancho = el.scrollWidth;
