@@ -4194,7 +4194,7 @@ function generarTablaGestionPrecios(precios, propiedadId) {
         
         tablaHTML += `
             <tr data-precio-id="${precio.tipo_precio}" data-precio-db-id="${precio.id || ''}">
-                <td class="fw-bold">${precio.tipo_precio_display}</td>
+                <td class="fw-bold">${precio.tipo_precio_display}${precio.tipo_precio === 'ESTUDIANTE' ? ' <small class="text-muted fw-normal">(precio por mes)</small>' : ''}</td>
                 <td>
                     ${esAdmin ? 
                         `<input type="text" class="form-control precio-input" data-field="precio_toma" value="${window.formatearPrecio ? window.formatearPrecio(precioToma) : precioToma}">` :
@@ -4434,7 +4434,10 @@ function calcularPrecioQuincena(fila) {
     const tipoPrecio = fila.dataset.precioId;
     let dias = 15;
     
-    if (tipoPrecio.includes('ENERO') || tipoPrecio.includes('MARZO') || tipoPrecio.includes('DICIEMBRE')) {
+    if (tipoPrecio === 'ESTUDIANTE') {
+        // Estudiante: el precio cargado es mensual (no se multiplica por días).
+        dias = 1;
+    } else if (tipoPrecio.includes('ENERO') || tipoPrecio.includes('MARZO') || tipoPrecio.includes('DICIEMBRE')) {
         dias = 16;
     } else if (tipoPrecio === 'FINDE_LARGO' || tipoPrecio === 'SEMANA_SANTA' || tipoPrecio === 'CARNAVALES') {
         // Para estos tipos, el precio por quincena debe quedarse vacío
@@ -4793,7 +4796,10 @@ function calcularPrecioQuincena(fila) {
     const tipoPrecio = fila.dataset.precioId;
     let dias = 15;
     
-    if (tipoPrecio.includes('ENERO') || tipoPrecio.includes('MARZO') || tipoPrecio.includes('DICIEMBRE')) {
+    if (tipoPrecio === 'ESTUDIANTE') {
+        // Estudiante: el precio cargado es mensual (no se multiplica por días).
+        dias = 1;
+    } else if (tipoPrecio.includes('ENERO') || tipoPrecio.includes('MARZO') || tipoPrecio.includes('DICIEMBRE')) {
         dias = 16;
     } else if (tipoPrecio === 'FINDE_LARGO' || tipoPrecio === 'SEMANA_SANTA' || tipoPrecio === 'CARNAVALES') {
         // Para estos tipos, el precio por quincena debe quedarse vacío

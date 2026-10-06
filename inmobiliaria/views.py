@@ -9705,6 +9705,7 @@ def estudiantes_disponibilidad_masiva(request):
                         fecha_fin=fecha_fin,
                         es_manual=True
                     )
+                    _reconstruir_historial_tras_disponibilidad(propiedad)
                     propiedades_actualizadas += 1
                     propiedades_exitosas.append({
                         'propiedad_id': propiedad_id,
@@ -9961,6 +9962,7 @@ def agregar_disponibilidad_masiva(request):
                         fecha_fin=fecha_fin,
                         es_manual=True
                     )
+                    _reconstruir_historial_tras_disponibilidad(propiedad)
 
                     propiedades_actualizadas += 1
                     propiedades_exitosas.append({
@@ -10752,8 +10754,17 @@ def _monto_operacion_historial(request, *, reserva=None, contrato=None):
     return f'${format_monto_argentino(d)}'
 
 
+def _reconstruir_historial_tras_disponibilidad(propiedad):
+    try:
+        propiedad.reconstruir_historial_disponibilidad()
+    except Exception:
+        logger.exception('No se pudo reconstruir el historial de disponibilidad de la propiedad %s', propiedad.pk)
+
+
 def ver_historial_disponibilidad(request, propiedad_id):
     propiedad = get_object_or_404(Propiedad, pk=propiedad_id)
+    if propiedad.historial_disponibilidad_desactualizado():
+        _reconstruir_historial_tras_disponibilidad(propiedad)
     # Orden cronológico: más antiguo primero (fecha_inicio ascendente)
     historial_qs = HistorialDisponibilidad.objects.filter(
         propiedad=propiedad

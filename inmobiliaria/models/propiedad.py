@@ -444,6 +444,41 @@ class Propiedad(models.Model):
         """
         return self.historial_disponibilidad.all().order_by('fecha_inicio', 'fecha_fin')
     
+    def reconstruir_historial_disponibilidad(self):
+        """Rehace el historial (libre/reservado/operación) desde disponibilidades manuales y reservas."""
+        reserva = self.reservas.order_by('id').first()
+        if reserva is not None:
+            # reconstruir_historial_cronologico solo usa reserva.propiedad: recorre todas las reservas.
+            with transaction.atomic():
+                reserva.reconstruir_historial_cronologico()
+            return
+        with transaction.atomic():
+            HistorialDisponibilidad.objects.filter(propiedad=self).delete()
+            rangos = []
+            for ini, fin in self.disponibilidades.filter(es_manual=True).order_by('fecha_inicio').values_list(
+                'fecha_inicio', 'fecha_fin'
+            ):
+                if rangos and ini <= rangos[-1][1]:
+                    rangos[-1] = (rangos[-1][0], max(rangos[-1][1], fin))
+                else:
+                    rangos.append((ini, fin))
+            for fecha_inicio, fecha_fin in rangos:
+                HistorialDisponibilidad.objects.create(
+                    propiedad=self, fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, estado='libre'
+                )
+
+    def historial_disponibilidad_desactualizado(self):
+        """True si alguna disponibilidad manual no queda cubierta por el historial guardado."""
+        hist = list(self.historial_disponibilidad.values_list('fecha_inicio', 'fecha_fin'))
+        for ini, fin in self.disponibilidades.filter(es_manual=True).values_list('fecha_inicio', 'fecha_fin'):
+            if ini is None or fin is None:
+                continue
+            cubre_ini = any(h_ini <= ini <= h_fin for h_ini, h_fin in hist)
+            cubre_fin = any(h_ini <= fin <= h_fin for h_ini, h_fin in hist)
+            if not (cubre_ini and cubre_fin):
+                return True
+        return False
+
     def reconstruir_historial_si_necesario(self):
         """
         Reconstruye el historial solo si está vacío o incompleto
