@@ -416,12 +416,12 @@ class MovimientoCaja(models.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Inicializar montos en 0 si son None (después de cargar desde DB)
-        if hasattr(self, 'pk') and self.pk:
-            self.monto_efectivo = self.monto_efectivo or 0
-            self.monto_cheque = self.monto_cheque or 0
-            self.monto_tarjeta = self.monto_tarjeta or 0
-            self.monto_deposito = self.monto_deposito or 0
-            self.monto_dolares = self.monto_dolares or 0
+        if self.pk:
+            # Con .only()/.defer() los campos no cargados no están en __dict__: leerlos
+            # dispara otra consulta que vuelve a pasar por __init__ (recursión infinita).
+            for campo in ('monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito', 'monto_dolares'):
+                if campo in self.__dict__ and self.__dict__[campo] is None:
+                    self.__dict__[campo] = 0
 
     def __str__(self):
         return f"{self.get_tipo_display()} - ${self.monto_total}"
