@@ -380,6 +380,12 @@ class Propiedad(models.Model):
         if not fecha_inicio or not fecha_fin:
             return False
 
+        from inmobiliaria.models import ContratoAlquiler
+        if ContratoAlquiler.queryset_vigentes().filter(
+            propiedad=self, fecha_inicio__lt=fecha_fin, fecha_fin__gt=fecha_inicio
+        ).exists():
+            return False
+
         # ✅ MEJORADO: Verificar cobertura completa con disponibilidades contiguas
         # 1️⃣ Buscar TODAS las disponibilidades que se superponen con el período
         disponibilidades_superpuestas = self.disponibilidades.filter(

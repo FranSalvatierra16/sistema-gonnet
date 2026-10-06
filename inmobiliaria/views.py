@@ -18989,12 +18989,15 @@ def buscar_propiedades(request):
                 reservas_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin
             )
             disponibilidades_superpuestas = disp_por_prop.get(propiedad.id, [])
+            contrato_ocupa = contrato_solapa_rango(
+                contratos_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin
+            )
 
-            # Disponibilidad forzada: aparece para alquilar por día aunque haya reserva.
+            # Disponibilidad forzada: aparece para alquilar por día aunque haya reserva (no si hay operación).
             periodo_forzado, cob_f_ini, cob_f_fin = periodo_cubierto_por_disponibilidad_forzada(
                 disponibilidades_superpuestas, fecha_inicio, fecha_fin
             )
-            if periodo_forzado:
+            if periodo_forzado and not contrato_ocupa:
                 propiedad.disponibilidad_inicio = cob_f_ini
                 propiedad.disponibilidad_fin = cob_f_fin
                 propiedad.estado_reserva = 'disponible'
