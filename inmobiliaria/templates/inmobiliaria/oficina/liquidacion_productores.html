@@ -137,7 +137,7 @@
                         <td class="celda-label{% if fila.label and fila.label == fila.label|upper %} label-fuerte{% endif %}">{{ fila.label }}</td>
                         {% if fila.tipo == 'basico' %}
                             {% for col in liquidacion.columnas %}
-                            <td class="celda-num{% if col.basico_no_suma %} basico-superado{% endif %}">
+                            <td class="celda-num{% if col.vid %} celda-basico{% endif %}{% if col.basico_no_suma %} basico-superado{% endif %}">
                                 {% if col.externo %}
                                 <small class="text-muted no-print" title="El básico lo cobra en {{ col.sucursal_nombre }}">en {{ col.sucursal_nombre }}</small>
                                 {% elif col.vid %}
@@ -442,88 +442,100 @@
     background: #fffef0;
 }
 .solo-imprimir { display: none; }
+/* Impresión: A4 apaisada, tamaños fijos en pt (sin achicar según la pantalla). */
+@page { size: A4 landscape; margin: 8mm; }
 @media print {
+    html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
     .no-print, nav, footer, .navbar { display: none !important; }
-    .liquidacion-wrap { margin: 0; padding: 0; width: 100%; }
+    .main-page-wrapper, .container, .container-fluid {
+        max-width: none !important;
+        width: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .liquidacion-wrap { margin: 0; padding: 0; width: 100%; zoom: 1 !important; }
     .honorarios-sheet { padding: 0; overflow: visible; width: 100%; }
+
     .tabla-honorarios {
         width: 100% !important;
         min-width: 0 !important;
         table-layout: fixed;
-        font-size: 11pt;
+        border-collapse: collapse !important;
+        font-size: 9.5pt;
     }
-    /* Armado al ancho de la hoja A4 (~740px): OFICINA más ancha por sus montos grandes. */
-    .tabla-honorarios col.col-concepto { width: 14%; }
-    .tabla-honorarios col.col-oficina { width: 13%; }
+    .tabla-honorarios col.col-concepto { width: 20%; }
+    .tabla-honorarios col.col-oficina { width: 11%; }
     .tabla-honorarios th,
     .tabla-honorarios td {
-        padding: 3px 2px;
+        border: 0.6pt solid #000 !important;
+        padding: 1.5pt 4pt;
+        font-size: 9.5pt;
+        line-height: 1.2;
         overflow: hidden;
-        font-size: 8.5pt;
-        line-height: 1.3;
-        border-top-width: 0.75pt;
-        border-left-width: 0.75pt;
+        white-space: nowrap;
     }
-    .tabla-honorarios tr:last-child td { border-bottom-width: 0.75pt; }
-    .tabla-honorarios th:last-child,
-    .tabla-honorarios td:last-child { border-right-width: 0.75pt; }
     .tabla-honorarios .celda-label {
         position: static;
         box-shadow: none;
-        font-size: 8.5pt;
-        padding-left: 4px;
-        overflow-wrap: break-word;
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
     .tabla-honorarios .fila-cols th {
-        font-size: 8.5pt;
-        white-space: nowrap;
-        overflow: hidden;
+        text-align: center;
+        font-size: 9.5pt;
         text-overflow: clip;
     }
-    .tabla-honorarios .fila-titulo th {
-        font-size: 10.5pt;
-        padding: 3px 4px;
+    .tabla-honorarios .fila-titulo th.titulo-honorarios {
+        border: none !important;
+        font-size: 11pt;
+        text-align: left;
+        padding-left: 0;
     }
-    .tabla-honorarios .fila-vacio td { height: 1.2em; }
+    .tabla-honorarios .fila-titulo th.titulo-mes { font-size: 11pt; }
+    .tabla-honorarios .fila-vacio td { height: 7pt; padding: 0; }
+    .tabla-honorarios .fila-total td,
+    .tabla-honorarios .fila-total-final td { font-weight: 700; }
     .tabla-honorarios .fila-total-final td {
-        border-top: 1.5pt solid #000;
-        border-bottom: 1.5pt solid #000;
+        border-top: 1.2pt solid #000 !important;
+        border-bottom: 1.2pt solid #000 !important;
     }
-    .tabla-honorarios .fila-basico td.celda-num {
-        background: #e3e3e3;
+    .tabla-honorarios .fila-basico td.celda-basico {
+        background: #e3e3e3 !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
-    .celda-num {
-        white-space: nowrap;
-        font-size: 8pt;
+    .tabla-honorarios .celda-num {
+        text-align: right;
+        font-size: 9.5pt;
         letter-spacing: 0;
     }
     .solo-imprimir { display: inline !important; }
-    .basico-edit { display: none !important; }
-    .basico-no-suma { display: none !important; }
-    .total-gral-wrap { margin-top: 14px; }
+    .basico-edit, .basico-no-suma, .col-sucursal { display: none !important; }
+
+    .total-gral-wrap { margin-top: 8pt; page-break-inside: avoid; break-inside: avoid; }
+    .total-gral-check { font-weight: 700; }
     .total-gral-check input { display: none !important; }
     .tabla-productores {
-        margin-top: 0;
-        margin-left: 4%;
+        margin: 0 0 0 20%;
         min-width: 0;
-        font-size: 10pt;
-        page-break-inside: avoid;
+        width: auto;
+        border-collapse: collapse;
     }
     .tabla-productores th,
     .tabla-productores td {
-        border: none;
-        padding: 2px 12px 2px 0;
+        border: none !important;
+        padding: 1.5pt 14pt 1.5pt 0;
         font-size: 10pt;
+        line-height: 1.25;
+        white-space: nowrap;
     }
-    .tabla-productores .celda-label { text-transform: uppercase; min-width: 14rem; }
-    .tabla-productores .celda-num { min-width: 9rem; font-size: 10pt; }
-    .tabla-productores .fila-desmarcada .celda-label,
-    .tabla-productores .fila-desmarcada .celda-num { color: #000; font-weight: 700; }
-    .tabla-productores .fila-sep .celda-label { text-transform: none; }
-    .tabla-productores .fila-total-box .celda-label { text-transform: none; }
-    .tabla-productores .fila-total-box td.celda-num { border: 1pt solid #000; padding: 1px 6px; }
+    .tabla-productores .celda-label { text-transform: uppercase; width: 60mm; }
+    .tabla-productores .celda-num { text-align: right; width: 40mm; }
+    .tabla-productores .tg-titulo { text-align: right; text-decoration: underline; }
+    .tabla-productores .fila-espacio td { height: 8pt; padding: 0; }
+    .tabla-productores .fila-sep .celda-label,
+    .tabla-productores .fila-total-box .celda-label { text-transform: none; font-weight: 700; }
+    .tabla-productores .fila-total-box td.celda-num { border: 1pt solid #000 !important; padding: 1.5pt 6pt; font-weight: 700; }
     .tabla-productores tr.fila-desmarcada { display: none; }
 }
 </style>
@@ -605,5 +617,4 @@
     });
 })();
 </script>
-{% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.liquidacion-wrap' ancho_hoja='1' %}
 {% endblock %}

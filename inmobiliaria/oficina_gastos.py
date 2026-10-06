@@ -186,6 +186,10 @@ MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
 # subcategoría destino tampoco se guarda en caja con el id del concepto.
 CONCEPTOS_CAJA_SIN_VINCULO_INVERSO = frozenset({'22', '54'})
 
+# En el cierre siempre cuentan como gasto (sin importar si en caja fue ingreso o egreso):
+# 54 suma en Pago IIBB y 22 resta en Ingresos › Gastos bancarios.
+CONCEPTOS_CAJA_SIEMPRE_GASTO = frozenset({'22', '54'})
+
 # Solo estos pueden aparecer en medio del texto (ej. "RETIRO VERAZ COLON").
 # El resto (gastos bancarios, boletas…) es match exacto/prefijo: si no, cobros
 # grandes que mencionan la línea suman el total del movimiento al cierre.
@@ -957,7 +961,9 @@ def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
 
             if total == 0:
                 continue
-            if (mov.tipo or '').strip().upper() == TipoMovimientoCajaEnum.INGRESO:
+            if cid in CONCEPTOS_CAJA_SIEMPRE_GASTO:
+                total = abs(total)
+            elif (mov.tipo or '').strip().upper() == TipoMovimientoCajaEnum.INGRESO:
                 total = -abs(total)
             else:
                 total = abs(total)
