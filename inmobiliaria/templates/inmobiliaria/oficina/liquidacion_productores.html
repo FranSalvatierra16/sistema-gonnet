@@ -121,12 +121,8 @@
                 </colgroup>
                 <thead>
                     <tr class="fila-titulo">
-                        <th colspan="{{ liquidacion.n_cols }}">
-                            <div class="titulo-honorarios">
-                                <span>HONORARIOS</span>
-                                <span>{{ liquidacion.titulo_mes }}</span>
-                            </div>
-                        </th>
+                        <th class="celda-label titulo-honorarios">HONORARIOS</th>
+                        <th colspan="{{ liquidacion.columnas|length }}" class="titulo-mes">{{ liquidacion.titulo_mes }}</th>
                     </tr>
                     <tr class="fila-cols">
                         <th class="celda-label">Concepto</th>
@@ -138,7 +134,7 @@
                 <tbody>
                     {% for fila in liquidacion.filas %}
                     <tr class="fila-{{ fila.tipo }}">
-                        <td class="celda-label">{{ fila.label }}</td>
+                        <td class="celda-label{% if fila.label and fila.label == fila.label|upper %} label-fuerte{% endif %}">{{ fila.label }}</td>
                         {% if fila.tipo == 'basico' %}
                             {% for col in liquidacion.columnas %}
                             <td class="celda-num{% if col.basico_no_suma %} basico-superado{% endif %}">
@@ -184,7 +180,7 @@
         <input type="hidden" name="anio" value="{{ anio }}">
         <input type="hidden" name="accion" value="total_gral">
         <div class="d-flex flex-wrap align-items-center gap-2 mb-2 no-print">
-            <span class="small text-muted">TOTAL GRAL = suma de la fila <strong>TOTAL.:</strong> de todos los productores de la planilla. Abajo, cada productor con lo que le queda; <strong>Total</strong> suma solo los marcados (las filas de Sueldos sin vendedor toman el sueldo pagado). La marca se mantiene al cambiar el mes.</span>
+            <span class="small text-muted">Cada fila de Sueldos muestra el sueldo pagado del mes (Gastos de oficina › Sueldos). <strong>Productores</strong> = suma de la fila <strong>TOTAL.:</strong> de los productores de la planilla. <strong>Total</strong> = filas marcadas + Productores. La marca se mantiene al cambiar el mes.</span>
             <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-tg-todos">Marcar todos</button>
             <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-tg-ninguno">Desmarcar</button>
             <button type="submit" class="btn btn-primary btn-sm">Guardar TOTAL GRAL</button>
@@ -195,8 +191,8 @@
         <table class="tabla-productores">
             <thead>
                 <tr>
-                    <th class="celda-label">TOTAL GRAL</th>
-                    <th class="celda-num">{% if liquidacion.total_gral is not None %}$ {{ liquidacion.total_gral|format_price }}{% endif %}</th>
+                    <th class="celda-label"></th>
+                    <th class="celda-num tg-titulo">TOTAL GRAL</th>
                 </tr>
             </thead>
             <tbody>
@@ -211,13 +207,14 @@
                     <td class="celda-num">$ {{ p.monto|format_price }}</td>
                 </tr>
                 {% endfor %}
+                <tr class="fila-espacio"><td colspan="2"></td></tr>
                 <tr class="fila-sep">
                     <td class="celda-label">Productores</td>
-                    <td class="celda-num"></td>
+                    <td class="celda-num">$ {{ liquidacion.total_gral|format_price }}</td>
                 </tr>
                 <tr class="fila-total-box">
                     <td class="celda-label">Total</td>
-                    <td class="celda-num">$ {{ liquidacion.productores_total|format_price }}</td>
+                    <td class="celda-num">$ {{ liquidacion.total_final|format_price }}</td>
                 </tr>
             </tbody>
         </table>
@@ -321,22 +318,31 @@
     z-index: 3;
     background: #fff;
     box-shadow: 4px 0 6px -4px rgba(0,0,0,.28);
+    font-weight: 400;
+}
+.tabla-honorarios .celda-label.label-fuerte {
+    font-weight: 700;
 }
 .tabla-honorarios thead .celda-label {
     z-index: 4;
 }
-.titulo-honorarios {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 1rem;
-    font-size: 1.15rem;
+.tabla-honorarios .fila-titulo th.titulo-honorarios {
+    border-top: none;
+    border-left: none;
+    box-shadow: none;
     font-weight: 700;
+    text-decoration: underline;
     letter-spacing: 0.04em;
-    padding: 4px 2px;
+    text-align: center;
 }
-.tabla-honorarios .fila-titulo th {
-    border-bottom: none;
+.tabla-honorarios .fila-titulo th.titulo-mes {
+    text-align: center;
+    font-weight: 700;
+    text-decoration: underline;
+    letter-spacing: 0.04em;
+    background: #e3e3e3;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
 .tabla-honorarios .fila-cols th {
     text-align: center;
@@ -399,6 +405,14 @@
     font-weight: 700;
     border: 3px solid #000;
 }
+.tabla-productores .tg-titulo {
+    text-align: center;
+    text-decoration: underline;
+}
+.tabla-productores .fila-espacio td {
+    height: 1rem;
+    border: none;
+}
 .col-sucursal { font-weight: 400; text-transform: none; font-size: 0.75em; }
 .basico-edit { display: flex; justify-content: flex-end; align-items: baseline; gap: 0.2em; margin: 0; }
 .basico-simbolo { flex: 0 0 auto; }
@@ -436,45 +450,76 @@
         width: 100% !important;
         min-width: 0 !important;
         table-layout: fixed;
-        font-size: 8pt;
+        font-size: 9pt;
     }
-    .tabla-honorarios col.col-concepto { width: 18%; }
+    .tabla-honorarios col.col-concepto { width: 16%; }
     .tabla-honorarios th,
     .tabla-honorarios td {
-        padding: 1px 3px;
+        padding: 1px 4px;
         overflow: hidden;
-        font-size: 8pt;
-        line-height: 1.15;
+        font-size: 9pt;
+        line-height: 1.2;
+        border-top-width: 0.5pt;
+        border-left-width: 0.5pt;
     }
+    .tabla-honorarios tr:last-child td { border-bottom-width: 0.5pt; }
+    .tabla-honorarios th:last-child,
+    .tabla-honorarios td:last-child { border-right-width: 0.5pt; }
     .tabla-honorarios .celda-label {
         position: static;
         box-shadow: none;
-        font-size: 8pt;
+        font-size: 9pt;
         overflow-wrap: break-word;
     }
     .tabla-honorarios .fila-cols th {
-        font-size: 7.5pt;
+        font-size: 8.5pt;
         white-space: nowrap;
         overflow: hidden;
-        text-overflow: ellipsis;
+        text-overflow: clip;
     }
-    .titulo-honorarios {
-        font-size: 11pt;
-        padding: 2px 0;
+    .tabla-honorarios .fila-titulo th {
+        font-size: 10pt;
+        padding: 2px 4px;
+    }
+    .tabla-honorarios .fila-vacio td { height: 0.9em; }
+    .tabla-honorarios .fila-total-final td {
+        border-top: 1.5pt solid #000;
+        border-bottom: 1.5pt solid #000;
+    }
+    .tabla-honorarios .fila-basico td.celda-num {
+        background: #e3e3e3;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
     .celda-num {
         white-space: nowrap;
-        font-size: 7.5pt;
-        letter-spacing: -0.02em;
+        font-size: 8.5pt;
+        letter-spacing: -0.01em;
     }
     .solo-imprimir { display: inline !important; }
     .basico-edit { display: none !important; }
+    .basico-no-suma { display: none !important; }
+    .total-gral-wrap { margin-top: 14px; }
     .total-gral-check input { display: none !important; }
     .tabla-productores {
-        margin-top: 12px;
-        font-size: 9pt;
+        margin-top: 0;
+        margin-left: 4%;
+        min-width: 0;
+        font-size: 10pt;
         page-break-inside: avoid;
     }
+    .tabla-productores th,
+    .tabla-productores td {
+        border: none;
+        padding: 0 10px 0 0;
+    }
+    .tabla-productores .celda-label { text-transform: uppercase; min-width: 13rem; }
+    .tabla-productores .celda-num { min-width: 9rem; font-size: 10pt; }
+    .tabla-productores .fila-desmarcada .celda-label,
+    .tabla-productores .fila-desmarcada .celda-num { color: #000; font-weight: 700; }
+    .tabla-productores .fila-sep .celda-label { text-transform: none; }
+    .tabla-productores .fila-total-box .celda-label { text-transform: none; }
+    .tabla-productores .fila-total-box td.celda-num { border: 1pt solid #000; padding: 1px 6px; }
     .tabla-productores tr.fila-desmarcada { display: none; }
 }
 </style>

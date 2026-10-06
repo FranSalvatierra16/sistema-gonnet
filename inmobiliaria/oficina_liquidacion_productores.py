@@ -989,42 +989,15 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     filas_sg = filas_sueldos(sucursal)
     lineas_sueldo = _montos_sueldos_pagados(sucursal, fecha_desde, fecha_hasta)
 
-    # Lo que le queda a cada productor (fila TOTAL.: de su columna).
-    total_por_vid = {
-        col['vid']: _d(tot_final[i])
-        for i, col in enumerate(columnas)
-        if col.get('vid') and not col.get('externo')
-    }
-    faltan = [f['vid'] for f in filas_sg if f.get('vid') and f['vid'] not in total_por_vid]
-    if faltan:
-        vends_faltan = list(
-            Vendedor.objects.filter(id__in=faltan).only(
-                'id', 'sueldo_basico', 'basico_no_suma_si_comisiones_superan'
-            )
-        )
-        basicos_faltan = sueldos_basicos_vigentes(
-            [v.id for v in vends_faltan], anio, mes,
-            {v.id: getattr(v, 'sueldo_basico', None) for v in vends_faltan},
-        )
-        for v in vends_faltan:
-            comis = _d((desglose.get(v.id) or _desglose_vacio())['total'])
-            total_por_vid[v.id], _ = total_a_pagar_productor(
-                basicos_faltan.get(v.id, _d(0)),
-                comis,
-                bool(getattr(v, 'basico_no_suma_si_comisiones_superan', False)),
-            )
-
     guardados_total = ids_total_gral(sucursal)
     hay_filtro_total = bool(guardados_total)
 
+    # Filas de Sueldos: sueldo pagado (sdo + plus) en Gastos de oficina › Sueldos.
+    # Lo que comisionan los productores va aparte, en «Productores».
     productores = []
     total_prod = _d(0)
     for fsg in filas_sg:
-        if fsg.get('vid'):
-            monto = total_por_vid.get(fsg['vid'], _d(0))
-        else:
-            # Filas cargadas a mano (sin vendedor): sueldo pagado en Gastos de oficina › Sueldos.
-            monto = _monto_sueldo_para_fila(fsg, lineas_sueldo)
+        monto = _monto_sueldo_para_fila(fsg, lineas_sueldo)
         if hay_filtro_total:
             checked = fsg['key'] in guardados_total
         else:
@@ -1056,4 +1029,5 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         'productores_total': total_prod,
         'productores_filtrados': hay_filtro_total,
         'total_gral': total_gral,
+        'total_final': total_prod + total_gral,
     }
