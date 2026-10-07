@@ -1434,7 +1434,10 @@ class Precio(models.Model):
         
         # ✅ DECISIÓN: ¿Usar precio automático o manual?
         # Si precio_total es diferente del automático → ES MANUAL → RESPETAR
-        if precio_auto_decimal is not None:
+        if self.tipo_precio == 'ESTUDIANTE' and precio_auto_decimal is not None:
+            # Estudiante: la tarifa es mensual; el total siempre sigue al precio cargado.
+            self.precio_total = precio_automatico
+        elif precio_auto_decimal is not None:
             # Permitir una pequeña diferencia de redondeo (0.01)
             diferencia = abs(precio_total_actual - precio_auto_decimal)
             

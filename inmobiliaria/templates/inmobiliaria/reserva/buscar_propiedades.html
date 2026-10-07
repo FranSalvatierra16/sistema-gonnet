@@ -4460,7 +4460,7 @@ function calcularPrecioQuincena(fila) {
     
     // Aplicar ajuste porcentual
     if (ajuste !== 0) {
-        precioTotal *= (1 + ajuste / 100);
+        precioTotal *= tipoPrecio === 'ESTUDIANTE' ? (1 - ajuste / 100) : (1 + ajuste / 100);
     }
     
     // Solo actualizar si el usuario NO lo editó manualmente
@@ -4822,7 +4822,7 @@ function calcularPrecioQuincena(fila) {
     
     // Aplicar ajuste porcentual
     if (ajuste !== 0) {
-        precioTotal *= (1 + ajuste / 100);
+        precioTotal *= tipoPrecio === 'ESTUDIANTE' ? (1 - ajuste / 100) : (1 + ajuste / 100);
     }
     
     // Solo actualizar si el usuario NO lo editó manualmente
