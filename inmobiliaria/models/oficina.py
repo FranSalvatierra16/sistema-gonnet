@@ -453,6 +453,38 @@ class SueldoBasicoVigencia(models.Model):
         return f'{self.vendedor_id} desde {self.vigente_desde}: {self.monto}'
 
 
+class BasicoNoSumaVigencia(models.Model):
+    """
+    «Si las comisiones superan el básico, no sumar el básico» desde un mes (inclusive).
+    El valor de un mes = la vigencia más reciente con vigente_desde <= 1° de ese mes;
+    sin vigencias rige el tilde de la ficha del vendedor.
+    """
+
+    vendedor = models.ForeignKey(
+        'Vendedor',
+        on_delete=models.CASCADE,
+        related_name='basico_no_suma_vigencias',
+    )
+    vigente_desde = models.DateField(
+        help_text='Primer día del mes desde el que rige.',
+    )
+    activo = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = 'Básico no suma por vigencia'
+        verbose_name_plural = 'Básico no suma por vigencia'
+        ordering = ['vendedor_id', '-vigente_desde']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vendedor', 'vigente_desde'],
+                name='uniq_basico_no_suma_vigencia_vendedor_desde',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.vendedor_id} desde {self.vigente_desde}: {self.activo}'
+
+
 class CuadroHonorariosColumna(models.Model):
     """Vendedores que aparecen como columna en la planilla de honorarios de la sucursal."""
 
@@ -502,6 +534,10 @@ class CuadroHonorariosTotalGral(models.Model):
         blank=True,
         help_text='Fila de Sueldos sin vendedor vinculado (cargada a mano).',
     )
+    # 1° del mes desde el que rige la selección (vacío = desde siempre).
+    # Cada mes usa las filas con el vigente_desde más reciente <= ese mes;
+    # una fila sin vendedor ni categoría marca «listado automático».
+    vigente_desde = models.DateField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Productor en TOTAL GRAL'

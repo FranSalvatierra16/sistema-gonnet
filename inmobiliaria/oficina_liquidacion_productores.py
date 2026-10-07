@@ -6,10 +6,11 @@ import re
 import unicodedata
 
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Max, Q, Sum
 
 from inmobiliaria.decimal_utils import parse_decimal_monto
 from inmobiliaria.models import (
+    BasicoNoSumaVigencia,
     CategoriaGastoOficina,
     ComisionVendedor,
     CuadroHonorariosColumna,
@@ -227,8 +228,36 @@ def guardar_sueldos_basicos_mes(sucursal, anio, mes, post_data):
     return cambiados
 
 
-def guardar_flag_no_suma_basico(sucursal, vendedor_id, activo):
-    """Activa/desactiva 'si las comisiones superan el básico, no sumar el básico'. Devuelve el vendedor o None."""
+def flags_no_suma_vigentes(vendedores, anio, mes):
+    """
+    Tilde «no suma el básico» de cada vendedor para el mes: última vigencia con
+    vigente_desde <= 1° de ese mes. Si no hay, usa el tilde de la ficha.
+    """
+    vendedores = list(vendedores)
+    result = {}
+    if not vendedores:
+        return result
+    corte = primer_dia_mes(anio, mes)
+    filas = (
+        BasicoNoSumaVigencia.objects
+        .filter(vendedor_id__in=[v.id for v in vendedores], vigente_desde__lte=corte)
+        .order_by('vendedor_id', '-vigente_desde')
+        .values_list('vendedor_id', 'activo')
+    )
+    for vid, activo in filas:
+        result.setdefault(vid, bool(activo))
+    for v in vendedores:
+        if v.id not in result:
+            result[v.id] = bool(getattr(v, 'basico_no_suma_si_comisiones_superan', False))
+    return result
+
+
+def guardar_flag_no_suma_basico(sucursal, vendedor_id, activo, anio, mes):
+    """
+    Activa/desactiva 'si las comisiones superan el básico, no sumar el básico'
+    desde el mes indicado en adelante. Los meses anteriores no cambian.
+    Devuelve el vendedor o None.
+    """
     try:
         vid = int(vendedor_id)
     except (TypeError, ValueError):
@@ -237,7 +266,32 @@ def guardar_flag_no_suma_basico(sucursal, vendedor_id, activo):
     if not v:
         return None
     activo = bool(activo)
-    if v.basico_no_suma_si_comisiones_superan != activo:
+    desde = primer_dia_mes(anio, mes)
+    actual = flags_no_suma_vigentes([v], anio, mes)[v.id]
+    if actual == activo:
+        return v
+
+    with transaction.atomic():
+        hay_anterior = BasicoNoSumaVigencia.objects.filter(
+            vendedor=v,
+            vigente_desde__lt=desde,
+        ).exists()
+        if not hay_anterior and desde > FECHA_VIGENCIA_INICIAL:
+            BasicoNoSumaVigencia.objects.create(
+                vendedor=v,
+                vigente_desde=FECHA_VIGENCIA_INICIAL,
+                activo=actual,
+            )
+        BasicoNoSumaVigencia.objects.update_or_create(
+            vendedor=v,
+            vigente_desde=desde,
+            defaults={'activo': activo},
+        )
+        BasicoNoSumaVigencia.objects.filter(
+            vendedor=v,
+            vigente_desde__gt=desde,
+        ).delete()
+
         v.basico_no_suma_si_comisiones_superan = activo
         v.save(update_fields=['basico_no_suma_si_comisiones_superan'])
     return v
@@ -265,6 +319,7 @@ def construir_liquidacion_productores(sucursal, anio, mes):
 
     fallbacks = {v.id: getattr(v, 'sueldo_basico', None) for v in vendedores}
     basicos = sueldos_basicos_vigentes([v.id for v in vendedores], anio, mes, fallbacks)
+    flags = flags_no_suma_vigentes(vendedores, anio, mes)
 
     filas = []
     tot_desglose = _desglose_vacio()
@@ -275,7 +330,7 @@ def construir_liquidacion_productores(sucursal, anio, mes):
         desg = desglose_map.get(v.id) or _desglose_vacio()
         comis = desg['total']
         basico = basicos.get(v.id, Decimal('0.00'))
-        flag = bool(getattr(v, 'basico_no_suma_si_comisiones_superan', False))
+        flag = flags.get(v.id, False)
         total, basico_aplicado = total_a_pagar_productor(basico, comis, flag)
         basico_en_total = basico if basico_aplicado else Decimal('0')
 
@@ -756,10 +811,22 @@ def borrar_columnas_cuadro(sucursal):
     return CuadroHonorariosColumna.objects.filter(sucursal=sucursal).delete()[0]
 
 
-def ids_total_gral(sucursal):
-    """Claves marcadas: 'v-12' (vendedor) o 'c-34' (categoría de Sueldos)."""
+def _filas_total_gral_mes(sucursal, anio, mes):
+    """Selección TOTAL GRAL vigente ese mes (la de vigente_desde más reciente <= mes)."""
+    dia = primer_dia_mes(anio, mes)
+    qs = CuadroHonorariosTotalGral.objects.filter(sucursal=sucursal).filter(
+        Q(vigente_desde__isnull=True) | Q(vigente_desde__lte=dia)
+    )
+    ultima = qs.aggregate(m=Max('vigente_desde'))['m']
+    if ultima:
+        return qs.filter(vigente_desde=ultima)
+    return qs.filter(vigente_desde__isnull=True)
+
+
+def ids_total_gral(sucursal, anio, mes):
+    """Claves marcadas ese mes: 'v-12' (vendedor) o 'c-34' (categoría de Sueldos)."""
     keys = set()
-    for row in CuadroHonorariosTotalGral.objects.filter(sucursal=sucursal).only(
+    for row in _filas_total_gral_mes(sucursal, anio, mes).only(
         'vendedor_id', 'categoria_id'
     ):
         if row.vendedor_id:
@@ -780,8 +847,27 @@ def _parse_clave_total_gral(raw):
     return None
 
 
-def guardar_total_gral(sucursal, vendedor_ids):
-    """Reemplaza quién entra en TOTAL GRAL. Vale para todos los meses."""
+def _reemplazar_total_gral_desde(sucursal, anio, mes, elegidas):
+    """Fija la selección desde el mes en adelante; sin elegidas = listado automático."""
+    dia = primer_dia_mes(anio, mes)
+    with transaction.atomic():
+        CuadroHonorariosTotalGral.objects.filter(
+            sucursal=sucursal, vigente_desde__gte=dia
+        ).delete()
+        filas = [
+            CuadroHonorariosTotalGral(
+                sucursal=sucursal,
+                vendedor_id=fila['vid'],
+                categoria_id=None if fila['vid'] else fila['cid'],
+                vigente_desde=dia,
+            )
+            for fila in elegidas
+        ] or [CuadroHonorariosTotalGral(sucursal=sucursal, vigente_desde=dia)]
+        CuadroHonorariosTotalGral.objects.bulk_create(filas)
+
+
+def guardar_total_gral(sucursal, vendedor_ids, anio, mes):
+    """Quién entra en TOTAL GRAL desde el mes indicado en adelante. Los meses anteriores no cambian."""
     filas_por_key = {f['key']: f for f in filas_sueldos(sucursal)}
     elegidas = []
     vistos = set()
@@ -792,21 +878,13 @@ def guardar_total_gral(sucursal, vendedor_ids):
             continue
         vistos.add(fila['key'])
         elegidas.append(fila)
-    with transaction.atomic():
-        CuadroHonorariosTotalGral.objects.filter(sucursal=sucursal).delete()
-        CuadroHonorariosTotalGral.objects.bulk_create([
-            CuadroHonorariosTotalGral(
-                sucursal=sucursal,
-                vendedor_id=fila['vid'],
-                categoria_id=None if fila['vid'] else fila['cid'],
-            )
-            for fila in elegidas
-        ])
+    _reemplazar_total_gral_desde(sucursal, anio, mes, elegidas)
     return len(elegidas)
 
 
-def borrar_total_gral(sucursal):
-    return CuadroHonorariosTotalGral.objects.filter(sucursal=sucursal).delete()[0]
+def borrar_total_gral(sucursal, anio, mes):
+    """Listado automático desde el mes indicado en adelante."""
+    _reemplazar_total_gral_desde(sucursal, anio, mes, [])
 
 
 def construir_cuadro_honorarios(sucursal, anio, mes):
@@ -830,6 +908,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     locales = [v for v in vendedores if not getattr(v, 'externo', False)]
     fallbacks = {v.id: getattr(v, 'sueldo_basico', None) for v in locales}
     basicos = sueldos_basicos_vigentes([v.id for v in locales], anio, mes, fallbacks)
+    flags = flags_no_suma_vigentes(locales, anio, mes)
     desglose = comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta)
     hon_map, total_fondo, total_cochera = _honorarios_por_etiqueta(
         sucursal, fecha_desde, fecha_hasta
@@ -848,7 +927,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
             'externo': externo,
             'sucursal_nombre': v.sucursal.nombre if externo and v.sucursal_id else '',
             'basico': None if externo else basicos.get(v.id, _d(0)),
-            'no_suma_si_superan': bool(getattr(v, 'basico_no_suma_si_comisiones_superan', False)),
+            'no_suma_si_superan': False if externo else flags.get(v.id, False),
         })
     n = len(columnas)
 
@@ -975,7 +1054,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     tot_final = _sumar_celdas([tot_honorarios, celdas_basico, fila_comis], n)
     for i, col in enumerate(columnas):
         vend = col.get('vendedor')
-        if col.get('externo') or not vend or not getattr(vend, 'basico_no_suma_si_comisiones_superan', False):
+        if col.get('externo') or not vend or not col.get('no_suma_si_superan'):
             continue
         comis = _d(tot_honorarios[i]) + _d(fila_comis[i])
         total, basico_aplicado = total_a_pagar_productor(col.get('basico'), comis, True)
@@ -989,7 +1068,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     filas_sg = filas_sueldos(sucursal)
     lineas_sueldo = _montos_sueldos_pagados(sucursal, fecha_desde, fecha_hasta)
 
-    guardados_total = ids_total_gral(sucursal)
+    guardados_total = ids_total_gral(sucursal, anio, mes)
     hay_filtro_total = bool(guardados_total)
 
     # Filas de Sueldos: sueldo pagado (sdo + plus) en Gastos de oficina › Sueldos.

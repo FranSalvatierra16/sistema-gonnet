@@ -2023,7 +2023,15 @@ def fecha_imputacion_sueldo(fecha_pago):
 
 
 def _fecha_pago_gasto_sueldo(gasto):
+    """
+    Fecha de pago según el movimiento de caja (propio o del gasto pareja del reparto).
+    Sin movimiento devuelve None: gasto.fecha ya es la imputación y reusarla
+    correría el sueldo un mes para atrás en cada pasada.
+    """
     mov = getattr(gasto, 'movimiento_caja', None)
+    if mov is None and getattr(gasto, 'gasto_relacionado_id', None):
+        rel = getattr(gasto, 'gasto_relacionado', None)
+        mov = getattr(rel, 'movimiento_caja', None) if rel is not None else None
     if mov is not None:
         ft = getattr(mov, 'fecha_transferencia', None)
         if ft:
@@ -2035,7 +2043,7 @@ def _fecha_pago_gasto_sueldo(gasto):
             if hasattr(fa, 'date'):
                 return fa.date()
             return fa
-    return getattr(gasto, 'fecha', None)
+    return None
 
 
 def alinear_fecha_sueldo_mes_anterior(gasto):
@@ -2064,10 +2072,14 @@ def reimputar_gastos_sueldo_mes_anterior(sucursal, fecha_desde=None, fecha_hasta
             Q(categoria__nombre__iexact='Sueldos')
             | Q(categoria__parent__nombre__iexact='Sueldos')
         )
-        .select_related('categoria', 'categoria__parent', 'movimiento_caja')
+        .select_related(
+            'categoria', 'categoria__parent', 'movimiento_caja',
+            'gasto_relacionado', 'gasto_relacionado__movimiento_caja',
+        )
     )
     if fecha_desde and fecha_hasta:
         # Incluye pagos del mes siguiente (aún con fecha vieja en el mes de pago).
+        # Los espejos del reparto se buscan por el movimiento del gasto pareja.
         y, m = fecha_hasta.year, fecha_hasta.month
         if m == 12:
             sig_hasta = date(y + 1, 12, 31)
@@ -2082,6 +2094,14 @@ def reimputar_gastos_sueldo_mes_anterior(sucursal, fecha_desde=None, fecha_hasta
             | Q(
                 movimiento_caja__fecha__date__gte=fecha_desde,
                 movimiento_caja__fecha__date__lte=sig_hasta,
+            )
+            | Q(
+                gasto_relacionado__movimiento_caja__fecha_transferencia__gte=fecha_desde,
+                gasto_relacionado__movimiento_caja__fecha_transferencia__lte=sig_hasta,
+            )
+            | Q(
+                gasto_relacionado__movimiento_caja__fecha__date__gte=fecha_desde,
+                gasto_relacionado__movimiento_caja__fecha__date__lte=sig_hasta,
             )
         )
     n = 0

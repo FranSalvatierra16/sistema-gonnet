@@ -1253,33 +1253,36 @@ def oficina_liquidacion_productores(request):
                 'Se muestran todos los productores. La planilla vuelve al listado completo.',
             )
         elif accion == 'total_gral':
-            n = guardar_total_gral(sucursal, request.POST.getlist('total_gral'))
+            n = guardar_total_gral(sucursal, request.POST.getlist('total_gral'), anio, mes)
             if n:
                 messages.success(
                     request,
-                    f'Se marcaron {n} productor{"es" if n != 1 else ""} en TOTAL GRAL. '
-                    'La elección se mantiene al cambiar el mes.',
+                    f'Se marcaron {n} productor{"es" if n != 1 else ""} en TOTAL GRAL '
+                    f'desde {mes:02d}/{anio} en adelante. Los meses anteriores no cambian.',
                 )
             else:
                 messages.info(
                     request,
-                    'No quedó ningún productor marcado en TOTAL GRAL: se listan los que tienen comisión.',
+                    f'No quedó ningún productor marcado en TOTAL GRAL desde {mes:02d}/{anio}: '
+                    'se listan los que tienen comisión.',
                 )
         elif accion == 'total_gral_todos':
-            borrar_total_gral(sucursal)
+            borrar_total_gral(sucursal, anio, mes)
             messages.success(
                 request,
-                'TOTAL GRAL volvió al listado automático (quienes tienen comisión).',
+                f'TOTAL GRAL volvió al listado automático desde {mes:02d}/{anio} en adelante. '
+                'Los meses anteriores no cambian.',
             )
         elif accion == 'flag_no_suma':
             activo = request.POST.get('activo') == '1'
-            v = guardar_flag_no_suma_basico(sucursal, request.POST.get('vid'), activo)
+            v = guardar_flag_no_suma_basico(sucursal, request.POST.get('vid'), activo, anio, mes)
             if v:
                 nombre = f'{(v.nombre or "").strip()} {(v.apellido or "").strip()}'.strip()
                 messages.success(
                     request,
-                    f'{nombre}: si las comisiones superan el básico, '
-                    + ('el básico no se suma.' if activo else 'el básico se suma igual.'),
+                    f'{nombre}: desde {mes:02d}/{anio} en adelante, si las comisiones superan el básico, '
+                    + ('el básico no se suma.' if activo else 'el básico se suma igual.')
+                    + ' Los meses anteriores no cambian.',
                 )
         # Los básicos editados viajan con cualquier botón de guardar de la página.
         cambiados = guardar_sueldos_basicos_mes(sucursal, anio, mes, request.POST)

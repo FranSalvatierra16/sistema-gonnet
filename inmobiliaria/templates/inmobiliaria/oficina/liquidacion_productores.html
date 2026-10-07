@@ -22,7 +22,7 @@
         </div>
     </div>
 
-    <form method="get" class="row g-2 align-items-end mb-3 no-print">
+    <form method="get" class="row g-2 align-items-end mb-3 no-print" id="form-mes">
         <div class="col-auto">
             <label class="form-label small mb-0">Mes</label>
             <select name="mes" class="form-select form-select-sm">
@@ -127,7 +127,7 @@
                     <tr class="fila-cols">
                         <th class="celda-label">Concepto</th>
                         {% for col in liquidacion.columnas %}
-                        <th{% if col.basico_no_suma %} class="col-supera-basico" title="Las comisiones superan el básico"{% endif %}>{{ col.label }}{% if col.externo %}<small class="col-sucursal"> ({{ col.sucursal_nombre }})</small>{% elif col.vid %}<input type="checkbox" class="chk-no-suma no-print" data-vid="{{ col.vid }}" {% if col.no_suma_si_superan %}checked{% endif %} title="Si las comisiones superan el básico, no sumar el básico">{% endif %}</th>
+                        <th{% if col.basico_no_suma %} class="col-supera-basico" title="Las comisiones superan el básico"{% endif %}>{{ col.label }}{% if col.externo %}<small class="col-sucursal"> ({{ col.sucursal_nombre }})</small>{% elif col.vid %}<input type="checkbox" class="chk-no-suma no-print" data-vid="{{ col.vid }}" {% if col.no_suma_si_superan %}checked{% endif %} title="Si las comisiones superan el básico, no sumar el básico (desde este mes en adelante)">{% endif %}</th>
                         {% endfor %}
                     </tr>
                 </thead>
@@ -180,7 +180,7 @@
         <input type="hidden" name="anio" value="{{ anio }}">
         <input type="hidden" name="accion" value="total_gral">
         <div class="d-flex flex-wrap align-items-center gap-2 mb-2 no-print">
-            <span class="small text-muted">Cada fila de Sueldos muestra el sueldo pagado del mes (Gastos de oficina › Sueldos). <strong>Productores</strong> = suma de la fila <strong>TOTAL.:</strong> de los productores de la planilla. <strong>Total</strong> = filas marcadas + Productores. La marca se mantiene al cambiar el mes.</span>
+            <span class="small text-muted">Cada fila de Sueldos muestra el sueldo pagado del mes (Gastos de oficina › Sueldos). <strong>Productores</strong> = suma de la fila <strong>TOTAL.:</strong> de los productores de la planilla. <strong>Total</strong> = filas marcadas + Productores. Al guardar, la marca vale desde este mes en adelante: los meses anteriores no cambian.</span>
             <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-tg-todos">Marcar todos</button>
             <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-tg-ninguno">Desmarcar</button>
             <button type="submit" class="btn btn-primary btn-sm">Guardar TOTAL GRAL</button>
@@ -598,6 +598,15 @@
             function ajustar() { el.size = Math.max(String(el.value || '').length, 3); }
             ajustar();
             el.addEventListener('input', ajustar);
+        });
+    }
+
+    // La planilla siempre es la del mes elegido: si no, se edita el mes que quedó cargado.
+    var formMes = document.getElementById('form-mes');
+    if (formMes) {
+        formMes.querySelectorAll('select').forEach(function (sel) {
+            sel.value = sel.name === 'mes' ? '{{ mes }}' : '{{ anio }}';
+            sel.addEventListener('change', function () { formMes.submit(); });
         });
     }
 
