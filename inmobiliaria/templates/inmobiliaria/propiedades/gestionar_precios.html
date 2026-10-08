@@ -282,9 +282,29 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // Estudiante: un solo precio por mes (sin quincena ni día).
+        function etiquetaEstudiante(input, texto) {
+            let el = input.parentNode.querySelector('.etiqueta-estudiante');
+            if (!texto) {
+                if (el) el.remove();
+                return;
+            }
+            if (!el) {
+                el = document.createElement('small');
+                el.className = 'etiqueta-estudiante text-muted d-block';
+                input.parentNode.appendChild(el);
+            }
+            el.textContent = texto;
+        }
+
         // ✅ Función para manejar el campo precio_total según el tipo
         function actualizarCampoPrecioTotal() {
             const tipoPrecio = selectTipo.value;
+            const esEstudiante = tipoPrecio === 'ESTUDIANTE';
+            inputTotal.style.display = esEstudiante ? 'none' : '';
+            etiquetaEstudiante(inputTotal, esEstudiante ? '—' : '');
+            etiquetaEstudiante(inputPorDia, esEstudiante ? 'por mes' : '');
+            inputPorDia.placeholder = esEstudiante ? 'Precio por mes' : '';
             if (tiposSinQuincena.includes(tipoPrecio)) {
                 // Deshabilitar y vaciar el campo
                 inputTotal.disabled = true;

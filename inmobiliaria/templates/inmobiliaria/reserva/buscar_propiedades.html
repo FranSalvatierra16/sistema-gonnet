@@ -4208,7 +4208,9 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                     }
                 </td>
                 <td>
-                    ${esAdmin ? 
+                    ${precio.tipo_precio === 'ESTUDIANTE' ?
+                        `<span class="text-muted">—</span>${esAdmin ? `<input type="hidden" data-field="precio_total" data-tipo-precio="ESTUDIANTE" value="${window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal}">` : ''}` :
+                    esAdmin ? 
                         `<input type="text" class="form-control precio-input" data-field="precio_total" data-tipo-precio="${precio.tipo_precio}" value="${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? '' : (window.formatearPrecio ? window.formatearPrecio(precioTotal) : precioTotal)}" ${['FINDE_LARGO', 'SEMANA_SANTA', 'CARNAVALES'].includes(precio.tipo_precio) ? 'disabled style="background-color: #f5f5f5; cursor: not-allowed;"' : ''}>` :
                         `<span class="precio-display">$${precioTotal.toLocaleString('es-AR')}</span>`
                     }
@@ -4217,7 +4219,7 @@ function generarTablaGestionPrecios(precios, propiedadId) {
                     ${esAdmin ? 
                         `<input type="text" class="form-control precio-input" data-field="precio_por_dia" value="${window.formatearPrecio ? window.formatearPrecio(precioPorDia) : precioPorDia}">` :
                         `<span class="precio-display">$${precioPorDia.toLocaleString('es-AR')}</span>`
-                    }
+                    }${precio.tipo_precio === 'ESTUDIANTE' ? '<small class="text-muted d-block">por mes</small>' : ''}
                 </td>
                 <td>
                     ${esAdmin ? 

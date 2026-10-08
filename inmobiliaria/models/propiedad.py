@@ -1464,6 +1464,13 @@ class Precio(models.Model):
         kwargs.pop('skip_price_calculation', None)
         super().save(*args, **kwargs)
 
+        # El precio Estudiante es el mensual que se ofrece en Alquileres Invierno.
+        if self.tipo_precio == 'ESTUDIANTE' and self.propiedad_id and self.precio_total:
+            if Decimal(str(self.precio_total)) > 0:
+                AlquilerInvierno.objects.filter(propiedad_id=self.propiedad_id).exclude(
+                    precio_mensual=self.precio_total
+                ).update(precio_mensual=self.precio_total)
+
 class ConceptoPago(models.Model):
     codigo = models.CharField(max_length=10, unique=True)
     nombre = models.CharField(max_length=255)
