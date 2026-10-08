@@ -12113,6 +12113,40 @@ def reactivar_propiedad_invierno(request, propiedad_id):
     es_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     try:
+        from inmobiliaria.models.propiedad import (
+            _contrato_alquiler_es_largo_plazo,
+            largo_plazo_bloquea_invierno,
+        )
+
+        if largo_plazo_bloquea_invierno(propiedad):
+            # Al cargar la ficha se vuelve a desactivar: avisar en vez de simular el alta.
+            contratos = [
+                c for c in ContratoAlquiler.objects.filter(
+                    propiedad=propiedad, estado__in=('reservado', 'activo'),
+                ).order_by('fecha_inicio', 'id')
+                if _contrato_alquiler_es_largo_plazo(c)
+            ]
+            if contratos:
+                detalle = '; '.join(
+                    f'#{c.id} {c.get_estado_display().lower()} '
+                    f'{c.fecha_inicio:%d/%m/%Y} al {c.fecha_fin:%d/%m/%Y}'
+                    if c.fecha_inicio and c.fecha_fin else f'#{c.id} {c.get_estado_display().lower()}'
+                    for c in contratos
+                )
+                error = (
+                    'No se puede reactivar invierno: la propiedad tiene alquiler largo vigente '
+                    f'({detalle}). Rescindí o finalizá esa operación primero.'
+                )
+            else:
+                error = (
+                    'No se puede reactivar invierno: la ficha de 24 meses está reservada u ocupada. '
+                    'Liberala primero.'
+                )
+            if es_ajax:
+                return JsonResponse({'success': False, 'error': error})
+            messages.error(request, error)
+            return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
+
         info_invierno, created = AlquilerInvierno.objects.get_or_create(propiedad=propiedad)
         info_invierno.disponible = True
         info_invierno.estado = 'disponible'
