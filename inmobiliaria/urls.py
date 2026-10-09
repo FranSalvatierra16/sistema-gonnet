@@ -349,6 +349,7 @@ urlpatterns = [
     path('oficina/gastos/', views_oficina.oficina_gastos, name='oficina_gastos'),
     path('oficina/gastos/nuevo/', views_oficina.oficina_gasto_crear, name='oficina_gasto_crear'),
     path('oficina/gastos/<int:gasto_id>/eliminar/', views_oficina.oficina_gasto_eliminar, name='oficina_gasto_eliminar'),
+    path('oficina/gastos/<int:gasto_id>/reciclable/', views_oficina.oficina_gasto_reciclable, name='oficina_gasto_reciclable'),
     path('oficina/categorias/', views_oficina.oficina_categorias, name='oficina_categorias'),
     path('oficina/categorias/nueva/', views_oficina.oficina_categoria_crear, name='oficina_categoria_crear'),
     path('oficina/categorias/<int:categoria_id>/toggle/', views_oficina.oficina_categoria_toggle, name='oficina_categoria_toggle'),

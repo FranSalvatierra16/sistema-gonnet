@@ -805,7 +805,15 @@ def oficina_gastos(request):
             | DQ(vendedor__apellido__icontains=q)
         )
 
+    reciclable_filtro = (request.GET.get('reciclable') or '').strip()
+    if reciclable_filtro == 'si':
+        qs = qs.filter(reciclable=True)
+    elif reciclable_filtro == 'no':
+        qs = qs.filter(reciclable=False)
+
     total = qs.aggregate(t=Sum('monto'))['t'] or Decimal('0')
+    total_reciclables = qs.filter(reciclable=True).aggregate(t=Sum('monto'))['t'] or Decimal('0')
+    total_normales = total - total_reciclables
     gastos = list(qs.order_by('-fecha', '-id')[:500])
     totales_por_categoria = _totales_gastos_por_raiz(qs)
 
@@ -838,6 +846,9 @@ def oficina_gastos(request):
         {
             'gastos': gastos,
             'total': total,
+            'total_normales': total_normales,
+            'total_reciclables': total_reciclables,
+            'reciclable_filtro': reciclable_filtro,
             'totales_por_categoria': sorted(totales_por_categoria.items()),
             'fecha_desde': fecha_desde_s,
             'fecha_hasta': fecha_hasta_s,
@@ -900,6 +911,32 @@ def oficina_gasto_eliminar(request, gasto_id):
     )
     GastoOficina.objects.filter(id__in=ids).delete()
     messages.success(request, 'Gasto eliminado.')
+    return redirect('inmobiliaria:oficina_gastos')
+
+
+@login_required
+@require_POST
+def oficina_gasto_reciclable(request, gasto_id):
+    """Marca / desmarca un gasto como reciclable (también su par del reparto)."""
+    if not _puede_oficina(request.user):
+        return HttpResponseForbidden()
+
+    gasto = get_object_or_404(GastoOficina, id=gasto_id, sucursal=request.user.sucursal)
+    nuevo = not gasto.reciclable
+    ids = {gasto.id}
+    if gasto.gasto_relacionado_id:
+        ids.add(gasto.gasto_relacionado_id)
+    ids.update(
+        GastoOficina.objects.filter(gasto_relacionado_id=gasto.id).values_list('id', flat=True)
+    )
+    GastoOficina.objects.filter(id__in=ids).update(reciclable=nuevo, fecha_modificacion=timezone.now())
+    messages.success(
+        request,
+        'Gasto marcado como reciclable.' if nuevo else 'Gasto desmarcado como reciclable.',
+    )
+    siguiente = (request.POST.get('next') or '').strip()
+    if siguiente.startswith('/') and not siguiente.startswith('//'):
+        return redirect(siguiente)
     return redirect('inmobiliaria:oficina_gastos')
 
 

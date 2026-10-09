@@ -2247,6 +2247,7 @@ def registrar_gasto_oficina_desde_movimiento(
     porcentaje_corrientes=None,
     monto_base=None,
     signo_por_tipo_movimiento=False,
+    reciclable=False,
 ):
     """
     Crea el GastoOficina del movimiento. Si hay reparto Colón/Corrientes,
@@ -2307,6 +2308,7 @@ def registrar_gasto_oficina_desde_movimiento(
             usuario_creacion=usuario,
             porcentaje=Decimal('100') if par else None,
             monto_total=total if par else None,
+            reciclable=bool(reciclable),
         )
 
     pct_colon = Decimal(str(porcentaje_colon))
@@ -2338,6 +2340,7 @@ def registrar_gasto_oficina_desde_movimiento(
         usuario_creacion=usuario,
         porcentaje=pct_local,
         monto_total=total,
+        reciclable=bool(reciclable),
     )
 
     if abs(monto_otra) < Decimal('0.005'):
@@ -2376,6 +2379,7 @@ def registrar_gasto_oficina_desde_movimiento(
         porcentaje=pct_otra,
         monto_total=total,
         gasto_relacionado=gasto_local,
+        reciclable=bool(reciclable),
     )
     gasto_local.gasto_relacionado = gasto_otra
     gasto_local.save(update_fields=['gasto_relacionado', 'fecha_modificacion'])

@@ -15045,6 +15045,7 @@ def _form_post_desde_movimiento(movimiento):
         fp['es_gasto_oficina'] = True
         fp['gasto_oficina_categoria_id'] = str(gasto.categoria_id)
         fp['gasto_oficina_descripcion'] = (gasto.descripcion or '').strip()
+        fp['gasto_oficina_reciclable'] = bool(getattr(gasto, 'reciclable', False))
         fp['gasto_oficina_observaciones'] = _limpiar_notas_reparto_observaciones(
             gasto.observaciones or ''
         )
@@ -15433,6 +15434,7 @@ def nuevo_movimiento(request, numero_caja=None):
             gasto_oficina_vendedor = None
             gasto_oficina_descripcion = ''
             gasto_oficina_observaciones = ''
+            gasto_oficina_reciclable = es_gasto_oficina and request.POST.get('gasto_oficina_reciclable') == '1'
             gasto_oficina_pct_colon = None
             gasto_oficina_pct_corrientes = None
             if es_gasto_oficina:
@@ -15989,6 +15991,7 @@ def nuevo_movimiento(request, numero_caja=None):
                         usuario=request.user,
                         porcentaje_colon=gasto_oficina_pct_colon,
                         porcentaje_corrientes=gasto_oficina_pct_corrientes,
+                        reciclable=gasto_oficina_reciclable,
                     )
                     if (
                         categoria_gasto_es_vale(gasto_oficina_categoria)

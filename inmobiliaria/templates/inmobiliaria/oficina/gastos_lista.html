@@ -37,6 +37,10 @@
             {% endfor %}
         </span>
         {% endif %}
+        <br><span class="small">
+            Gastos normales: <strong>${{ total_normales|format_price }}</strong>
+            · <i class="fas fa-recycle me-1"></i>Gastos reciclables: <strong>${{ total_reciclables|format_price }}</strong>
+        </span>
     </div>
 
     <div class="card shadow-sm mb-3">
@@ -85,6 +89,14 @@
                     <input type="text" name="q" class="form-control form-control-sm" value="{{ q }}"
                            placeholder="Veraz, viáticos…">
                 </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-0">Reciclable</label>
+                    <select name="reciclable" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        <option value="no" {% if reciclable_filtro == 'no' %}selected{% endif %}>Solo normales</option>
+                        <option value="si" {% if reciclable_filtro == 'si' %}selected{% endif %}>Solo reciclables</option>
+                    </select>
+                </div>
                 <div class="col-4 col-md-1">
                     <button type="submit" class="btn btn-primary btn-sm w-100">Filtrar</button>
                 </div>
@@ -113,6 +125,7 @@
                         <td class="small">{{ g.categoria.nombre_ruta }}</td>
                         <td>
                             {{ g.descripcion }}
+                            {% if g.reciclable %}<span class="badge bg-success ms-1"><i class="fas fa-recycle me-1"></i>Reciclable</span>{% endif %}
                             {% if g.porcentaje is not None %}
                             <br><span class="badge bg-secondary">{{ g.porcentaje }}% del total{% if g.monto_total %} (${{ g.monto_total|abs|format_price }}){% endif %}</span>
                             {% endif %}
@@ -140,7 +153,15 @@
                         <td class="text-end fw-semibold {% if g.monto < 0 %}text-success{% else %}text-danger{% endif %}">
                             {% if g.monto < 0 %}-{% endif %}${{ g.monto|abs|format_price }}
                         </td>
-                        <td class="text-end">
+                        <td class="text-end text-nowrap">
+                            <form method="post" action="{% url 'inmobiliaria:oficina_gasto_reciclable' g.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button type="submit" class="btn btn-sm py-0 {% if g.reciclable %}btn-success{% else %}btn-outline-success{% endif %}"
+                                        title="{% if g.reciclable %}Desmarcar reciclable{% else %}Marcar como reciclable{% endif %}">
+                                    <i class="fas fa-recycle"></i>
+                                </button>
+                            </form>
                             {% if not g.movimiento_caja_id %}
                             {% if not g.gasto_relacionado or not g.gasto_relacionado.movimiento_caja_id %}
                             <form method="post" action="{% url 'inmobiliaria:oficina_gasto_eliminar' g.id %}" class="d-inline" onsubmit="return confirm('¿Eliminar este gasto?');">

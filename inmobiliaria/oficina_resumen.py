@@ -818,6 +818,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
     bloque_cierre_tomados = None
     bloque_fondo_oscar = None
     bloque_gastos_oscar = None
+    cats_egresos_ids = set()
 
     raices = CategoriaGastoOficina.objects.filter(
         sucursal=sucursal,
@@ -900,6 +901,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
                 monto = liquidacion_vendedores.get(hijo.vendedor_id, Decimal('0'))
             else:
                 monto = totales_por_cat.get(hijo.id, Decimal('0'))
+                cats_egresos_ids.add(hijo.id)
             # Incluir netos ≠ 0 (ej. Veraz con egresos e ingresos de caja).
             if monto != 0:
                 filas.append({'nombre': hijo.nombre, 'monto': monto})
@@ -979,6 +981,16 @@ def construir_resumen_cierre(sucursal, anio, mes):
         bloque_gastos_oscar = {'titulo': 'GASTOS OSCAR', 'filas': [], 'total': Decimal('0')}
     _separar_ingresos_gastos_fondo_oscar(bloque_fondo_oscar, gastos_deptos_fondo_oscar)
 
+    gastos_reciclables = list(
+        gastos_qs.filter(reciclable=True, categoria_id__in=cats_egresos_ids)
+        .select_related('categoria', 'categoria__parent')
+        .order_by('fecha', 'id')
+    )
+    total_reciclables = sum(
+        (Decimal(str(g.monto or 0)) for g in gastos_reciclables), Decimal('0')
+    ).quantize(Decimal('0.01'))
+    total_egresos_normales = (total_egresos - total_reciclables).quantize(Decimal('0.01'))
+
     saldo = total_ingresos - total_egresos
     total_gral_ofic_fondo_tomados = (
         saldo + bloque_recaudacion['total'] + bloque_cierre_tomados['total']
@@ -1015,6 +1027,9 @@ def construir_resumen_cierre(sucursal, anio, mes):
         'bloques_egresos': bloques_egresos,
         'bloque_ingresos': bloque_ingresos,
         'total_egresos': total_egresos,
+        'total_egresos_normales': total_egresos_normales,
+        'total_reciclables': total_reciclables,
+        'gastos_reciclables': gastos_reciclables,
         'total_ingresos': total_ingresos,
         'saldo': saldo,
         'porcentaje_saldo': porcentaje_saldo,

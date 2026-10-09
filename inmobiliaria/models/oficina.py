@@ -120,6 +120,11 @@ class GastoOficina(models.Model):
         verbose_name='Gasto en la otra sucursal',
         help_text='Par del reparto Colón ↔ Corrientes.',
     )
+    reciclable = models.BooleanField(
+        default=False,
+        verbose_name='Gasto reciclable',
+        help_text='Se informa aparte en el cierre (no cambia los totales).',
+    )
     usuario_creacion = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

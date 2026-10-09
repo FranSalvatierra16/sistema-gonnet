@@ -331,6 +331,11 @@
                                     <div class="col-md-7">
                                         <label class="form-label">Descripción</label>
                                         <input type="text" name="gasto_oficina_descripcion" id="gasto_oficina_descripcion" class="form-control" maxlength="255" placeholder="Ej. Sueldo marzo — administración">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" name="gasto_oficina_reciclable" value="1" id="gasto_oficina_reciclable">
+                                            <label class="form-check-label fw-semibold" for="gasto_oficina_reciclable">Gasto reciclable</label>
+                                            <small class="text-muted d-block">En el cierre se muestra aparte cuánto hay en gastos reciclables.</small>
+                                        </div>
                                     </div>
                                     <div class="col-md-12 d-none" id="bloque_productor_gasto_oficina">
                                         <label class="form-label">Productor / vendedor <span class="text-danger">*</span></label>
@@ -3027,6 +3032,7 @@ $(document).ready(function() {
             $('#es_gasto_oficina').prop('checked', true);
             actualizarModoGastoOficina();
             setVal('#gasto_oficina_descripcion', fp.gasto_oficina_descripcion);
+            $('#gasto_oficina_reciclable').prop('checked', !!fp.gasto_oficina_reciclable);
             setVal('#gasto_oficina_observaciones', fp.gasto_oficina_observaciones);
             if (fp.gasto_oficina_pct_colon != null && fp.gasto_oficina_pct_colon !== '') {
                 $('#gasto_oficina_pct_colon').val(String(fp.gasto_oficina_pct_colon).replace(',', '.'));
