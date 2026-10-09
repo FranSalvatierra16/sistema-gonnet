@@ -1247,12 +1247,16 @@ def oficina_liquidacion_productores(request):
     from inmobiliaria.oficina_liquidacion_productores import (
         borrar_columnas_cuadro,
         borrar_total_gral,
+        cerrar_liquidacion_productores,
+        cierre_liquidacion_productores,
         construir_cuadro_honorarios,
+        cuadro_desde_cierre,
         guardar_columnas_cuadro,
         guardar_flag_no_suma_basico,
         guardar_sueldos_basicos_mes,
         guardar_total_gral,
         opciones_columnas_vendedores,
+        reabrir_liquidacion_productores,
     )
 
     today = timezone.localdate()
@@ -1267,8 +1271,38 @@ def oficina_liquidacion_productores(request):
     except (TypeError, ValueError):
         anio, mes = today.year, today.month
 
+    url_mes = f"{reverse('inmobiliaria:oficina_liquidacion_productores')}?mes={mes}&anio={anio}"
+
     if request.method == 'POST':
         accion = (request.POST.get('accion') or 'basicos').strip()
+        if accion == 'reabrir':
+            if reabrir_liquidacion_productores(sucursal, anio, mes):
+                messages.success(
+                    request,
+                    f'Liquidación de {mes:02d}/{anio} reabierta: vuelve a calcularse con los datos actuales.',
+                )
+            else:
+                messages.info(request, f'La liquidación de {mes:02d}/{anio} no estaba cerrada.')
+            return redirect(url_mes)
+
+        if cierre_liquidacion_productores(sucursal, anio, mes):
+            messages.error(
+                request,
+                f'La liquidación de {mes:02d}/{anio} está cerrada: no se modifica. '
+                'Para cambiarla, primero reabrila.',
+            )
+            return redirect(url_mes)
+
+        if accion == 'cerrar':
+            # Si había básicos editados sin guardar, se guardan antes de la foto.
+            guardar_sueldos_basicos_mes(sucursal, anio, mes, request.POST)
+            cerrar_liquidacion_productores(sucursal, anio, mes, usuario=request.user)
+            messages.success(
+                request,
+                f'Liquidación de {mes:02d}/{anio} cerrada: queda fija hasta que la reabras.',
+            )
+            return redirect(url_mes)
+
         if accion == 'columnas':
             n = guardar_columnas_cuadro(sucursal, request.POST.getlist('columna'), anio, mes)
             if n:
@@ -1335,7 +1369,11 @@ def oficina_liquidacion_productores(request):
             f"{reverse('inmobiliaria:oficina_liquidacion_productores')}?mes={mes}&anio={anio}"
         )
 
-    liquidacion = construir_cuadro_honorarios(sucursal, anio, mes)
+    cierre = cierre_liquidacion_productores(sucursal, anio, mes)
+    if cierre:
+        liquidacion = cuadro_desde_cierre(cierre)
+    else:
+        liquidacion = construir_cuadro_honorarios(sucursal, anio, mes)
     columnas_opts, columnas_filtradas = opciones_columnas_vendedores(sucursal, anio, mes)
     anios_opts = list(range(today.year - 2, today.year + 2))
     meses_opts = list(enumerate(
@@ -1348,6 +1386,7 @@ def oficina_liquidacion_productores(request):
         'inmobiliaria/oficina/liquidacion_productores.html',
         {
             'liquidacion': liquidacion,
+            'cierre': cierre,
             'anio': anio,
             'mes': mes,
             'anios_opts': anios_opts,

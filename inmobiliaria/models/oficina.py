@@ -490,6 +490,48 @@ class BasicoNoSumaVigencia(models.Model):
         return f'{self.vendedor_id} desde {self.vigente_desde}: {self.activo}'
 
 
+class LiquidacionProductoresCierre(models.Model):
+    """
+    Liquidación de productores de un mes cerrada: foto de la planilla y de lo
+    liquidado a cada productor. Mientras exista, el mes se muestra desde la foto
+    y no se modifica; reabrir = borrar el registro.
+    """
+
+    sucursal = models.ForeignKey(
+        'Sucursal',
+        on_delete=models.CASCADE,
+        related_name='liquidaciones_productores_cerradas',
+    )
+    anio = models.PositiveSmallIntegerField()
+    mes = models.PositiveSmallIntegerField()
+    cuadro = models.JSONField(default=dict)
+    totales_vendedores = models.JSONField(
+        default=dict,
+        help_text='vendedor_id → total liquidado (lo que usa el cierre de oficina).',
+    )
+    fecha_cierre = models.DateTimeField(auto_now_add=True)
+    usuario_cierre = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='liquidaciones_productores_cerradas',
+    )
+
+    class Meta:
+        verbose_name = 'Liquidación de productores cerrada'
+        verbose_name_plural = 'Liquidaciones de productores cerradas'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['sucursal', 'anio', 'mes'],
+                name='uniq_liq_productores_cierre_mes',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.sucursal_id} {self.mes:02d}/{self.anio} cerrada'
+
+
 class CuadroHonorariosColumna(models.Model):
     """Vendedores que aparecen como columna en la planilla de honorarios de la sucursal."""
 

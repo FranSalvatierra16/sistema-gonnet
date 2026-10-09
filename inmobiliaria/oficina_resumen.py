@@ -100,7 +100,15 @@ def _totales_liquidacion_vendedores(sucursal, anio, mes):
     Lo liquidado a cada productor en el mes: sueldo básico + comisiones
     (misma regla que Oficina → Liquidación productores, incl. flag «no suma si supera»).
     """
-    from inmobiliaria.oficina_liquidacion_productores import construir_liquidacion_productores
+    from inmobiliaria.oficina_liquidacion_productores import (
+        cierre_liquidacion_productores,
+        construir_liquidacion_productores,
+        totales_vendedores_desde_cierre,
+    )
+
+    cierre = cierre_liquidacion_productores(sucursal, anio, mes)
+    if cierre:
+        return totales_vendedores_desde_cierre(cierre)
 
     data = construir_liquidacion_productores(sucursal, anio, mes)
     out = {}

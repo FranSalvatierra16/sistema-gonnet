@@ -16,6 +16,7 @@ from inmobiliaria.models import (
     CuadroHonorariosColumna,
     CuadroHonorariosTotalGral,
     GastoOficina,
+    LiquidacionProductoresCierre,
     SueldoBasicoVigencia,
     Vendedor,
 )
@@ -1110,3 +1111,80 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         'total_gral': total_gral,
         'total_final': total_prod + total_gral,
     }
+
+
+def _a_json(val):
+    """Decimal → {'$d': '...'} para poder restaurarlo tal cual desde JSONField."""
+    if isinstance(val, Decimal):
+        return {'$d': str(val)}
+    if isinstance(val, dict):
+        # El objeto Vendedor no se guarda: la planilla usa vid / label.
+        return {k: _a_json(v) for k, v in val.items() if k != 'vendedor'}
+    if isinstance(val, (list, tuple)):
+        return [_a_json(v) for v in val]
+    if isinstance(val, date):
+        return val.isoformat()
+    return val
+
+
+def _desde_json(val):
+    if isinstance(val, dict):
+        if set(val.keys()) == {'$d'}:
+            return Decimal(val['$d'])
+        return {k: _desde_json(v) for k, v in val.items()}
+    if isinstance(val, list):
+        return [_desde_json(v) for v in val]
+    return val
+
+
+def cierre_liquidacion_productores(sucursal, anio, mes):
+    if not sucursal:
+        return None
+    return (
+        LiquidacionProductoresCierre.objects.filter(sucursal=sucursal, anio=anio, mes=mes)
+        .select_related('usuario_cierre')
+        .first()
+    )
+
+
+def cuadro_desde_cierre(cierre):
+    return _desde_json(cierre.cuadro or {})
+
+
+def totales_vendedores_desde_cierre(cierre):
+    return {
+        int(vid): Decimal(str(monto))
+        for vid, monto in (cierre.totales_vendedores or {}).items()
+    }
+
+
+@transaction.atomic
+def cerrar_liquidacion_productores(sucursal, anio, mes, usuario=None):
+    """Guarda la foto del mes. Si ya estaba cerrada, la deja como está."""
+    existente = cierre_liquidacion_productores(sucursal, anio, mes)
+    if existente:
+        return existente, False
+    cuadro = construir_cuadro_honorarios(sucursal, anio, mes)
+    liq = construir_liquidacion_productores(sucursal, anio, mes)
+    totales = {}
+    for fila in liq.get('filas') or ():
+        v = fila.get('vendedor')
+        monto = _d(fila.get('total'))
+        if v and monto != 0:
+            totales[str(v.id)] = str(monto)
+    cierre = LiquidacionProductoresCierre.objects.create(
+        sucursal=sucursal,
+        anio=anio,
+        mes=mes,
+        cuadro=_a_json(cuadro),
+        totales_vendedores=totales,
+        usuario_cierre=usuario if getattr(usuario, 'pk', None) else None,
+    )
+    return cierre, True
+
+
+def reabrir_liquidacion_productores(sucursal, anio, mes):
+    borrados, _ = LiquidacionProductoresCierre.objects.filter(
+        sucursal=sucursal, anio=anio, mes=mes
+    ).delete()
+    return borrados > 0

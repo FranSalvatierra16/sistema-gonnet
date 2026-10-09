@@ -16,7 +16,26 @@
             </p>
         </div>
         <div class="d-flex gap-2">
+            {% if cierre %}
+            <form method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" class="d-inline"
+                  onsubmit="return confirm('¿Reabrir la liquidación de {{ mes|stringformat:'02d' }}/{{ anio }}? Vuelve a calcularse con los datos actuales.');">
+                {% csrf_token %}
+                <input type="hidden" name="mes" value="{{ mes }}">
+                <input type="hidden" name="anio" value="{{ anio }}">
+                <input type="hidden" name="accion" value="reabrir">
+                <button type="submit" class="btn btn-warning btn-sm"><i class="fas fa-lock-open me-1"></i>Reabrir liquidación</button>
+            </form>
+            {% else %}
             <button type="submit" form="form-basicos" class="btn btn-primary btn-sm">Guardar básicos</button>
+            <form method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" class="d-inline"
+                  onsubmit="return confirm('¿Cerrar la liquidación de {{ mes|stringformat:'02d' }}/{{ anio }}? Queda fija y no se modifica hasta que la reabras.');">
+                {% csrf_token %}
+                <input type="hidden" name="mes" value="{{ mes }}">
+                <input type="hidden" name="anio" value="{{ anio }}">
+                <input type="hidden" name="accion" value="cerrar">
+                <button type="submit" class="btn btn-success btn-sm"><i class="fas fa-lock me-1"></i>Cerrar liquidación</button>
+            </form>
+            {% endif %}
             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">Imprimir</button>
             <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
         </div>
@@ -44,6 +63,15 @@
         </div>
     </form>
 
+    {% if cierre %}
+    <div class="alert alert-success py-2 mb-3 no-print">
+        <i class="fas fa-lock me-1"></i>
+        <strong>Liquidación cerrada</strong> el {{ cierre.fecha_cierre|date:"d/m/Y H:i" }}{% if cierre.usuario_cierre %} por {{ cierre.usuario_cierre }}{% endif %}.
+        Se muestra tal como quedó al cerrar y no se modifica (tampoco en el cierre de oficina). Para cambiarla, reabrila.
+    </div>
+    {% endif %}
+
+    {% if not cierre %}
     <div class="card shadow-sm mb-3 no-print columnas-card">
         <div class="card-body py-3">
             <form method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" id="form-columnas">
@@ -104,6 +132,7 @@
             {% endif %}
         </div>
     </div>
+    {% endif %}
 
     <form id="form-basicos" method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}">
         {% csrf_token %}
@@ -127,7 +156,7 @@
                     <tr class="fila-cols">
                         <th class="celda-label">Concepto</th>
                         {% for col in liquidacion.columnas %}
-                        <th{% if col.basico_no_suma %} class="col-supera-basico" title="Las comisiones superan el básico"{% endif %}>{{ col.label }}{% if col.externo %}<small class="col-sucursal"> ({{ col.sucursal_nombre }})</small>{% elif col.vid %}<input type="checkbox" class="chk-no-suma no-print" data-vid="{{ col.vid }}" {% if col.no_suma_si_superan %}checked{% endif %} title="Si las comisiones superan el básico, no sumar el básico (desde este mes en adelante)">{% endif %}</th>
+                        <th{% if col.basico_no_suma %} class="col-supera-basico" title="Las comisiones superan el básico"{% endif %}>{{ col.label }}{% if col.externo %}<small class="col-sucursal"> ({{ col.sucursal_nombre }})</small>{% elif col.vid and not cierre %}<input type="checkbox" class="chk-no-suma no-print" data-vid="{{ col.vid }}" {% if col.no_suma_si_superan %}checked{% endif %} title="Si las comisiones superan el básico, no sumar el básico (desde este mes en adelante)">{% endif %}</th>
                         {% endfor %}
                     </tr>
                 </thead>
@@ -141,7 +170,8 @@
                                 {% if col.externo %}
                                 <small class="text-muted no-print" title="El básico lo cobra en {{ col.sucursal_nombre }}">en {{ col.sucursal_nombre }}</small>
                                 {% elif col.vid %}
-                                <span class="solo-imprimir">{% if col.basico is not None %}{% if col.basico_no_suma %}<s>${{ col.basico|format_price }}</s>{% else %}${{ col.basico|format_price }}{% endif %}{% endif %}</span>
+                                <span class="{% if not cierre %}solo-imprimir{% endif %}">{% if col.basico is not None %}{% if col.basico_no_suma %}<s>${{ col.basico|format_price }}</s>{% else %}${{ col.basico|format_price }}{% endif %}{% endif %}</span>
+                                {% if not cierre %}
                                 <label class="basico-edit no-print">
                                     <span class="basico-simbolo">$</span>
                                     <input type="text"
@@ -151,6 +181,7 @@
                                            autocomplete="off"
                                            value="{% if col.basico is not None %}{{ col.basico|format_price }}{% endif %}">
                                 </label>
+                                {% endif %}
                                 {% if col.basico_no_suma %}
                                 <small class="basico-no-suma" title="Las comisiones superan el básico: no se suma al total.">no suma (comisiones superan el básico)</small>
                                 {% elif col.comisiones_no_suman %}
@@ -169,9 +200,11 @@
                 </tbody>
             </table>
         </div>
+        {% if not cierre %}
         <div class="d-flex justify-content-end mt-2 no-print">
             <button type="submit" class="btn btn-primary btn-sm">Guardar básicos</button>
         </div>
+        {% endif %}
     </form>
 
     <form id="form-total-gral" method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" class="total-gral-wrap">
@@ -179,7 +212,7 @@
         <input type="hidden" name="mes" value="{{ mes }}">
         <input type="hidden" name="anio" value="{{ anio }}">
         <input type="hidden" name="accion" value="total_gral">
-        <div class="d-flex flex-wrap align-items-center gap-2 mb-2 no-print">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2 no-print{% if cierre %} d-none{% endif %}">
             <span class="small text-muted">Cada fila de Sueldos muestra el sueldo pagado del mes (Gastos de oficina › Sueldos). <strong>Productores</strong> = suma de la fila <strong>TOTAL.:</strong> de los productores de la planilla. <strong>Total</strong> = filas marcadas + Productores. Al guardar, la marca vale desde este mes en adelante: los meses anteriores no cambian.</span>
             <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-tg-todos">Marcar todos</button>
             <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-tg-ninguno">Desmarcar</button>
@@ -200,7 +233,7 @@
                 <tr class="{% if not p.checked %}fila-desmarcada{% endif %}">
                     <td class="celda-label">
                         <label class="total-gral-check">
-                            <input type="checkbox" name="total_gral" value="{{ p.key }}" {% if p.checked %}checked{% endif %}>
+                            <input type="checkbox" name="total_gral" value="{{ p.key }}" {% if p.checked %}checked{% endif %}{% if cierre %} disabled{% endif %}>
                             <span>{{ p.nombre }}</span>
                         </label>
                     </td>
