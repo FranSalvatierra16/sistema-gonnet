@@ -33512,6 +33512,11 @@ def _eliminar_movimiento_y_anexos(movimiento, eliminado_por=None):
         Recibo.objects.filter(movimiento_caja=movimiento).delete()
     except Exception:
         pass
+    # Carátula confirmada: los honorarios quedan congelados (se desvinculan, no se borran).
+    ComisionVendedor.objects.filter(movimiento_caja=movimiento).filter(
+        Q(reserva__estado_confirmacion_caratula='confirmada')
+        | Q(contrato__estado_confirmacion_caratula='confirmada')
+    ).update(movimiento_caja=None)
     ComisionVendedor.objects.filter(movimiento_caja=movimiento).delete()
 
     movimiento.fecha_eliminacion = timezone.now()

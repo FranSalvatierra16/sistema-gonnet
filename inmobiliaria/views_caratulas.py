@@ -941,6 +941,38 @@ def _procesar_anular_operacion_reserva_caratula(request, reserva):
         return False
 
 
+ACCIONES_HONORARIOS_CARATULA = (
+    'agregar_productor_caratula',
+    'quitar_productor_caratula',
+    'guardar_participaciones_caratula',
+    'save_fechas_comision_caratula',
+    'eliminar_fichaje_caratula',
+    'restaurar_fichaje_caratula',
+    'save_comisiones_caratula',
+)
+
+MSG_HONORARIOS_CARATULA_CERRADA = (
+    'La carátula está confirmada (cerrada): sus honorarios y comisiones no se modifican. '
+    'Para cambiarlos, primero desconfirmá la carátula.'
+)
+
+
+def _caratula_confirmada(obj):
+    return (getattr(obj, 'estado_confirmacion_caratula', None) or '') == 'confirmada'
+
+
+def _bloquear_honorarios_caratula_cerrada(request, obj):
+    """True si el POST intenta tocar honorarios/comisiones de una carátula confirmada."""
+    from django.contrib import messages
+
+    if request.method != 'POST' or request.POST.get('action') not in ACCIONES_HONORARIOS_CARATULA:
+        return False
+    if not _caratula_confirmada(obj):
+        return False
+    messages.error(request, MSG_HONORARIOS_CARATULA_CERRADA)
+    return True
+
+
 def _procesar_confirmar_operacion_caratula(request, reserva=None, contrato=None):
     from django.contrib import messages
 
@@ -1600,8 +1632,10 @@ def _guardar_caratula_reserva(request, reserva):
             raise ValueError('Los montos de liquidación no pueden ser negativos.')
         return val.quantize(Decimal('0.01'))
 
+    honorarios_cerrados = _caratula_confirmada(reserva)
+
     try:
-        if 'liq_monto_propietario' in request.POST:
+        if 'liq_monto_propietario' in request.POST and not honorarios_cerrados:
             from inmobiliaria.liquidacion_operacion import liquidaciones_activas_reserva
 
             tiene_liqs = bool(liquidaciones_activas_reserva(reserva))
@@ -1673,6 +1707,15 @@ def _guardar_caratula_reserva(request, reserva):
                 'guardar_caratula_reserva: error al actualizar historial reserva_id=%s',
                 reserva.id,
             )
+
+    if honorarios_cerrados:
+        messages.info(
+            request,
+            'Carátula confirmada: se guardaron los datos, pero los honorarios y comisiones '
+            'no se modificaron. Para cambiarlos, primero desconfirmá la carátula.',
+        )
+        messages.success(request, 'Carátula actualizada correctamente.')
+        return True
 
     comisiones = list(
         ComisionVendedor.objects.filter(reserva=reserva).exclude(estado='cancelada')
@@ -1829,6 +1872,15 @@ def _guardar_caratula_contrato(request, contrato):
         _alinear_vencimientos_cuotas_contrato(contrato)
 
     _set_montos_override_contrato_caratula(request, contrato.id, senia=senia)
+
+    if _caratula_confirmada(contrato):
+        messages.info(
+            request,
+            'Carátula confirmada: se guardaron los datos, pero los honorarios y comisiones '
+            'no se modificaron. Para cambiarlos, primero desconfirmá la carátula.',
+        )
+        messages.success(request, 'Carátula de contrato actualizada.')
+        return True
 
     liq = _liquidacion_contrato(contrato)
     com_loc = parse_decimal_monto(request.POST.get('comision_locador', '0'))
@@ -4237,6 +4289,9 @@ def caratula_reserva(request, reserva_id):
             return redirect(_url_lista_caratulas_desde_request(request))
         reserva.refresh_from_db()
 
+    if _bloquear_honorarios_caratula_cerrada(request, reserva):
+        return _redirect_caratula_con_filtros('inmobiliaria:caratula_reserva', reserva_id, request)
+
     if request.method == 'POST' and request.POST.get('action') in (
         'agregar_productor_caratula',
         'quitar_productor_caratula',
@@ -4580,6 +4635,8 @@ def caratula_contrato(request, contrato_id):
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
         if action == 'desconfirmar_operacion_caratula':
             _procesar_desconfirmar_operacion_caratula(request, contrato=contrato)
+            return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
+        if _bloquear_honorarios_caratula_cerrada(request, contrato):
             return _redirect_caratula_con_filtros('inmobiliaria:caratula_contrato', contrato_id, request)
         if action in (
             'agregar_productor_caratula',
