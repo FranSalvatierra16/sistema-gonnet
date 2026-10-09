@@ -71,6 +71,28 @@
                 <div class="resumen-total-grande bg-warning text-center py-2 fw-bold mt-2">
                     TOTAL EGRESOS: ${{ total_egresos|format_price }}
                 </div>
+                <div class="resumen-bloque border mt-2 p-2">
+                    <div class="d-flex justify-content-between">
+                        <span>Gastos normales</span>
+                        <span class="fw-semibold">${{ total_egresos_normales|format_price }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span><i class="fas fa-recycle text-success me-1"></i>Gastos reciclables</span>
+                        <span class="fw-semibold text-success">${{ total_reciclables|format_price }}</span>
+                    </div>
+                    {% if gastos_reciclables %}
+                    <table class="table table-sm table-borderless resumen-tabla mt-1 mb-0 small">
+                        <tbody>
+                            {% for g in gastos_reciclables %}
+                            <tr>
+                                <td class="ps-3">{{ g.fecha|date:"d/m" }} · {{ g.categoria.nombre_ruta }} — {{ g.descripcion }}</td>
+                                <td class="text-end">${{ g.monto|format_price }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% endif %}
+                </div>
             </div>
 
             <div class="col-lg-5">
@@ -104,6 +126,10 @@
                     <div class="d-flex justify-content-between mb-1">
                         <span>EGRESOS</span>
                         <span class="text-danger fw-semibold">${{ total_egresos|format_price }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1 small text-muted ps-3">
+                        <span>normales / reciclables</span>
+                        <span>${{ total_egresos_normales|format_price }} / ${{ total_reciclables|format_price }}</span>
                     </div>
                     <div class="d-flex justify-content-between resumen-saldo bg-info-subtle px-2 py-2 mt-2 fw-bold">
                         <span>SALDO</span>
