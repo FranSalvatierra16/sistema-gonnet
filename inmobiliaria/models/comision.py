@@ -463,7 +463,7 @@ def _sincronizar_comisiones_fichaje_reserva(reserva):
     Alinea líneas de fichaje al fichador actual de la propiedad.
     Deja una sola línea activa por reserva (no una por cada cobro de caja).
     """
-    if not reserva:
+    if not reserva or caratula_honorarios_cerrados(reserva=reserva):
         return
     prop = getattr(reserva, 'propiedad', None)
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer' if prop else 'primer'
@@ -819,7 +819,9 @@ def asegurar_comisiones_movimiento_reserva(reserva, movimiento_caja, honorarios_
     """
     Registra comisiones faltantes para un movimiento de caja de una reserva. Idempotente.
     """
-    if not reserva or not movimiento_caja or not iter_productores_reserva(reserva):
+    if not reserva or not movimiento_caja or caratula_honorarios_cerrados(reserva=reserva):
+        return []
+    if not iter_productores_reserva(reserva):
         return []
 
     if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
@@ -887,7 +889,9 @@ def asegurar_comisiones_reserva(reserva, movimientos_caja=None, honorarios_monto
     Si no hay movimientos (pago marcado sin caja vinculada), genera productor/fichaje
     sobre el precio_total en alquileres por día.
     """
-    if not reserva or not iter_productores_reserva(reserva):
+    if not reserva or caratula_honorarios_cerrados(reserva=reserva):
+        return []
+    if not iter_productores_reserva(reserva):
         return []
 
     if getattr(reserva, 'eliminada', False) or getattr(reserva, 'estado', None) == 'cancelada':
@@ -965,6 +969,8 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
         return []
 
     if getattr(contrato, 'estado', None) == 'rescindido':
+        return []
+    if caratula_honorarios_cerrados(contrato=contrato):
         return []
 
     prop = contrato.propiedad
@@ -1103,7 +1109,7 @@ def registrar_comisiones_honorarios_contrato(contrato, honorarios_monto, movimie
 
 def asegurar_comisiones_contrato(contrato, honorarios_monto=None, movimiento_caja=None):
     """Registra comisiones de fichaje/productor para un contrato. Idempotente."""
-    if not contrato:
+    if not contrato or caratula_honorarios_cerrados(contrato=contrato):
         return []
     if honorarios_monto is None:
         honorarios_monto = Decimal('0')
@@ -1114,6 +1120,19 @@ def asegurar_comisiones_contrato(contrato, honorarios_monto=None, movimiento_caj
     return registrar_comisiones_honorarios_contrato(
         contrato, honorarios_monto, movimiento_caja=movimiento_caja
     )
+
+
+def caratula_honorarios_cerrados(reserva=None, contrato=None):
+    """
+    Carátula confirmada (cerrada) con comisiones ya generadas: sus honorarios y
+    comisiones quedan congelados. Para modificarlos hay que desconfirmar la carátula.
+    Sin comisiones todavía se permite generarlas una vez.
+    """
+    obj = reserva or contrato
+    if not obj or (getattr(obj, 'estado_confirmacion_caratula', None) or '') != 'confirmada':
+        return False
+    filtro = {'reserva': reserva} if reserva else {'contrato': contrato}
+    return ComisionVendedor.objects.filter(**filtro).exclude(estado='cancelada').exists()
 
 
 def _comision_acreditada(comision):
@@ -1649,6 +1668,8 @@ def lista_productores_operacion(*, reserva=None, contrato=None):
 
 def resincronizar_comisiones_productor_reserva(reserva, movimientos_caja, vendedor_id=None):
     """Regenera comisiones de productor(es) tras cambios en la carátula."""
+    if caratula_honorarios_cerrados(reserva=reserva):
+        return
     if vendedor_id is not None:
         _eliminar_comisiones_productor_reserva(reserva, vendedor_id=vendedor_id)
     else:
@@ -1659,6 +1680,8 @@ def resincronizar_comisiones_productor_reserva(reserva, movimientos_caja, vended
 def resincronizar_comisiones_productor_contrato(
     contrato, honorarios_monto=None, movimiento_caja=None, vendedor_id=None
 ):
+    if caratula_honorarios_cerrados(contrato=contrato):
+        return
     if vendedor_id is not None:
         _eliminar_comisiones_productor_contrato(contrato, vendedor_id=vendedor_id)
     else:
