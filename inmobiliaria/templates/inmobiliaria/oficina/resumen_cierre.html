@@ -71,49 +71,6 @@
                 <div class="resumen-total-grande bg-warning text-center py-2 fw-bold mt-2">
                     TOTAL EGRESOS: ${{ total_egresos|format_price }}
                 </div>
-                <div class="resumen-bloque border mt-2 p-2">
-                    <div class="d-flex justify-content-between">
-                        <span>Gastos normales</span>
-                        <span class="fw-semibold">${{ total_egresos_normales|format_price }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <span><i class="fas fa-recycle text-success me-1"></i>Gastos reciclables de oficina</span>
-                        <span class="fw-semibold text-success">${{ total_reciclables|format_price }}</span>
-                    </div>
-                    {% if gastos_reciclables %}
-                    <table class="table table-sm table-borderless resumen-tabla mt-1 mb-0 small">
-                        <tbody>
-                            {% for g in gastos_reciclables %}
-                            <tr>
-                                <td class="ps-3">{{ g.fecha|date:"d/m" }} · {{ g.categoria.nombre_ruta }} — {{ g.descripcion }}</td>
-                                <td class="text-end">${{ g.monto|format_price }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                    {% endif %}
-                    <div class="d-flex justify-content-between border-top mt-2 pt-1">
-                        <span><i class="fas fa-recycle text-success me-1"></i>Otros gastos reciclables (caja, no oficina)</span>
-                        <span class="fw-semibold text-success">${{ total_movs_reciclables|format_price }}</span>
-                    </div>
-                    {% if movs_reciclables %}
-                    <table class="table table-sm table-borderless resumen-tabla mt-1 mb-0 small">
-                        <tbody>
-                            {% for m in movs_reciclables %}
-                            <tr>
-                                <td class="ps-3">{{ m.fecha|date:"d/m" }} · Mov. #{{ m.id }} — {{ m.concepto|truncatechars:70 }}</td>
-                                <td class="text-end">{% if m.dolares %}U$S {{ m.dolares|format_price }}{% else %}${{ m.monto|format_price }}{% endif %}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                    {% endif %}
-                    <div class="d-flex justify-content-between border-top mt-2 pt-1 fw-bold">
-                        <span>Total reciclables</span>
-                        <span class="text-success">${{ total_reciclables_general|format_price }}</span>
-                    </div>
-                    <div class="small text-muted">Los otros gastos reciclables no forman parte de los egresos de oficina: se informan aparte.</div>
-                </div>
             </div>
 
             <div class="col-lg-5">
