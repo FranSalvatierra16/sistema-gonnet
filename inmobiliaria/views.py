@@ -19098,9 +19098,18 @@ def buscar_propiedades(request):
                 if c.fecha_inicio <= fecha_disponible_hasta
                 and c.fecha_fin > fecha_disponible_desde
             ]
-            if candidatos_contrato:
-                contrato_corta = min(candidatos_contrato, key=lambda c: c.fecha_inicio)
-                fecha_disponible_hasta = min(fecha_disponible_hasta, contrato_corta.fecha_inicio)
+            # Contrato ya en curso al inicio: la ficha queda libre desde su fin;
+            # contrato que empieza después: corta el «hasta».
+            previos = [c for c in candidatos_contrato if c.fecha_inicio <= fecha_disponible_desde]
+            if previos:
+                fecha_disponible_desde = max(
+                    fecha_disponible_desde, max(c.fecha_fin for c in previos)
+                )
+            posteriores = [c for c in candidatos_contrato if c.fecha_inicio > fecha_disponible_desde]
+            if posteriores:
+                fecha_disponible_hasta = min(
+                    fecha_disponible_hasta, min(c.fecha_inicio for c in posteriores)
+                )
 
             propiedad.disponibilidad_inicio = fecha_disponible_desde
             propiedad.disponibilidad_fin = fecha_disponible_hasta
@@ -20827,7 +20836,12 @@ def agregar_cuota_contrato(request, contrato_id):
 
     nuevo_total = len(cuotas_ordenadas) + 1
     contrato.duracion_meses = nuevo_total
-    contrato.fecha_fin = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nuevo_total)
+    fin_anterior = contrato.fecha_fin
+    # Una cuota dentro del período (ej. medio mes de diciembre) no alarga el contrato:
+    # si no, ocupa la ficha más allá de la fecha pactada.
+    if not fin_anterior or fecha_venc > fin_anterior:
+        fin_calc = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nuevo_total)
+        contrato.fecha_fin = max(fin_anterior, fin_calc) if fin_anterior else fin_calc
     update_fields = ['duracion_meses', 'fecha_fin']
     pb = _precios_bloques_tras_agregar_cuota(contrato, insert_at, nuevo_total)
     if pb is not None:
@@ -20873,7 +20887,9 @@ def eliminar_ultima_cuota_contrato(request, contrato_id):
 
     nueva_duracion = total - 1
     contrato.duracion_meses = nueva_duracion
-    contrato.fecha_fin = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nueva_duracion)
+    fin_calc = _fecha_fin_desde_inicio_y_duracion(contrato.fecha_inicio, nueva_duracion)
+    # Quitar una cuota nunca alarga el contrato.
+    contrato.fecha_fin = min(contrato.fecha_fin, fin_calc) if contrato.fecha_fin else fin_calc
 
     if contrato.duracion_meses != 9 and isinstance(contrato.precios_bloques, list):
         n_meses = int(contrato.duracion_meses or 0)
