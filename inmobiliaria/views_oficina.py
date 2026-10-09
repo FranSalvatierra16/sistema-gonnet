@@ -1945,6 +1945,7 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_res
         'ingreso_usd': ingreso_usd,
         'tipo_cambio': cotiz,
         'movimiento_id': mov.id,
+        'reciclable': bool(getattr(mov, 'reciclable', False)),
         'tipo': 'EG' if es_egreso else 'IN',
         'sin_caja': False,
         'es_inicio_caja': False,

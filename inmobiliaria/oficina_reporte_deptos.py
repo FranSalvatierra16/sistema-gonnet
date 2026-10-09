@@ -289,6 +289,7 @@ def totales_alquileres_propios_para_fondo_oscar(sucursal, anio: int, mes: int) -
         # Ingreso bruto sin tipo de alquiler (ni día, ni invierno, ni 24 meses).
         'total_no_asociado': _q(_q(reporte.get('total_bruto')) - dia - invierno - meses_24),
         'total_gastos': _q(reporte.get('total_gastos')),
+        'total_gastos_reciclables': _q(reporte.get('total_gastos_reciclables')),
     }
 
 
@@ -448,8 +449,10 @@ def _filas_libro_sin_inicio(sucursal, propiedad, dr_desde, dr_hasta):
 
 
 def _buckets_mensuales(filas):
-    """(anio, mes) → {bruto, gastos} en ARS."""
-    buckets = defaultdict(lambda: {'bruto': Decimal('0'), 'gastos': Decimal('0')})
+    """(anio, mes) → {bruto, gastos, gastos_reciclables} en ARS."""
+    buckets = defaultdict(lambda: {
+        'bruto': Decimal('0'), 'gastos': Decimal('0'), 'gastos_reciclables': Decimal('0'),
+    })
     for f in filas:
         d = _fecha_sola(f.get('fecha'))
         if not d:
@@ -457,6 +460,8 @@ def _buckets_mensuales(filas):
         key = (d.year, d.month)
         buckets[key]['bruto'] += _q(f.get('alquileres_ars'))
         buckets[key]['gastos'] += _q(f.get('gastos_ars'))
+        if f.get('reciclable'):
+            buckets[key]['gastos_reciclables'] += _q(f.get('gastos_ars'))
     return buckets
 
 
@@ -470,6 +475,7 @@ def _calcular_mes(buckets, anio, mes):
     return {
         'bruto': bruto,
         'gastos': gastos,
+        'gastos_reciclables': _q(b.get('gastos_reciclables')),
         'neto_periodo': neto,
         'arrastre_anterior': Decimal('0'),
         'neto': neto,
@@ -560,6 +566,7 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     disponibles_para_agregar = []
     total_bruto = Decimal('0')
     total_gastos = Decimal('0')
+    total_gastos_reciclables = Decimal('0')
     total_neto_positivos = Decimal('0')
     n_positivos = 0
     n_negativos = 0
@@ -595,6 +602,7 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
 
         total_bruto += calc['bruto']
         total_gastos += calc['gastos']
+        total_gastos_reciclables += calc['gastos_reciclables']
         if calc['entra_en_total']:
             total_neto_positivos += calc['monto_a_total']
             n_positivos += 1
@@ -655,6 +663,7 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
         'filas': filas,
         'total_bruto': _q(total_bruto),
         'total_gastos': _q(total_gastos),
+        'total_gastos_reciclables': _q(total_gastos_reciclables),
         'total_neto': _q(total_neto_positivos),
         'total_tarifa_dia': _q(total_tarifa_dia),
         'total_tarifa_invierno': _q(total_tarifa_invierno),

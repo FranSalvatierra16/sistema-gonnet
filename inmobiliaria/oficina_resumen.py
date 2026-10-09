@@ -579,6 +579,7 @@ def _bloque_fondo_oscar(raiz, totales_por_cat, extras_por_nombre=None):
             'monto': monto,
             'monto_firmado': firmado,
             'signo': signo,
+            'cat_id': None if clave in extras_norm else hijo.id,
         })
         total += firmado
         usados.add(clave)
@@ -613,12 +614,16 @@ def _bloque_fondo_oscar(raiz, totales_por_cat, extras_por_nombre=None):
 ETIQUETA_FONDO_GASTOS_DEPTOS = 'Gastos totales deptos'
 
 
-def _separar_ingresos_gastos_fondo_oscar(bloque, gastos_deptos):
+def _separar_ingresos_gastos_fondo_oscar(
+    bloque, gastos_deptos, gastos_deptos_reciclables=None, reciclables_por_cat=None,
+):
     """
     Fondo Oscar en dos partes: ingresos (día / invierno / 24 / no asociado = total ingresos)
     y gastos (gastos totales de los deptos + ítems «−»). El total es la diferencia.
+    Los gastos se informan además en normales / reciclables (no cambia el total).
     """
     gastos_deptos = Decimal(str(gastos_deptos or 0)).quantize(Decimal('0.01'))
+    reciclables_por_cat = reciclables_por_cat or {}
     filas_ingresos = []
     filas_gastos = [{
         'nombre': ETIQUETA_FONDO_GASTOS_DEPTOS,
@@ -643,6 +648,16 @@ def _separar_ingresos_gastos_fondo_oscar(bloque, gastos_deptos):
     bloque['total_ingresos'] = total_ingresos
     bloque['total_gastos'] = total_gastos
     bloque['total'] = (total_ingresos - total_gastos).quantize(Decimal('0.01'))
+
+    reciclables = min(
+        Decimal(str(gastos_deptos_reciclables or 0)).quantize(Decimal('0.01')), gastos_deptos,
+    )
+    for f in filas_gastos[1:]:
+        rec = abs(Decimal(str(reciclables_por_cat.get(f.get('cat_id'), 0) or 0)))
+        reciclables += min(rec, Decimal(str(f.get('monto') or 0)))
+    reciclables = max(reciclables, Decimal('0')).quantize(Decimal('0.01'))
+    bloque['total_gastos_reciclables'] = reciclables
+    bloque['total_gastos_normales'] = (total_gastos - reciclables).quantize(Decimal('0.01'))
     return bloque
 
 
@@ -789,6 +804,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
     # Consulta liviana: no armar el reporte completo de cada depto.
     extras_fondo_oscar = {}
     gastos_deptos_fondo_oscar = Decimal('0')
+    gastos_deptos_reciclables_fondo_oscar = Decimal('0')
     try:
         from inmobiliaria.oficina_reporte_deptos import (
             totales_alquileres_propios_para_fondo_oscar,
@@ -804,6 +820,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
         if no_asociado > Decimal('0.009'):
             extras_fondo_oscar[ETIQUETA_FONDO_NO_ASOCIADO] = no_asociado
         gastos_deptos_fondo_oscar = tarifas.get('total_gastos') or Decimal('0')
+        gastos_deptos_reciclables_fondo_oscar = tarifas.get('total_gastos_reciclables') or Decimal('0')
     except Exception:
         logger.exception(
             'resumen_cierre: falló alquileres propios liquidados (sucursal_id=%s, %s-%02d)',
@@ -987,7 +1004,16 @@ def construir_resumen_cierre(sucursal, anio, mes):
             bloque_fondo_oscar = {'titulo': 'FONDO OSCAR', 'filas': [], 'total': Decimal('0')}
     if bloque_gastos_oscar is None:
         bloque_gastos_oscar = {'titulo': 'GASTOS OSCAR', 'filas': [], 'total': Decimal('0')}
-    _separar_ingresos_gastos_fondo_oscar(bloque_fondo_oscar, gastos_deptos_fondo_oscar)
+    reciclables_por_cat = {
+        row['categoria_id']: row['t'] or Decimal('0')
+        for row in gastos_qs.filter(reciclable=True).values('categoria_id').annotate(t=Sum('monto'))
+    }
+    _separar_ingresos_gastos_fondo_oscar(
+        bloque_fondo_oscar,
+        gastos_deptos_fondo_oscar,
+        gastos_deptos_reciclables=gastos_deptos_reciclables_fondo_oscar,
+        reciclables_por_cat=reciclables_por_cat,
+    )
 
     gastos_reciclables = list(
         gastos_qs.filter(reciclable=True, categoria_id__in=cats_egresos_ids)
