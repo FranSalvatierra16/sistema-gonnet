@@ -247,6 +247,9 @@ if 'AWS_ACCESS_KEY_ID' in os.environ:
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIA_LOCATION}/'
     DEFAULT_FILE_STORAGE = 'sistema_gonnet.storage_backends.MediaStorage'
 
+    # El deploy no corre collectstatic: /static/ lo sirve WhiteNoise desde las carpetas de la app.
+    WHITENOISE_USE_FINDERS = True
+
 # Media local en desarrollo; en producción con S3 no aplica.
 if not DEBUG and 'AWS_ACCESS_KEY_ID' not in os.environ:
     WHITENOISE_USE_FINDERS = True
