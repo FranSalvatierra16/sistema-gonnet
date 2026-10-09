@@ -382,6 +382,12 @@ class MovimientoCaja(models.Model):
     honorarios = models.DecimalField(max_digits=14, decimal_places=2, default=0, blank=True)
     sellados = models.DecimalField(max_digits=14, decimal_places=2, default=0, blank=True)
 
+    reciclable = models.BooleanField(
+        default=False,
+        verbose_name='Gasto reciclable',
+        help_text='Se informa aparte en el cierre (no cambia los totales).',
+    )
+
     # Anulación en caja abierta: el registro permanece para auditoría y no entra en totales/saldo.
     fecha_eliminacion = models.DateTimeField(
         null=True,

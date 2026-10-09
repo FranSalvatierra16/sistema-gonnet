@@ -999,6 +999,41 @@ def construir_resumen_cierre(sucursal, anio, mes):
     ).quantize(Decimal('0.01'))
     total_egresos_normales = (total_egresos - total_reciclables).quantize(Decimal('0.01'))
 
+    # Movimientos de caja marcados reciclables que no son gasto de oficina.
+    from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+
+    movs_reciclables = []
+    total_movs_reciclables = Decimal('0')
+    qs_movs = (
+        MovimientoCaja.objects.filter(
+            sucursal=sucursal,
+            reciclable=True,
+            fecha__date__gte=fecha_desde,
+            fecha__date__lte=fecha_hasta,
+        )
+        .filter(gastos_oficina_vinculados__isnull=True)
+        .select_related('propiedad')
+        .order_by('fecha', 'id')
+    )
+    for m in qs_movs:
+        pesos = sum(
+            (Decimal(str(getattr(m, f) or 0)) for f in (
+                'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'monto_deposito',
+            )),
+            Decimal('0'),
+        ).quantize(Decimal('0.01'))
+        signo = Decimal('-1') if m.tipo == TipoMovimientoCajaEnum.INGRESO else Decimal('1')
+        monto = (pesos * signo).quantize(Decimal('0.01'))
+        total_movs_reciclables += monto
+        movs_reciclables.append({
+            'id': m.id,
+            'fecha': m.fecha,
+            'concepto': (m.concepto or '').strip(),
+            'monto': monto,
+            'dolares': Decimal(str(m.monto_dolares or 0)) * signo if not pesos else None,
+        })
+    total_movs_reciclables = total_movs_reciclables.quantize(Decimal('0.01'))
+
     saldo = total_ingresos - total_egresos
     total_gral_ofic_fondo_tomados = (
         saldo + bloque_recaudacion['total'] + bloque_cierre_tomados['total']
@@ -1038,6 +1073,9 @@ def construir_resumen_cierre(sucursal, anio, mes):
         'total_egresos_normales': total_egresos_normales,
         'total_reciclables': total_reciclables,
         'gastos_reciclables': gastos_reciclables,
+        'movs_reciclables': movs_reciclables,
+        'total_movs_reciclables': total_movs_reciclables,
+        'total_reciclables_general': (total_reciclables + total_movs_reciclables).quantize(Decimal('0.01')),
         'total_ingresos': total_ingresos,
         'saldo': saldo,
         'porcentaje_saldo': porcentaje_saldo,

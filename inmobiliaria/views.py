@@ -14993,6 +14993,7 @@ def _form_post_desde_movimiento(movimiento):
         'gasto_oficina_pct_colon': '',
         'gasto_oficina_pct_corrientes': '',
         'es_gasto_oficina': False,
+        'reciclable': bool(getattr(movimiento, 'reciclable', False)),
         'edit_id': str(movimiento.id),
     }
 
@@ -15045,7 +15046,8 @@ def _form_post_desde_movimiento(movimiento):
         fp['es_gasto_oficina'] = True
         fp['gasto_oficina_categoria_id'] = str(gasto.categoria_id)
         fp['gasto_oficina_descripcion'] = (gasto.descripcion or '').strip()
-        fp['gasto_oficina_reciclable'] = bool(getattr(gasto, 'reciclable', False))
+        if getattr(gasto, 'reciclable', False):
+            fp['reciclable'] = True
         fp['gasto_oficina_observaciones'] = _limpiar_notas_reparto_observaciones(
             gasto.observaciones or ''
         )
@@ -15434,7 +15436,8 @@ def nuevo_movimiento(request, numero_caja=None):
             gasto_oficina_vendedor = None
             gasto_oficina_descripcion = ''
             gasto_oficina_observaciones = ''
-            gasto_oficina_reciclable = es_gasto_oficina and request.POST.get('gasto_oficina_reciclable') == '1'
+            mov_reciclable = request.POST.get('reciclable') == '1'
+            gasto_oficina_reciclable = es_gasto_oficina and mov_reciclable
             gasto_oficina_pct_colon = None
             gasto_oficina_pct_corrientes = None
             if es_gasto_oficina:
@@ -15721,6 +15724,7 @@ def nuevo_movimiento(request, numero_caja=None):
             movimiento.monto_a_inquilino = m_inq
             a_descontar_raw = _derivar_a_descontar_desde_imputacion(m_of, m_prop, m_inq)
             movimiento.a_descontar = a_descontar_raw
+            movimiento.reciclable = mov_reciclable
 
             if (
                 not es_gasto_oficina

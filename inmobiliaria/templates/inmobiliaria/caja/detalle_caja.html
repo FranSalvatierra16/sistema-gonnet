@@ -221,6 +221,7 @@
                                 {% if movimiento.listado_detalle_tabla_secundario != '—' %}
                                 <div class="caja-listado-l4">{{ movimiento.listado_detalle_tabla_secundario }}</div>
                                 {% endif %}
+                                {% if movimiento.reciclable %}<span class="badge bg-success d-print-none"><i class="fas fa-recycle me-1"></i>Reciclable</span>{% endif %}
                             </td>
                             <td class="text-end caja-col-ingreso">
                                 {% if movimiento.tipo == 'IN' %}<span class="fw-semibold text-success">${{ movimiento.monto_total|format_price }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
@@ -382,6 +383,7 @@
                                 {% if movimiento.listado_detalle_tabla_secundario != '—' %}
                                 <div class="caja-listado-l4">{{ movimiento.listado_detalle_tabla_secundario }}</div>
                                 {% endif %}
+                                {% if movimiento.reciclable %}<span class="badge bg-success d-print-none"><i class="fas fa-recycle me-1"></i>Reciclable</span>{% endif %}
                             </td>
                             <td class="text-end caja-col-ingreso">
                                 {% if movimiento.tipo == 'IN' %}<span class="fw-semibold text-success">${{ movimiento.monto_total|format_price }}</span>{% else %}<span class="text-muted">—</span>{% endif %}

@@ -930,6 +930,14 @@ def oficina_gasto_reciclable(request, gasto_id):
         GastoOficina.objects.filter(gasto_relacionado_id=gasto.id).values_list('id', flat=True)
     )
     GastoOficina.objects.filter(id__in=ids).update(reciclable=nuevo, fecha_modificacion=timezone.now())
+    mov_ids = list(
+        GastoOficina.objects.filter(id__in=ids, movimiento_caja__isnull=False)
+        .values_list('movimiento_caja_id', flat=True)
+    )
+    if mov_ids:
+        from inmobiliaria.models.caja import MovimientoCaja
+
+        MovimientoCaja.all_objects.filter(id__in=mov_ids).update(reciclable=nuevo)
     messages.success(
         request,
         'Gasto marcado como reciclable.' if nuevo else 'Gasto desmarcado como reciclable.',
