@@ -243,7 +243,7 @@
                         <tbody>
                             {% for fila in bloque_fondo_oscar.filas_gastos %}
                             <tr>
-                                <td class="ps-2">- {{ fila.nombre }}</td>
+                                <td class="ps-2">- {{ fila.nombre }}{% if fila.reciclable %} <i class="fas fa-recycle text-success"></i>{% endif %}</td>
                                 <td class="text-end resumen-monto">${{ fila.monto|format_price }}</td>
                             </tr>
                             {% endfor %}
@@ -252,16 +252,7 @@
                     <div class="d-flex justify-content-between resumen-subtotal px-2">
                         <span class="fw-semibold">TOTAL GASTOS:</span>
                         <span class="fw-bold">${{ bloque_fondo_oscar.total_gastos|format_price }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between px-2 small">
-                        <span class="ps-3">Gastos normales</span>
-                        <span>${{ bloque_fondo_oscar.total_gastos_normales|format_price }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between px-2 small">
-                        <span class="ps-3"><i class="fas fa-recycle text-success me-1"></i>Gastos reciclables</span>
-                        <span class="text-success">${{ bloque_fondo_oscar.total_gastos_reciclables|format_price }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between resumen-subtotal px-2 mt-2 bg-light border-top">
+                    </div>                    <div class="d-flex justify-content-between resumen-subtotal px-2 mt-2 bg-light border-top">
                         <span class="fw-semibold">DIFERENCIA (INGRESOS − GASTOS):</span>
                         <span class="fw-bold{% if bloque_fondo_oscar.total < 0 %} text-danger{% endif %}">${{ bloque_fondo_oscar.total|format_price }}</span>
                     </div>
