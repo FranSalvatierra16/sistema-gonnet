@@ -10,6 +10,7 @@ from . import views_mis_propiedades
 from . import views_honorarios
 from . import views_administracion
 from . import views_oficina
+from . import views_liquidaciones_pendientes
 from . import views_recibos
 from . import views_ventas
 from . import views_tasaciones
@@ -614,6 +615,11 @@ urlpatterns = [
         name='honorarios_oficina_imprimir',
     ),
     path('liquidaciones/', views.lista_liquidaciones, name='lista_liquidaciones'),
+    path(
+        'liquidaciones/pendientes/',
+        views_liquidaciones_pendientes.liquidaciones_pendientes,
+        name='liquidaciones_pendientes',
+    ),
     path(
         'liquidaciones/propietario/<int:propietario_id>/propiedades/',
         views.liquidaciones_propiedades_propietario,

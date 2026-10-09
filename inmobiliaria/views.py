@@ -31916,23 +31916,27 @@ def _gastos_pendientes_livianos_liquidacion(propiedad, sucursal):
     return out
 
 
-def _operaciones_gastos_pendientes_data(propiedad, sucursal, excepto_liquidacion_id=None):
+def _operaciones_gastos_pendientes_data(
+    propiedad, sucursal, excepto_liquidacion_id=None, solo_operaciones=False
+):
     """
     Lista operaciones y gastos pendientes de liquidación para una propiedad (dict serializable a JSON).
     `sucursal` debe ser la sucursal del usuario (coincidente con la de la propiedad).
     excepto_liquidacion_id: al editar una liquidación, no excluir sus cuotas/reservas/gastos.
+    solo_operaciones: solo reservas/cuotas/pagos a favor, sin gastos ni backfills (solo lectura).
     """
-    from inmobiliaria.models.liquidacion import asegurar_gastos_saldo_negativo_propiedad
+    if not solo_operaciones:
+        from inmobiliaria.models.liquidacion import asegurar_gastos_saldo_negativo_propiedad
 
-    asegurar_gastos_saldo_negativo_propiedad(propiedad, sucursal=sucursal)
-    # Observaciones cobradas al inquilino → ingreso a pagar al propietario (backfill si faltaba).
-    try:
-        _asegurar_gastos_propietario_observaciones_cobradas(propiedad, sucursal)
-    except Exception:
-        logger.exception(
-            '_operaciones_gastos_pendientes_data: backfill observaciones cobradas (prop=%s)',
-            getattr(propiedad, 'id', None),
-        )
+        asegurar_gastos_saldo_negativo_propiedad(propiedad, sucursal=sucursal)
+        # Observaciones cobradas al inquilino → ingreso a pagar al propietario (backfill si faltaba).
+        try:
+            _asegurar_gastos_propietario_observaciones_cobradas(propiedad, sucursal)
+        except Exception:
+            logger.exception(
+                '_operaciones_gastos_pendientes_data: backfill observaciones cobradas (prop=%s)',
+                getattr(propiedad, 'id', None),
+            )
 
     # Reservas ya liquidadas por completo (las parciales siguen apareciendo con el saldo).
     # Las completas se omiten del listado general; si se busca por N° se muestran solo lectura.
@@ -32244,6 +32248,9 @@ def _operaciones_gastos_pendientes_data(propiedad, sucursal, excepto_liquidacion
             'monto_inmobiliaria': '0',
             'dias': 0,
         })
+
+    if solo_operaciones:
+        return {'operaciones': operaciones, 'gastos_pendientes': []}
     
     # Depto oficina / cartera: no auto-cargar egresos de caja ni observaciones;
     # solo movimientos agregados a mano con «Agregar Movimiento».

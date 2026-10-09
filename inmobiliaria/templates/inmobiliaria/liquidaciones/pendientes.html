@@ -1,0 +1,126 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block page_container_class %}container-fluid{% endblock %}
+
+{% block title %}Liquidaciones pendientes{% endblock %}
+
+{% block content %}
+<div class="mt-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h1 class="mb-0">⏳ Liquidaciones pendientes</h1>
+        <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Liquidaciones a propietarios
+        </a>
+    </div>
+    <p class="text-muted">
+        Operaciones (reservas, cuotas de contratos y pagos a favor) que todavía no figuran en ninguna liquidación,
+        cuyo período cae dentro de las fechas elegidas.
+    </p>
+
+    <div class="card shadow mb-3">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label" for="fecha_desde">Desde</label>
+                    <input type="date" name="fecha_desde" id="fecha_desde" class="form-control" value="{{ fecha_desde }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="fecha_hasta">Hasta</label>
+                    <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="q">Depto / dirección / propietario / inquilino</label>
+                    <input type="text" name="q" id="q" class="form-control" value="{{ q }}" placeholder="Ej: Sarmiento 120, 4B, Pérez...">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="tipo">Tipo</label>
+                    <select name="tipo" id="tipo" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="reserva" {% if tipo_filtro == 'reserva' %}selected{% endif %}>Por día (reservas)</option>
+                        <option value="contrato" {% if tipo_filtro == 'contrato' %}selected{% endif %}>Contratos (cuotas)</option>
+                        <option value="otros" {% if tipo_filtro == 'otros' %}selected{% endif %}>Pagos a favor</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="solo_cobradas" value="1" id="solo_cobradas" {% if solo_cobradas %}checked{% endif %}>
+                        <label class="form-check-label" for="solo_cobradas">Solo cobradas (sin anticipadas)</label>
+                    </div>
+                </div>
+                <div class="col-md-1 d-grid">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if truncado %}
+    <div class="alert alert-warning">
+        Hay más de {{ max_propiedades }} propiedades en el rango: se muestran las primeras. Achicá las fechas o buscá por depto.
+    </div>
+    {% endif %}
+    {% if errores %}
+    <div class="alert alert-danger small">
+        No se pudieron calcular: {{ errores|join:"; " }}
+    </div>
+    {% endif %}
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <div class="alert alert-warning mb-0 py-2">
+            <strong>{{ filas|length }}</strong> pendiente{{ filas|length|pluralize }} en <strong>{{ cantidad_propiedades }}</strong> propiedad{{ cantidad_propiedades|pluralize:"es" }}
+        </div>
+        {% for moneda, t in totales %}
+        <div class="alert alert-info mb-0 py-2">
+            A propietarios ({{ moneda }}): <strong>{% if moneda == 'USD' %}U$S{% else %}${% endif %}{{ t.monto_propietario|format_price }}</strong>
+            <span class="text-muted">({{ t.cantidad }})</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="card shadow">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Propiedad</th>
+                        <th>Propietario</th>
+                        <th>Tipo</th>
+                        <th>Detalle</th>
+                        <th>Período</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-end">A propietario</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in filas %}
+                    <tr>
+                        <td>{{ f.propiedad_label }}</td>
+                        <td>{{ f.propietario }}</td>
+                        <td>
+                            {{ f.tipo_display }}
+                            {% if f.anticipada %}<span class="badge bg-secondary">Sin cobrar</span>{% endif %}
+                            {% if f.parcial %}<span class="badge bg-warning text-dark">Parcial</span>{% endif %}
+                        </td>
+                        <td class="small">{{ f.descripcion }}</td>
+                        <td class="text-nowrap">{{ f.fecha_inicio|date:"d/m/Y" }}{% if f.fecha_fin and f.fecha_fin != f.fecha_inicio %} – {{ f.fecha_fin|date:"d/m/Y" }}{% endif %}</td>
+                        <td class="text-end text-nowrap">{% if f.moneda == 'USD' %}U$S{% else %}${% endif %}{{ f.monto_total|format_price }}</td>
+                        <td class="text-end text-nowrap fw-semibold">{% if f.moneda == 'USD' %}U$S{% else %}${% endif %}{{ f.monto_propietario|format_price }}</td>
+                        <td class="text-end">
+                            <a href="{{ f.url_liquidar }}" class="btn btn-sm btn-success text-nowrap">
+                                <i class="fas fa-hand-holding-usd me-1"></i>Liquidar
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">No hay liquidaciones pendientes con esos filtros.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
