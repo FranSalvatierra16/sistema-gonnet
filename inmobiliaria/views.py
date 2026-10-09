@@ -15478,9 +15478,6 @@ def nuevo_movimiento(request, numero_caja=None):
             else:
                 tipo = 'IN'  # Default seguro
 
-            if es_gasto_oficina and not categoria_gasto_es_vale(gasto_oficina_categoria):
-                tipo = TipoMovimientoCajaEnum.EGRESO
-
             # Obtener y validar tipo_comprobante (debe ser código de 2 caracteres)
             tipo_comprobante_raw = request.POST.get('tipo_comprobante', 'RC')
             # Mapear valores comunes a códigos de 2 caracteres
@@ -16083,14 +16080,16 @@ def nuevo_movimiento(request, numero_caja=None):
                 ):
                     messages.success(
                         request,
-                        f'Egreso de caja y gasto de oficina registrados '
+                        f'{"Egreso" if tipo == TipoMovimientoCajaEnum.EGRESO else "Ingreso"} de caja '
+                        f'y gasto de oficina registrados '
                         f'(reparto Colón {gasto_oficina_pct_colon}% / '
                         f'Corrientes {gasto_oficina_pct_corrientes}%).',
                     )
                 else:
                     messages.success(
                         request,
-                        'Egreso de caja y gasto de oficina registrados.',
+                        f'{"Egreso" if tipo == TipoMovimientoCajaEnum.EGRESO else "Ingreso"} de caja '
+                        'y gasto de oficina registrados.',
                     )
             elif quiere_vale and (vendedor_vale or tipo_beneficiario_vale == TipoBeneficiarioVale.OTRO):
                 messages.success(

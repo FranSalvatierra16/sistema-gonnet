@@ -290,7 +290,7 @@
                                 Gasto de oficina
                             </label>
                             <small class="text-muted d-block">
-                                Imputable a la oficina: sueldos, servicios, contables y vales (egreso o ingreso). Se registra en el panel Oficina.
+                                Imputable a la oficina: sueldos, servicios, contables y vales. Puede ser egreso o ingreso (un ingreso descuenta del gasto). Se registra en el panel Oficina.
                                 Si el gasto es de una propiedad (aunque se descuente de oficina), indicá la propiedad más abajo para que figure en operaciones por propiedad.
                             </small>
                         </div>
@@ -1439,7 +1439,6 @@ $(document).ready(function() {
         var vidCat = op && op.vendedor_id;
         $('#bloque_productor_gasto_oficina').toggleClass('d-none', !req && !vidCat);
         $('#hint_gasto_oficina_vale').toggleClass('d-none', !esVale);
-        $('select[name="tipo"]').val('EG');
         if (vidCat) {
             $('#gasto_oficina_vendedor_id').val(String(vidCat));
             var label = (op.subnombre || op.label || '').trim();
@@ -1462,7 +1461,6 @@ $(document).ready(function() {
         $('#bloque_imputacion_mov').toggleClass('d-none', activo);
         $('#hint_gasto_oficina_vale').toggleClass('d-none', !esVale);
         if (activo) {
-            $('select[name="tipo"]').val('EG');
             var op = gastoOficinaCategoriaActual;
             var req = !!(op && op.requiere_productor);
             var vidCat = op && op.vendedor_id;
