@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from inmobiliaria.busqueda_persona import q_busqueda_persona
 from inmobiliaria.busqueda_propiedad import ordenar_propiedades, q_busqueda_propiedad
+from inmobiliaria.cartera_sucursal import qs_cartera_sucursal
 from inmobiliaria.models import ContratoAlquiler, Propiedad, Reserva
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,13 @@ def _propiedades_candidatas(sucursal, desde, hasta, q):
 
     props = Propiedad.objects.filter(sucursal=sucursal).filter(
         Q(id__in=ids_reservas) | Q(id__in=ids_contratos)
-    )
+    ).exclude(es_propiedad_oficina=True)
+    try:
+        props = props.exclude(
+            id__in=qs_cartera_sucursal(sucursal, sincronizar=False).values('propiedad_id')
+        )
+    except Exception:
+        logger.exception('liquidaciones_pendientes: no se pudo excluir la cartera de oficina')
 
     ids_match_directo = None
     if q:
