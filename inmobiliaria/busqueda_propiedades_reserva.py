@@ -5,6 +5,7 @@ Evita N+1: precios en memoria, reservas/disponibilidades/contratos precargados.
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db.models import Max, Min, Q
@@ -14,6 +15,8 @@ from inmobiliaria.precio_temporada_reserva import (
     dia_a_usar_para_noche,
     tipo_precio_para_dia_reserva,
 )
+
+VENTANA_DIAS_DISPONIBILIDADES_ENCADENADAS = 400
 
 
 def mapa_precios_propiedad(propiedad):
@@ -56,19 +59,27 @@ def calcular_precio_total_reserva_fechas(
 
 
 def periodo_cubierto_por_disponibilidades(disponibilidades_list, fecha_inicio, fecha_fin):
-    """True si las disponibilidades contiguas cubren [fecha_inicio, fecha_fin]."""
+    """
+    True si las disponibilidades contiguas cubren [fecha_inicio, fecha_fin].
+    Activaciones que terminan y arrancan el mismo día (o se pisan) cuentan como un solo bloque;
+    devuelve los límites del bloque que contiene el rango buscado.
+    """
     if not disponibilidades_list:
         return False, None, None
     ordenadas = sorted(disponibilidades_list, key=lambda d: d.fecha_inicio)
-    cobertura_inicio = ordenadas[0].fecha_inicio
-    cobertura_fin = ordenadas[0].fecha_fin
-    for disp in ordenadas[1:]:
-        if disp.fecha_inicio <= cobertura_fin:
-            cobertura_fin = max(cobertura_fin, disp.fecha_fin)
+    bloques = []
+    for disp in ordenadas:
+        if bloques and disp.fecha_inicio <= bloques[-1][1]:
+            bloques[-1][1] = max(bloques[-1][1], disp.fecha_fin)
         else:
-            break
-    cubierto = cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_fin
-    return cubierto, cobertura_inicio, cobertura_fin
+            bloques.append([disp.fecha_inicio, disp.fecha_fin])
+    for inicio, fin in bloques:
+        if inicio <= fecha_inicio and fin >= fecha_fin:
+            return True, inicio, fin
+    for inicio, fin in bloques:
+        if inicio < fecha_fin and fin > fecha_inicio:
+            return False, inicio, fin
+    return False, bloques[0][0], bloques[0][1]
 
 
 def periodo_cubierto_por_disponibilidad_forzada(disponibilidades_list, fecha_inicio, fecha_fin):
@@ -91,11 +102,13 @@ def cargar_contexto_bulk_busqueda(propiedad_ids, fecha_inicio, fecha_fin):
             'min_inicio_posterior_por_prop': {},
         }
 
+    # Además de las que se pisan con el rango, las que lo tocan o se encadenan cerca
+    # (ej. 01/01–31/01 + 31/01–16/03): se unen en un solo bloque disponible.
     disp_por_prop = defaultdict(list)
     for d in Disponibilidad.objects.filter(
         propiedad_id__in=propiedad_ids,
-        fecha_inicio__lt=fecha_fin,
-        fecha_fin__gt=fecha_inicio,
+        fecha_inicio__lte=fecha_fin + timedelta(days=VENTANA_DIAS_DISPONIBILIDADES_ENCADENADAS),
+        fecha_fin__gte=fecha_inicio - timedelta(days=VENTANA_DIAS_DISPONIBILIDADES_ENCADENADAS),
     ):
         disp_por_prop[d.propiedad_id].append(d)
 

@@ -6243,34 +6243,22 @@ def buscar_propiedades_reserva(request):
             # 2️⃣ VERIFICAR SI LAS DISPONIBILIDADES CUBREN TODO EL RANGO (permitiendo contiguas)
             periodo_cubierto = False
             if disponibilidades_superpuestas.exists():
-                # Verificar si las disponibilidades contiguas cubren todo el rango
-                disponibilidades_list = list(disponibilidades_superpuestas)
-                
-                # Ordenar por fecha de inicio
-                disponibilidades_list.sort(key=lambda d: d.fecha_inicio)
-                
-                # Verificar cobertura continua
-                cobertura_inicio = disponibilidades_list[0].fecha_inicio
-                cobertura_fin = disponibilidades_list[0].fecha_fin
-                
-                for i in range(1, len(disponibilidades_list)):
-                    disp_actual = disponibilidades_list[i]
-                    # Si la disponibilidad actual empieza el mismo día o antes que termine la anterior
-                    # (permitiendo fechas contiguas como 07-11 y 11-15)
-                    if disp_actual.fecha_inicio <= cobertura_fin:
-                        # Extender la cobertura
-                        cobertura_fin = max(cobertura_fin, disp_actual.fecha_fin)
-                    else:
-                        # Hay un hueco
-                        break
-                
-                # Verificar si la cobertura completa incluye el período buscado
-                if cobertura_inicio <= fecha_inicio and cobertura_fin >= fecha_fin:
-                    periodo_cubierto = True
-# print(f"   ✅ Período CUBIERTO por disponibilidades contiguas: {cobertura_inicio} al {cobertura_fin}")
-                else:
-                    pass  # ✅ Bloque vacío
-# print(f"   ❌ Período NO cubierto. Cobertura: {cobertura_inicio} al {cobertura_fin}, necesario: {fecha_inicio} al {fecha_fin}")
+                # Activaciones contiguas (ej. 01/01–31/01 + 31/01–16/03) cuentan como un solo bloque,
+                # aunque alguna solo toque el rango buscado por el borde.
+                from inmobiliaria.busqueda_propiedades_reserva import (
+                    VENTANA_DIAS_DISPONIBILIDADES_ENCADENADAS,
+                    periodo_cubierto_por_disponibilidades,
+                )
+
+                ventana = timedelta(days=VENTANA_DIAS_DISPONIBILIDADES_ENCADENADAS)
+                disponibilidades_cercanas = Disponibilidad.objects.filter(
+                    propiedad=propiedad,
+                    fecha_inicio__lte=fecha_fin + ventana,
+                    fecha_fin__gte=fecha_inicio - ventana,
+                )
+                periodo_cubierto, cobertura_inicio, cobertura_fin = periodo_cubierto_por_disponibilidades(
+                    list(disponibilidades_cercanas), fecha_inicio, fecha_fin
+                )
             
             # Usar la variable disponibilidades para mantener compatibilidad con el resto del código
             disponibilidades = disponibilidades_superpuestas if periodo_cubierto else Disponibilidad.objects.none()
