@@ -19025,7 +19025,12 @@ def buscar_propiedades(request):
             periodo_forzado, cob_f_ini, cob_f_fin = periodo_cubierto_por_disponibilidad_forzada(
                 disponibilidades_superpuestas, fecha_inicio, fecha_fin
             )
-            if periodo_forzado and not contrato_ocupa:
+            reserva_es_operacion = any(
+                (r.estado == 'pagada' or r.pk in reserva_ids_con_recibo)
+                and not r.es_alquiler_sindicato
+                for r in reservas
+            )
+            if periodo_forzado and not contrato_ocupa and not reserva_es_operacion:
                 propiedad.disponibilidad_inicio = cob_f_ini
                 propiedad.disponibilidad_fin = cob_f_fin
                 propiedad.estado_reserva = 'disponible'

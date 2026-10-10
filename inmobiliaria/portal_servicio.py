@@ -231,6 +231,10 @@ def buscar_temporario_portal(
         ]
         if bloquean and not forzado:
             continue
+        if forzado and any(
+            r.estado == 'pagada' or r.pk in ctx['reserva_ids_con_recibo'] for r in bloquean
+        ):
+            continue
 
         precios_map = mapa_precios_propiedad(prop)
         vac = _vacaciones_invierno_sucursal(getattr(prop, 'sucursal', None))
