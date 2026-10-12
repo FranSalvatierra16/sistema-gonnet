@@ -22,23 +22,10 @@
         <div class="card-body">
             <form method="post" id="form-crear-disponibilidad">
                 {% csrf_token %}
-                {% bootstrap_form form exclude="forzar_superposicion" %}
+                {% bootstrap_form form %}
                 <p class="text-muted small mb-3">
                     Podés elegir cualquier fecha (también meses anteriores) para cargar operaciones por día atrasadas.
                 </p>
-
-                <div class="alert alert-warning border-warning">
-                    <div class="form-check form-switch mb-2">
-                        {{ form.forzar_superposicion }}
-                        <label class="form-check-label fw-semibold" for="id_forzar_superposicion">
-                            {{ form.forzar_superposicion.label }}
-                        </label>
-                    </div>
-                    <p class="small mb-2">{{ form.forzar_superposicion.help_text }}</p>
-                    <button type="submit" name="accion" value="forzar" class="btn btn-warning" id="btn-forzar-disponibilidad">
-                        <i class="fas fa-layer-group me-1"></i>Guardar disponibilidad superpuesta
-                    </button>
-                </div>
 
                 <div class="form-group d-flex gap-2 flex-wrap">
                     <button type="submit" class="btn btn-primary" id="btn-guardar-normal">Guardar</button>
@@ -53,14 +40,6 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var form = document.getElementById('form-crear-disponibilidad');
-    var chkForzar = document.getElementById('id_forzar_superposicion');
-    var btnForzar = document.getElementById('btn-forzar-disponibilidad');
-
-    if (btnForzar && chkForzar) {
-        btnForzar.addEventListener('click', function() {
-            chkForzar.checked = true;
-        });
-    }
 
     form.addEventListener('submit', function(e) {
         var fechaInicio = document.querySelector('input[name="fecha_inicio"]').value;

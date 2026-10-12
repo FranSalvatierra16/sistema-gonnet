@@ -14,7 +14,6 @@ from inmobiliaria.busqueda_propiedades_reserva import (
     cargar_contexto_bulk_busqueda,
     contrato_solapa_rango,
     mapa_precios_propiedad,
-    periodo_cubierto_por_disponibilidad_forzada,
     periodo_cubierto_por_disponibilidades,
     reservas_solapan_rango,
 )
@@ -215,8 +214,7 @@ def buscar_temporario_portal(
     for prop in props:
         disp = ctx['disp_por_prop'].get(prop.id, [])
         cubierto, _, _ = periodo_cubierto_por_disponibilidades(disp, fecha_inicio, fecha_fin)
-        forzado, _, _ = periodo_cubierto_por_disponibilidad_forzada(disp, fecha_inicio, fecha_fin)
-        if not cubierto and not forzado:
+        if not cubierto:
             continue
 
         if contrato_solapa_rango(ctx['contratos_por_prop'].get(prop.id, []), fecha_inicio, fecha_fin):
@@ -229,11 +227,7 @@ def buscar_temporario_portal(
             if (r.estado in ESTADOS_RESERVA_OCUPAN_DISPONIBILIDAD)
             and not getattr(r, 'es_alquiler_sindicato', False)
         ]
-        if bloquean and not forzado:
-            continue
-        if forzado and any(
-            r.estado == 'pagada' or r.pk in ctx['reserva_ids_con_recibo'] for r in bloquean
-        ):
+        if bloquean:
             continue
 
         precios_map = mapa_precios_propiedad(prop)

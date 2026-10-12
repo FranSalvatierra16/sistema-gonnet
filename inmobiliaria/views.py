@@ -6543,7 +6543,6 @@ def crear_disponibilidad(request, propiedad_id):
         form = DisponibilidadForm(propiedad=propiedad, data=request.POST)
         if form.is_valid():
             try:
-                forzar = bool(form.cleaned_data.get('forzar_superposicion'))
                 # Crear una nueva instancia de Disponibilidad
                 nueva_disponibilidad = Disponibilidad(
                     propiedad=propiedad,
@@ -6553,36 +6552,26 @@ def crear_disponibilidad(request, propiedad_id):
                     asegurado=form.cleaned_data.get('asegurado', False),
                     monto_asegurado=form.cleaned_data.get('monto_asegurado'),
                     moneda_asegurado=form.cleaned_data.get('moneda_asegurado'),
-                    forzar_disponible=forzar,
                 )
                 
-                # Verificar superposición REAL (permitir fechas contiguas), salvo forzar
+                # Verificar superposición REAL (permitir fechas contiguas)
                 solapamiento_real = False
-                if not forzar:
-                    todas_disponibilidades = Disponibilidad.objects.filter(
-                        propiedad=propiedad
-                    )
-                    for disp in todas_disponibilidades:
-                        if disp.fecha_fin > nueva_disponibilidad.fecha_inicio and disp.fecha_inicio < nueva_disponibilidad.fecha_fin:
-                            solapamiento_real = True
-                            break
+                todas_disponibilidades = Disponibilidad.objects.filter(
+                    propiedad=propiedad
+                )
+                for disp in todas_disponibilidades:
+                    if disp.fecha_fin > nueva_disponibilidad.fecha_inicio and disp.fecha_inicio < nueva_disponibilidad.fecha_fin:
+                        solapamiento_real = True
+                        break
                 
                 if solapamiento_real:
                     messages.error(
                         request,
-                        'Ya existe una disponibilidad que se superpone con estas fechas. '
-                        'Marcá «Forzar disponibilidad superpuesta» para cargarla igual.',
+                        'Ya existe una disponibilidad que se superpone con estas fechas.',
                     )
                 else:
                     nueva_disponibilidad.save()
-                    if forzar:
-                        messages.success(
-                            request,
-                            'Disponibilidad forzada creada: la propiedad saldrá para alquilar '
-                            'por día en esas fechas aunque haya otra disponibilidad o reserva.',
-                        )
-                    else:
-                        messages.success(request, 'Disponibilidad creada exitosamente')
+                    messages.success(request, 'Disponibilidad creada exitosamente')
                     return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad.id)
                     
             except Exception as e:
@@ -18996,7 +18985,6 @@ def buscar_propiedades(request):
             contrato_solapa_rango,
             mapa_precios_propiedad,
             periodo_cubierto_por_disponibilidades,
-            periodo_cubierto_por_disponibilidad_forzada,
             reservas_solapan_rango,
         )
         from inmobiliaria.precio_temporada_reserva import rango_vacaciones_invierno_sucursal
@@ -19017,33 +19005,6 @@ def buscar_propiedades(request):
                 reservas_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin
             )
             disponibilidades_superpuestas = disp_por_prop.get(propiedad.id, [])
-            contrato_ocupa = contrato_solapa_rango(
-                contratos_por_prop.get(propiedad.id, []), fecha_inicio, fecha_fin
-            )
-
-            # Disponibilidad forzada: aparece para alquilar por día aunque haya reserva (no si hay operación).
-            periodo_forzado, cob_f_ini, cob_f_fin = periodo_cubierto_por_disponibilidad_forzada(
-                disponibilidades_superpuestas, fecha_inicio, fecha_fin
-            )
-            reserva_es_operacion = any(
-                (r.estado == 'pagada' or r.pk in reserva_ids_con_recibo)
-                and not r.es_alquiler_sindicato
-                for r in reservas
-            )
-            if periodo_forzado and not contrato_ocupa and not reserva_es_operacion:
-                propiedad.disponibilidad_inicio = cob_f_ini
-                propiedad.disponibilidad_fin = cob_f_fin
-                propiedad.estado_reserva = 'disponible'
-                propiedad.disponibilidad_forzada = True
-                precios_map = mapa_precios_propiedad(propiedad)
-                propiedad.precio_total_reserva = calcular_precio_total_reserva_fechas(
-                    fecha_inicio,
-                    fecha_fin,
-                    precios_map,
-                    vacaciones_invierno=rango_vacaciones_invierno_sucursal(propiedad.sucursal),
-                )
-                propiedades_disponibles.append(propiedad)
-                continue
 
             if any(r.estado == 'pagada' and not r.es_alquiler_sindicato for r in reservas):
                 continue
@@ -25447,13 +25408,11 @@ def editar_disponibilidad(request, disponibilidad_id):
 
 def _disponibilidades_superpuestas(disponibilidades):
     """Devuelve (lista de ids a eliminar, lista de textos para mostrar).
-    Eliminamos las que están totalmente contenidas en otra (no toca forzadas)."""
+    Eliminamos las que están totalmente contenidas en otra."""
     lista = list(disponibilidades.order_by('fecha_inicio', 'fecha_fin'))
     ids_a_eliminar = []
     textos = []
     for i, d in enumerate(lista):
-        if getattr(d, 'forzar_disponible', False):
-            continue
         for j, otra in enumerate(lista):
             if i == j:
                 continue

@@ -1029,17 +1029,6 @@ class BuscarPropiedadesForm(forms.Form):
         return cleaned_data
 
 class DisponibilidadForm(forms.ModelForm):
-    forzar_superposicion = forms.BooleanField(
-        required=False,
-        initial=False,
-        label='Forzar disponibilidad superpuesta',
-        help_text=(
-            'Permitir crear aunque ya exista disponibilidad o reserva en esas fechas. '
-            'La propiedad saldrá para alquilar por día igual.'
-        ),
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input', 'id': 'id_forzar_superposicion'}),
-    )
-
     class Meta:
         model = Disponibilidad
         fields = ['fecha_inicio', 'fecha_fin', 'asegurado', 'monto_asegurado', 'moneda_asegurado']
@@ -1063,13 +1052,12 @@ class DisponibilidadForm(forms.ModelForm):
         cleaned_data = super().clean()
         fecha_inicio = cleaned_data.get('fecha_inicio')
         fecha_fin = cleaned_data.get('fecha_fin')
-        forzar = bool(cleaned_data.get('forzar_superposicion'))
 
         if fecha_inicio and fecha_fin:
             if fecha_fin < fecha_inicio:
                 raise ValidationError('La fecha de fin debe ser posterior a la fecha de inicio')
 
-            if self.propiedad and not forzar:
+            if self.propiedad:
                 # ✅ MEJORADO: Verificar superposición REAL (excluir fechas contiguas)
                 # Fechas contiguas son PERMITIDAS (ej: 10-15 y 15-20)
                 # Solo rechazar si hay superposición de MÁS de un día
@@ -1096,8 +1084,7 @@ class DisponibilidadForm(forms.ModelForm):
                         for d in solapamientos_reales
                     ]
                     raise ValidationError(
-                        f'Las fechas se solapan con disponibilidades existentes: {", ".join(fechas_ocupadas)}. '
-                        f'Marcá «Forzar disponibilidad superpuesta» para cargarla igual.'
+                        f'Las fechas se solapan con disponibilidades existentes: {", ".join(fechas_ocupadas)}.'
                     )
 
         return cleaned_data
