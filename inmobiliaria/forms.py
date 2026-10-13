@@ -1029,13 +1029,24 @@ class BuscarPropiedadesForm(forms.Form):
         return cleaned_data
 
 class DisponibilidadForm(forms.ModelForm):
+    monto_asegurado = forms.CharField(
+        required=False,
+        label='Monto',
+        help_text='Monto del pago adelantado (ej. 1.900.000 o 1.900.000,50)',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'inputmode': 'decimal',
+            'placeholder': 'Ej: 1.900.000',
+            'autocomplete': 'off',
+        }),
+    )
+
     class Meta:
         model = Disponibilidad
         fields = ['fecha_inicio', 'fecha_fin', 'asegurado', 'monto_asegurado', 'moneda_asegurado']
         widgets = {
             'fecha_inicio': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'fecha_fin': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'monto_asegurado': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Monto'}),
             'moneda_asegurado': forms.Select(attrs={'class': 'form-control'}),
         }
         labels = {
@@ -1047,6 +1058,21 @@ class DisponibilidadForm(forms.ModelForm):
     def __init__(self, propiedad=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.propiedad = propiedad
+
+    def clean_monto_asegurado(self):
+        from decimal import Decimal
+
+        from inmobiliaria.decimal_utils import parse_decimal_monto
+
+        valor = (self.cleaned_data.get('monto_asegurado') or '').strip()
+        if not valor:
+            return None
+        monto = parse_decimal_monto(valor)
+        if monto < 0:
+            raise ValidationError('El monto no puede ser negativo.')
+        if monto >= Decimal('10000000000'):
+            raise ValidationError('El monto es demasiado grande.')
+        return monto.quantize(Decimal('0.01'))
 
     def clean(self):
         cleaned_data = super().clean()
