@@ -35,7 +35,7 @@
                                 <label class="form-label">Nº de operación (contrato o reserva)</label>
                                 <div class="input-group">
                                     <input type="text" id="operacion_buscar" class="form-control" autocomplete="off"
-                                           placeholder="Ej: 284" inputmode="numeric">
+                                           placeholder="Ej: 284" inputmode="numeric" data-no-monto-ar="1">
                                     <button type="button" id="btn_buscar_operacion_liq" class="btn btn-outline-primary">
                                         <i class="fas fa-search"></i> Buscar
                                     </button>
@@ -820,7 +820,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function buscarOperacionPorNumero() {
         const input = document.getElementById('operacion_buscar');
-        const q = (input && input.value || '').trim();
+        const q = (input && input.value || '').trim().split(',')[0].replace(/\D/g, '');
+        if (input) input.value = q;
         if (!q) {
             alert('Ingresá el número de contrato o reserva.');
             return;
