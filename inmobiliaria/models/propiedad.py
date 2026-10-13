@@ -1740,9 +1740,35 @@ class AlquilerInvierno(models.Model):
     def __str__(self):
         return f"Alquiler Invierno - {self.propiedad}"
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        sincronizar_precio_estudiante_desde_invierno(self.propiedad_id, self.precio_mensual)
+
     class Meta:
         verbose_name = "Alquiler Invierno"
         verbose_name_plural = "Alquileres Invierno"
+
+
+def sincronizar_precio_estudiante_desde_invierno(propiedad_id, precio_mensual):
+    """El precio mensual de Alquiler Invierno es la fila «Estudiante» de Gestionar precios."""
+    from decimal import Decimal
+
+    if not propiedad_id or precio_mensual is None:
+        return
+    precio = Decimal(str(precio_mensual)).quantize(Decimal('0.01'))
+    if precio <= 0:
+        return
+    actualizados = Precio.objects.filter(
+        propiedad_id=propiedad_id, tipo_precio=TipoPrecio.ESTUDIANTE
+    ).update(precio_por_dia=precio, precio_total=precio, ajuste_porcentaje=0)
+    if not actualizados:
+        Precio.objects.create(
+            propiedad_id=propiedad_id,
+            tipo_precio=TipoPrecio.ESTUDIANTE,
+            precio_por_dia=precio,
+            precio_total=precio,
+            ajuste_porcentaje=0,
+        )
 
 
 def _contrato_alquiler_es_invierno(contrato):

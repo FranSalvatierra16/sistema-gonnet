@@ -11782,25 +11782,15 @@ def editar_info_invierno(request, propiedad_id):
                         fecha_fin=info_invierno.fecha_fin
                     ).delete()
 
+                from inmobiliaria.decimal_utils import parse_decimal_monto
+
                 _pm = (request.POST.get('precio_mensual') or '').strip()
-                try:
-                    info_invierno.precio_mensual = Decimal(_pm.replace(',', '.')) if _pm else None
-                except (ValueError, InvalidOperation):
-                    info_invierno.precio_mensual = None
+                info_invierno.precio_mensual = parse_decimal_monto(_pm) if _pm else None
                 info_invierno.estado = nuevo_estado
                 _pe = (request.POST.get('precio_expensas') or '').strip()
-                try:
-                    info_invierno.precio_expensas = Decimal(_pe.replace(',', '.')) if _pe else None
-                except (ValueError, InvalidOperation):
-                    info_invierno.precio_expensas = None
+                info_invierno.precio_expensas = parse_decimal_monto(_pe) if _pe else None
                 _pa = request.POST.get('precio_autorizacion', '').strip()
-                if _pa:
-                    try:
-                        info_invierno.precio_autorizacion = Decimal(_pa.replace(',', '.'))
-                    except (ValueError, InvalidOperation):
-                        info_invierno.precio_autorizacion = None
-                else:
-                    info_invierno.precio_autorizacion = None
+                info_invierno.precio_autorizacion = parse_decimal_monto(_pa) if _pa else None
                 info_invierno.observaciones = request.POST.get('observaciones', '')
 
                 if nuevo_estado == 'disponible':
@@ -12012,10 +12002,9 @@ def actualizar_invierno_ajax(request):
         precio_expensas = request.POST.get('precio_expensas', '').strip()
         precio_autorizacion = request.POST.get('precio_autorizacion', '').strip()
         if precio_mensual:
-            try:
-                info_invierno.precio_mensual = Decimal(precio_mensual.replace(',', '.'))
-            except (ValueError, InvalidOperation):
-                pass
+            from inmobiliaria.decimal_utils import parse_decimal_monto
+
+            info_invierno.precio_mensual = parse_decimal_monto(precio_mensual)
         else:
             info_invierno.precio_mensual = None
         if precio_expensas:

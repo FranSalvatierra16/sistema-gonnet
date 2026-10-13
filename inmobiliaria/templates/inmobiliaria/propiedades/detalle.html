@@ -952,18 +952,19 @@
                                             <div class="row">
                                                 <div class="col-md-4 mb-3">
                                                     <label for="precio_mensual_invierno" class="form-label">Precio mensual *</label>
-                                                    <input type="number" class="form-control" id="precio_mensual_invierno" name="precio_mensual" 
-                                                           value="{% if propiedad.info_invierno %}{{ propiedad.info_invierno.precio_mensual|default:'' }}{% endif %}" step="0.01">
+                                                    <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="precio_mensual_invierno" name="precio_mensual" placeholder="Ej: 450.000"
+                                                           value="{% if propiedad.info_invierno and propiedad.info_invierno.precio_mensual is not None %}{{ propiedad.info_invierno.precio_mensual|format_price }}{% endif %}">
+                                                    <small class="text-muted">Es el mismo precio que «Estudiante» en Gestionar precios.</small>
                                                 </div>
                                                 <div class="col-md-4 mb-3">
                                                     <label for="precio_expensas_invierno" class="form-label">Precio de expensas</label>
-                                                    <input type="number" class="form-control" id="precio_expensas_invierno" name="precio_expensas"
-                                                           value="{% if propiedad.info_invierno %}{{ propiedad.info_invierno.precio_expensas|default:'' }}{% endif %}" step="0.01">
+                                                    <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="precio_expensas_invierno" name="precio_expensas"
+                                                           value="{% if propiedad.info_invierno and propiedad.info_invierno.precio_expensas is not None %}{{ propiedad.info_invierno.precio_expensas|format_price }}{% endif %}">
                                                 </div>
                                                 <div class="col-md-4 mb-3">
                                                     <label for="precio_autorizacion_invierno" class="form-label">Precio de autorización</label>
-                                                    <input type="number" class="form-control" id="precio_autorizacion_invierno" name="precio_autorizacion"
-                                                           value="{% if propiedad.info_invierno %}{{ propiedad.info_invierno.precio_autorizacion|default:'' }}{% endif %}" step="0.01" placeholder="0">
+                                                    <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="precio_autorizacion_invierno" name="precio_autorizacion"
+                                                           value="{% if propiedad.info_invierno and propiedad.info_invierno.precio_autorizacion is not None %}{{ propiedad.info_invierno.precio_autorizacion|format_price }}{% endif %}" placeholder="0">
                                                 </div>
                                             </div>
                                             
