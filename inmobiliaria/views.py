@@ -23018,6 +23018,27 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
         else:
             concepto_detalle_json = ''
 
+        cheques_detalle = []
+        if monto_cheque and monto_cheque > 0:
+            cheques_detalle = [c for c in _parse_cheques_movimiento_post(request) if c['monto'] > 0]
+            if cheques_detalle:
+                suma_cheques = sum((c['monto'] for c in cheques_detalle), Decimal('0'))
+                if abs(suma_cheques - Decimal(str(monto_cheque))) > Decimal('0.01'):
+                    def _ar(v):
+                        return f'{v:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+                    return None, 0, (
+                        f'La suma de los cheques (${_ar(suma_cheques)}) no coincide '
+                        f'con el monto en Cheque (${_ar(Decimal(str(monto_cheque)))}).'
+                    )
+            else:
+                cheques_detalle = [{
+                    'monto': Decimal(str(monto_cheque)),
+                    'numero': '',
+                    'banco': '',
+                    'fecha_vencimiento': None,
+                }]
+        primer_cheque = cheques_detalle[0] if cheques_detalle else {}
+
         movimiento = MovimientoCaja.objects.create(
             caja=caja,
             tipo=TipoMovimientoCajaEnum.INGRESO,
@@ -23026,6 +23047,9 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
             concepto_detalle=concepto_detalle_json,
             monto_efectivo=monto_efectivo,
             monto_cheque=monto_cheque,
+            cheque_numero=(primer_cheque.get('numero') or '')[:32],
+            cheque_banco=(primer_cheque.get('banco') or '')[:100],
+            cheque_fecha_vencimiento=primer_cheque.get('fecha_vencimiento'),
             monto_tarjeta=monto_tarjeta,
             monto_dolares=monto_dolares,
             cotizacion_dolar=(
@@ -23066,6 +23090,7 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
         else:
             movimiento.fecha_transferencia = None
         movimiento.save()
+        _guardar_cheques_movimiento(movimiento, cheques_detalle)
         _asignar_numero_recibo_a_movimiento(movimiento, sucursal=request.user.sucursal)
 
         return movimiento, total_movimiento

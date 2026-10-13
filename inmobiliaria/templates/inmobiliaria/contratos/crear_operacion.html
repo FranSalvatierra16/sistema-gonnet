@@ -342,6 +342,47 @@
                                 </div>
                             </div>
                         </div>
+                        <div id="bloque_detalle_cheque" class="mb-3 d-none border rounded p-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="text-muted mb-0">🏦 Datos de los cheques</h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btn_agregar_cheque">
+                                    <i class="fas fa-plus me-1"></i>Agregar cheque
+                                </button>
+                            </div>
+                            <small class="text-muted d-block mb-2">
+                                Podés cargar varios cheques (ej. 4 de $1.000.000 = $4.000.000). La suma actualiza el total de Cheque.
+                            </small>
+                            <div id="lista_cheques_operacion"></div>
+                            <div class="mt-1">
+                                <span class="small text-muted">Suma cheques: </span>
+                                <strong id="suma_cheques_label">$0,00</strong>
+                            </div>
+                        </div>
+                        <template id="tpl_fila_cheque">
+                            <div class="row g-2 align-items-end mb-2 fila-cheque border-bottom pb-2">
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Monto</label>
+                                    <input type="text" name="cheque_item_monto" class="form-control form-control-sm input-monto-ar cheque-monto" inputmode="decimal" autocomplete="off" placeholder="0,00">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Nº de cheque</label>
+                                    <input type="text" name="cheque_item_numero" class="form-control form-control-sm" maxlength="32" autocomplete="off" data-no-monto-ar="1">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Banco</label>
+                                    <input type="text" name="cheque_item_banco" class="form-control form-control-sm" maxlength="100" autocomplete="off">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Vencimiento</label>
+                                    <input type="date" name="cheque_item_fecha" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-sm btn-outline-danger w-100 btn-quitar-cheque" title="Quitar">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
                         <div class="row">
                             {% for cuenta in cuentas_bancarias %}
                             <div class="col-md-6">
@@ -1581,6 +1622,82 @@ function actualizarEstadoDepositoHonorariosYSellados() {
     }
 }
 
+function filasChequeOperacion() {
+    return Array.prototype.slice.call(document.querySelectorAll('#lista_cheques_operacion .fila-cheque'));
+}
+
+function sumaChequesOperacion() {
+    return filasChequeOperacion().reduce(function(sum, fila) {
+        var el = fila.querySelector('.cheque-monto');
+        return sum + parsearValorFormateado(el ? el.value : '0');
+    }, 0);
+}
+
+function agregarFilaChequeOperacion(datos) {
+    var tpl = document.getElementById('tpl_fila_cheque');
+    var lista = document.getElementById('lista_cheques_operacion');
+    if (!tpl || !lista) return null;
+    var wrap = document.createElement('div');
+    wrap.innerHTML = tpl.innerHTML.trim();
+    var fila = wrap.firstElementChild;
+    lista.appendChild(fila);
+    if (datos && datos.monto) fila.querySelector('[name="cheque_item_monto"]').value = datos.monto;
+    return fila;
+}
+
+function actualizarSumaChequesOperacion() {
+    var suma = sumaChequesOperacion();
+    var label = document.getElementById('suma_cheques_label');
+    if (label) label.textContent = '$' + formatoMontoReciboAR(suma);
+    var montoCheque = document.getElementById('monto_cheque');
+    if (montoCheque && filasChequeOperacion().length > 0) {
+        montoCheque.value = suma > 0 ? formatoMontoReciboAR(suma) : '';
+    }
+    calcularTotales();
+}
+
+function actualizarBloqueChequeDesdeMonto() {
+    var bloque = document.getElementById('bloque_detalle_cheque');
+    var montoCheque = document.getElementById('monto_cheque');
+    if (!bloque || !montoCheque) return;
+    var ch = parsearValorFormateado(montoCheque.value);
+    var filas = filasChequeOperacion();
+    if (ch > 0) {
+        bloque.classList.remove('d-none');
+        if (filas.length === 0) {
+            agregarFilaChequeOperacion({ monto: formatoMontoReciboAR(ch) });
+        } else if (filas.length === 1) {
+            filas[0].querySelector('.cheque-monto').value = formatoMontoReciboAR(ch);
+        }
+    } else if (filas.length <= 1) {
+        filas.forEach(function(f) { f.remove(); });
+        bloque.classList.add('d-none');
+    }
+    var label = document.getElementById('suma_cheques_label');
+    if (label) label.textContent = '$' + formatoMontoReciboAR(sumaChequesOperacion());
+}
+
+function validarChequesOperacion() {
+    var filas = filasChequeOperacion();
+    var ch = parsearValorFormateado(document.getElementById('monto_cheque')?.value || '0');
+    if (ch <= 0 || filas.length === 0) return true;
+    var suma = sumaChequesOperacion();
+    if (Math.abs(suma - ch) > 0.01) {
+        alert('⚠️ La suma de los cheques ($' + formatoMontoReciboAR(suma) + ') no coincide con el monto en Cheque ($' + formatoMontoReciboAR(ch) + ').');
+        return false;
+    }
+    for (var i = 0; i < filas.length; i++) {
+        var monto = parsearValorFormateado(filas[i].querySelector('.cheque-monto').value);
+        var numero = (filas[i].querySelector('[name="cheque_item_numero"]').value || '').trim();
+        if (monto > 0 && !numero) {
+            alert('⚠️ Completá el Nº de cheque (cheque ' + (i + 1) + ').');
+            filas[i].querySelector('[name="cheque_item_numero"]').focus();
+            return false;
+        }
+    }
+    return true;
+}
+
 // Función para calcular total de pagos
 function calcularTotalPagos() {
     const v = (id) => parsearValorFormateado(document.getElementById(id)?.value || '0');
@@ -1677,6 +1794,10 @@ function procesarOperacion() {
             `ARS Recibo: $${totalRecibo.toLocaleString('es-AR')} | ARS Pagos: $${totalPagos.ars.toLocaleString('es-AR')}\n` +
             `USD Recibo: U$S ${totalReciboUsd.toLocaleString('es-AR')} | USD Pagos: U$S ${totalPagos.usd.toLocaleString('es-AR')}`
         );
+        return;
+    }
+
+    if (!validarChequesOperacion()) {
         return;
     }
 
@@ -2352,6 +2473,39 @@ document.addEventListener('DOMContentLoaded', function() {
         bindMediosPagoInput(document.getElementById(id));
     });
     document.querySelectorAll('input[id^="monto_deposito_"]').forEach(bindMediosPagoInput);
+
+    var montoChequeEl = document.getElementById('monto_cheque');
+    if (montoChequeEl) {
+        montoChequeEl.addEventListener('input', actualizarBloqueChequeDesdeMonto);
+        montoChequeEl.addEventListener('blur', actualizarBloqueChequeDesdeMonto);
+    }
+    var btnAgregarCheque = document.getElementById('btn_agregar_cheque');
+    if (btnAgregarCheque) {
+        btnAgregarCheque.addEventListener('click', function() {
+            var fila = agregarFilaChequeOperacion(null);
+            if (fila) fila.querySelector('.cheque-monto').focus();
+        });
+    }
+    var listaCheques = document.getElementById('lista_cheques_operacion');
+    if (listaCheques) {
+        listaCheques.addEventListener('input', function(e) {
+            if (e.target.classList.contains('cheque-monto')) actualizarSumaChequesOperacion();
+        });
+        listaCheques.addEventListener('focusout', function(e) {
+            if (e.target.classList.contains('cheque-monto')) actualizarSumaChequesOperacion();
+        });
+        listaCheques.addEventListener('click', function(e) {
+            var btn = e.target.closest('.btn-quitar-cheque');
+            if (!btn) return;
+            var fila = btn.closest('.fila-cheque');
+            if (filasChequeOperacion().length <= 1) {
+                fila.querySelectorAll('input').forEach(function(i) { i.value = ''; });
+            } else {
+                fila.remove();
+            }
+            actualizarSumaChequesOperacion();
+        });
+    }
 
     var importeConceptoEl = document.getElementById('importe');
     if (importeConceptoEl) {
