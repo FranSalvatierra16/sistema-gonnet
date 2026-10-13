@@ -11526,19 +11526,26 @@ def editar_info_venta(request, propiedad_id):
 
         if en_venta:
             # Solo actualizar otros campos si está en venta (decimales: vacío -> None para no provocar error de validación)
-            def _decimal_post(key):
+            from inmobiliaria.decimal_utils import parse_decimal_monto
+
+            def _decimal_post(key, max_enteros):
                 v = (request.POST.get(key) or '').strip()
                 if not v:
                     return None
-                try:
-                    return Decimal(v.replace(',', '.'))
-                except (ValueError, InvalidOperation):
-                    return None
-            info_venta.metros_cuadrados = _decimal_post('metros_cuadrados')
-            info_venta.precio_venta = _decimal_post('precio_venta')
-            info_venta.precio_autorizacion = _decimal_post('precio_autorizacion')
+                monto = parse_decimal_monto(v).quantize(Decimal('0.01'))
+                if monto < 0 or monto >= Decimal(10) ** max_enteros:
+                    raise ValueError(f'Valor fuera de rango en {key}: {v}')
+                return monto
+
+            try:
+                info_venta.metros_cuadrados = _decimal_post('metros_cuadrados', 6)
+                info_venta.precio_venta = _decimal_post('precio_venta', 10)
+                info_venta.precio_autorizacion = _decimal_post('precio_autorizacion', 10)
+                info_venta.precio_expensas = _decimal_post('precio_expensas', 8)
+            except ValueError as e:
+                messages.error(request, f'No se pudo guardar la venta. {e}')
+                return redirect('inmobiliaria:propiedad_detalle', propiedad_id=propiedad_id)
             info_venta.estado = request.POST.get('estado', 'disponible')
-            info_venta.precio_expensas = _decimal_post('precio_expensas')
             info_venta.escribania = request.POST.get('escribania', '')
             info_venta.observaciones = request.POST.get('observaciones', '')
 

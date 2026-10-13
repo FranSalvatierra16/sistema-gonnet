@@ -1361,26 +1361,26 @@
                                         <div class="row">
                                             <div class="col-md-6 mb-3">
                                                 <label for="metros_cuadrados" class="form-label">Metros cuadrados *</label>
-                                                <input type="number" step="0.01" class="form-control" id="metros_cuadrados" name="metros_cuadrados"
-                                                       value="{% if info_venta %}{{ info_venta.metros_cuadrados|floatformat:2|default:'' }}{% endif %}">
+                                                <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="metros_cuadrados" name="metros_cuadrados"
+                                                       value="{% if info_venta and info_venta.metros_cuadrados is not None %}{{ info_venta.metros_cuadrados|format_price }}{% endif %}">
                                             </div>
                                             <div class="col-md-6 mb-3">
                                                 <label for="precio_venta" class="form-label">Precio de venta *</label>
-                                                <input type="number" class="form-control" id="precio_venta" name="precio_venta" 
-                                                       value="{% if info_venta %}{{ info_venta.precio_venta|floatformat:2|default:'' }}{% endif %}">
+                                                <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="precio_venta" name="precio_venta" placeholder="Ej: 150.000"
+                                                       value="{% if info_venta and info_venta.precio_venta is not None %}{{ info_venta.precio_venta|format_price }}{% endif %}">
                                             </div>
                                         </div>
                                         
                                         <div class="row">
                                             <div class="col-md-6 mb-3">
                                                 <label for="precio_autorizacion" class="form-label">Precio de autorización *</label>
-                                                <input type="number" class="form-control" id="precio_autorizacion" name="precio_autorizacion"
-                                                       value="{% if info_venta %}{{ info_venta.precio_autorizacion|floatformat:2|default:'' }}{% endif %}">
+                                                <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="precio_autorizacion" name="precio_autorizacion"
+                                                       value="{% if info_venta and info_venta.precio_autorizacion is not None %}{{ info_venta.precio_autorizacion|format_price }}{% endif %}">
                                             </div>
                                             <div class="col-md-6 mb-3">
                                                 <label for="precio_expensas_venta" class="form-label">Precio de expensas</label>
-                                                <input type="number" class="form-control" id="precio_expensas_venta" name="precio_expensas"
-                                                       value="{% if info_venta %}{{ info_venta.precio_expensas|floatformat:2|default:'' }}{% endif %}">
+                                                <input type="text" inputmode="decimal" autocomplete="off" class="form-control" id="precio_expensas_venta" name="precio_expensas"
+                                                       value="{% if info_venta and info_venta.precio_expensas is not None %}{{ info_venta.precio_expensas|format_price }}{% endif %}">
                                             </div>
                                         </div>
 
@@ -2500,23 +2500,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('modalVenta').addEventListener('show.bs.modal', function() {
         // ✅ FORZAR valores si están vacíos pero tenemos info_venta
         {% if info_venta %}
-        if (!document.getElementById('metros_cuadrados').value && '{{ info_venta.metros_cuadrados|default:"" }}') {
-            // Convertir comas a puntos para inputs tipo number
-            var metrosCuadrados = '{{ info_venta.metros_cuadrados }}'.replace(',', '.');
-            document.getElementById('metros_cuadrados').value = metrosCuadrados;
-        }
-        if (!document.getElementById('precio_venta').value && '{{ info_venta.precio_venta|default:"" }}') {
-            var precioVenta = '{{ info_venta.precio_venta }}'.replace(',', '.');
-            document.getElementById('precio_venta').value = precioVenta;
-        }
-        if (!document.getElementById('precio_autorizacion').value && '{{ info_venta.precio_autorizacion|default:"" }}') {
-            var precioAutorizacion = '{{ info_venta.precio_autorizacion }}'.replace(',', '.');
-            document.getElementById('precio_autorizacion').value = precioAutorizacion;
-        }
-        if (!document.getElementById('precio_expensas_venta').value && '{{ info_venta.precio_expensas|default:"" }}') {
-            var precioExpensas = '{{ info_venta.precio_expensas }}'.replace(',', '.');
-            document.getElementById('precio_expensas_venta').value = precioExpensas;
-        }
         if (!document.getElementById('escribania').value && '{{ info_venta.escribania|default:"" }}') {
             document.getElementById('escribania').value = '{{ info_venta.escribania }}';
         }
