@@ -855,8 +855,8 @@
                                         <a href="{% if recibo.movimiento_caja.url_recibo %}{{ recibo.movimiento_caja.url_recibo }}{% else %}{% url_recibo_movimiento recibo.movimiento_caja %}{% endif %}" class="btn-action btn-recibo" title="Ver recibo {{ recibo|numero_recibo_display }}" target="_blank" rel="noopener">
                                             <i class="fas fa-file-invoice"></i>{{ recibo|numero_recibo_display }}
                                         </a>
-                                        {% if user.nivel == 5 and recibo.movimiento_caja.caja and recibo.movimiento_caja.caja.estado == 'abierta' and not recibo.movimiento_caja.caja.fecha_cierre %}
-                                        <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' recibo.movimiento_caja.id %}" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo? La operación volverá a mostrar el saldo pendiente según los pagos que queden.');">
+                                        {% if user.nivel == 5 or user.is_superuser %}{% if recibo.movimiento_caja %}
+                                        <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' recibo.movimiento_caja.id %}" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo? La operación volverá a mostrar el saldo pendiente según los pagos que queden.{% if recibo.movimiento_caja.caja.estado != 'abierta' or recibo.movimiento_caja.caja.fecha_cierre %} La caja de ese día ya está cerrada: revisá el arqueo.{% endif %}');">
                                             {% csrf_token %}
                                             <input type="hidden" name="next" value="operaciones">
                                             <button type="submit" class="btn btn-sm btn-outline-danger btn-eliminar-recibo-op-inline" title="Eliminar este recibo / movimiento de caja">
@@ -864,7 +864,7 @@
                                                 <span class="recibo-op-eliminar-texto">Eliminar</span>
                                             </button>
                                         </form>
-                                        {% endif %}
+                                        {% endif %}{% endif %}
                                     </div>
                                     {% endwith %}
                                 {% else %}
@@ -885,9 +885,9 @@
                                                                 <span class="recibo-op-fecha"><i class="far fa-calendar-alt me-1"></i>{{ recibo.fecha_emision|date:"d/m/Y" }}</span>
                                                             </span>
                                                         </a>
-                                                        {% if user.nivel == 5 and recibo.movimiento_caja.caja and recibo.movimiento_caja.caja.estado == 'abierta' and not recibo.movimiento_caja.caja.fecha_cierre %}
+                                                        {% if user.nivel == 5 or user.is_superuser %}{% if recibo.movimiento_caja %}
                                                         <div class="recibo-op-actions">
-                                                            <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' recibo.movimiento_caja.id %}" class="m-0 h-100 d-flex align-items-stretch" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo?');">
+                                                            <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' recibo.movimiento_caja.id %}" class="m-0 h-100 d-flex align-items-stretch" onsubmit="return confirm('¿Eliminar el recibo {{ recibo|numero_recibo_display }} y su ingreso de caja? La operación volverá a mostrar el saldo pendiente según los pagos que queden.{% if recibo.movimiento_caja.caja.estado != 'abierta' or recibo.movimiento_caja.caja.fecha_cierre %} La caja de ese día ya está cerrada: revisá el arqueo.{% endif %}');">
                                                                 {% csrf_token %}
                                                                 <input type="hidden" name="next" value="operaciones">
                                                                 <button type="submit" class="btn btn-sm btn-outline-danger btn-eliminar-recibo-op w-100" title="Eliminar este recibo / movimiento de caja">
@@ -896,7 +896,7 @@
                                                                 </button>
                                                             </form>
                                                         </div>
-                                                        {% endif %}
+                                                        {% endif %}{% endif %}
                                                     </div>
                                                 </li>
                                             {% endfor %}
@@ -908,8 +908,8 @@
                                     <a href="{% if op.movimiento_reciente.url_recibo %}{{ op.movimiento_reciente.url_recibo }}{% else %}{% url_recibo_movimiento op.movimiento_reciente %}{% endif %}" class="btn-action btn-recibo" title="Ver recibo {{ op.movimiento_reciente|numero_recibo_movimiento }}" target="_blank" rel="noopener">
                                         <i class="fas fa-file-invoice"></i>{{ op.movimiento_reciente|numero_recibo_movimiento }}
                                     </a>
-                                    {% if user.nivel == 5 and op.movimiento_reciente.caja and op.movimiento_reciente.caja.estado == 'abierta' and not op.movimiento_reciente.caja.fecha_cierre %}
-                                    <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' op.movimiento_reciente.id %}" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo asociado?');">
+                                    {% if user.nivel == 5 or user.is_superuser %}
+                                    <form method="post" action="{% url 'inmobiliaria:eliminar_movimiento' op.movimiento_reciente.id %}" class="d-inline m-0" onsubmit="return confirm('¿Eliminar este ingreso de caja y su recibo asociado?{% if op.movimiento_reciente.caja.estado != 'abierta' or op.movimiento_reciente.caja.fecha_cierre %} La caja de ese día ya está cerrada: revisá el arqueo.{% endif %}');">
                                         {% csrf_token %}
                                         <input type="hidden" name="next" value="operaciones">
                                         <button type="submit" class="btn btn-sm btn-outline-danger btn-eliminar-recibo-op-inline" title="Eliminar este movimiento de caja">

@@ -12995,6 +12995,27 @@ def gestionar_caja(request):
         return redirect('inmobiliaria:dashboard')
 
 
+def _reservas_vinculadas_a_movimiento(movimiento):
+    """Reservas cuyo cobrado depende de este movimiento (por recibo o por concepto)."""
+    from inmobiliaria.caja_devolucion_deposito import _movimiento_vinculado_reserva
+    from inmobiliaria.models.propiedad import Reserva
+    from inmobiliaria.models.recibo import Recibo
+
+    ids = set(
+        Recibo.objects.filter(movimiento_caja=movimiento, reserva_id__isnull=False)
+        .values_list('reserva_id', flat=True)
+    )
+    if movimiento.propiedad_id:
+        for rid in Reserva.objects.filter(
+            propiedad_id=movimiento.propiedad_id, eliminada=False
+        ).values_list('id', flat=True):
+            if _movimiento_vinculado_reserva(movimiento, rid):
+                ids.add(rid)
+    if not ids:
+        return []
+    return list(Reserva.objects.filter(id__in=ids, eliminada=False))
+
+
 @login_required
 @transaction.atomic
 def eliminar_movimiento(request, movimiento_id):
@@ -13042,7 +13063,13 @@ def eliminar_movimiento(request, movimiento_id):
         )
 
     caja_numero = movimiento.caja_id and movimiento.caja.numero
+    reservas_afectadas = _reservas_vinculadas_a_movimiento(movimiento)
     _eliminar_movimiento_y_anexos(movimiento, eliminado_por=request.user)
+    if reservas_afectadas:
+        from inmobiliaria.caja_devolucion_deposito import sincronizar_senia_reserva_desde_movimientos
+
+        for reserva in reservas_afectadas:
+            sincronizar_senia_reserva_desde_movimientos(reserva)
     messages.success(
         request,
         'Movimiento anulado. Seguirá visible en «Movimientos eliminados» y ya no suma en el saldo de la caja.',
