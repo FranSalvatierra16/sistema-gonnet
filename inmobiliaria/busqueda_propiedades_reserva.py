@@ -58,6 +58,23 @@ def calcular_precio_total_reserva_fechas(
     return precio_total + precio_mas_caro
 
 
+def dias_sin_precio_reserva(
+    fecha_inicio,
+    fecha_fin,
+    precios_map,
+    vacaciones_invierno: RangoVacacionesInvierno | None = None,
+):
+    """Días del rango cuyo precio por día es 0 (o no está cargado)."""
+    noches = (fecha_fin - fecha_inicio).days
+    dias = []
+    for noche in range(max(noches, 0)):
+        dia_a_usar = dia_a_usar_para_noche(fecha_inicio, noche)
+        tipo = tipo_precio_para_dia_reserva(dia_a_usar, vacaciones_invierno)
+        if precio_dia_desde_obj(precios_map.get(tipo)) <= 0 and dia_a_usar not in dias:
+            dias.append(dia_a_usar)
+    return dias
+
+
 def periodo_cubierto_por_disponibilidades(disponibilidades_list, fecha_inicio, fecha_fin):
     """
     True si las disponibilidades contiguas cubren [fecha_inicio, fecha_fin].

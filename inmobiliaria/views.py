@@ -18995,6 +18995,7 @@ def buscar_propiedades(request):
             calcular_precio_total_reserva_fechas,
             cargar_contexto_bulk_busqueda,
             contrato_solapa_rango,
+            dias_sin_precio_reserva,
             mapa_precios_propiedad,
             periodo_cubierto_por_disponibilidades,
             reservas_solapan_rango,
@@ -19096,12 +19097,17 @@ def buscar_propiedades(request):
                 propiedad.reserva_termina_en_inicio = reserva_termina_en_inicio
 
             precios_map = mapa_precios_propiedad(propiedad)
+            vacaciones_invierno = rango_vacaciones_invierno_sucursal(propiedad.sucursal)
             propiedad.precio_total_reserva = calcular_precio_total_reserva_fechas(
                 fecha_inicio,
                 fecha_fin,
                 precios_map,
-                vacaciones_invierno=rango_vacaciones_invierno_sucursal(propiedad.sucursal),
+                vacaciones_invierno=vacaciones_invierno,
             )
+            dias_cero = dias_sin_precio_reserva(
+                fecha_inicio, fecha_fin, precios_map, vacaciones_invierno=vacaciones_invierno
+            )
+            propiedad.precio_dias_en_cero = ', '.join(d.strftime('%d/%m') for d in dias_cero)
             propiedades_disponibles.append(propiedad)
     
     # Alerta si hay propiedades sin precio
