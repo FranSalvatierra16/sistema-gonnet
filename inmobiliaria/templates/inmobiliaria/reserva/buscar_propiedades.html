@@ -1233,10 +1233,7 @@
                             <td>{{ propiedad.propietario.apellido }}</td>
                             <td>
                                 {% if propiedad.precio_dias_en_cero %}
-                                <span class="badge bg-danger" style="white-space: normal;" title="Días con precio $0: {{ propiedad.precio_dias_en_cero }}">
-                                    <i class="fas fa-exclamation-triangle"></i> Error: hay días con precio $0
-                                </span>
-                                <br><small class="text-danger">{{ propiedad.precio_dias_en_cero|truncatechars:40 }}</small>
+                                <span class="text-danger fw-bold" title="Días con precio $0: {{ propiedad.precio_dias_en_cero }}">⚠️ Error</span>
                                 {% else %}
                                 ${{ propiedad.precio_total_reserva|format_price }}
                                 {% endif %}
@@ -1271,10 +1268,7 @@
                             <td>{{ propiedad.propietario.apellido }}</td>
                             <td>
                                 {% if propiedad.precio_dias_en_cero %}
-                                <span class="badge bg-danger" style="white-space: normal;" title="Días con precio $0: {{ propiedad.precio_dias_en_cero }}">
-                                    <i class="fas fa-exclamation-triangle"></i> Error: hay días con precio $0
-                                </span>
-                                <br><small class="text-danger">{{ propiedad.precio_dias_en_cero|truncatechars:40 }}</small>
+                                <span class="text-danger fw-bold" title="Días con precio $0: {{ propiedad.precio_dias_en_cero }}">⚠️ Error</span>
                                 {% else %}
                                 ${{ propiedad.precio_total_reserva|format_price }}
                                 {% endif %}
@@ -1679,7 +1673,7 @@
                         <p><strong>Valoración:</strong> {{ propiedad.valoracion }}</p>
                         <p><strong>Características:</strong> {{ propiedad.caracteristicas }}</p>
                         {% if propiedad.precio_dias_en_cero %}
-                        <p><strong>Precio Final:</strong> <span class="badge bg-danger">Error: días con precio $0 ({{ propiedad.precio_dias_en_cero }})</span></p>
+                        <p><strong>Precio Final:</strong> <span class="text-danger fw-bold" title="Días con precio $0: {{ propiedad.precio_dias_en_cero }}">⚠️ Error</span></p>
                         {% else %}
                         <p><strong>Precio Final:</strong> ${{ propiedad.precio_total_reserva|format_price }}</p>
                         {% endif %}
