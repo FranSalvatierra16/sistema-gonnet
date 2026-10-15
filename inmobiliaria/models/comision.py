@@ -334,6 +334,20 @@ def clasificar_tipo_operacion_reserva(reserva):
     return 'dia'
 
 
+INQUILINO_MARCONI_ID = 160
+
+
+def es_reserva_marconi(reserva):
+    return bool(reserva) and getattr(reserva, 'cliente_id', None) == INQUILINO_MARCONI_ID
+
+
+def pct_comision_marconi_vendedor(vendedor, reserva):
+    """% Marconi del productor si la reserva es de Marconi y tiene el % cargado; si no, None."""
+    if not vendedor or not es_reserva_marconi(reserva):
+        return None
+    return getattr(vendedor, 'comision_marconi', None)
+
+
 def pct_comision_normal_alquiler_dia(vendedor):
     """% comisión 'normal' (alquiler por día): campo comision o default de sucursal."""
     if vendedor.comision is not None:
@@ -595,7 +609,11 @@ def _crear_linea_operacion_por_dia(
     Aplica piso de comisión mínima por operación (repartido por participación).
     Solo una línea por reserva (no se duplica en pagos parciales).
     """
-    pct = pct_override if pct_override is not None else pct_comision_normal_alquiler_dia(vendedor)
+    pct_marconi = pct_comision_marconi_vendedor(vendedor, reserva)
+    if pct_marconi is not None:
+        pct = pct_marconi
+    else:
+        pct = pct_override if pct_override is not None else pct_comision_normal_alquiler_dia(vendedor)
     if pct is None or pct <= 0:
         # Sin %: no debe quedar línea inventada (p. ej. fallback 1% viejo o productor Oficina).
         _cancelar_o_borrar_comisiones_qs(
@@ -668,7 +686,7 @@ def _crear_linea_operacion_por_dia(
         monto_base=base,
         porcentaje_comision=pct,
         concepto=(
-            f'Op. {reserva.id} — comisión alquiler por día '
+            f'Op. {reserva.id} — comisión {"Marconi" if pct_marconi is not None else "alquiler por día"} '
             f'(part. {participacion_pct if participacion_pct is not None else 100}% del total)'
         ),
         rol_comision=ROL_COMISION_OP_DIA,
@@ -678,6 +696,54 @@ def _crear_linea_operacion_por_dia(
             c.monto_comision = nuevo_monto
             c.save(update_fields=['monto_comision'])
         creadas.append(c)
+
+
+def recalcular_comisiones_marconi_vendedor(vendedor):
+    """
+    Alinea % y monto de las comisiones «por día» del productor en operaciones de Marconi.
+    No toca comisiones pagadas ni de meses marcados como pagados.
+    Devuelve (actualizadas, omitidas_pagadas).
+    """
+    if not vendedor:
+        return 0, 0
+    pct_marconi = getattr(vendedor, 'comision_marconi', None)
+    pct = pct_marconi if pct_marconi is not None else pct_comision_normal_alquiler_dia(vendedor)
+    meses_pagados = set(
+        MesComisionPagadoVendedor.objects.filter(vendedor=vendedor).values_list('anio', 'mes')
+    )
+    qs = (
+        ComisionVendedor.objects.filter(
+            vendedor=vendedor,
+            rol_comision=ROL_COMISION_OP_DIA,
+            reserva__cliente_id=INQUILINO_MARCONI_ID,
+        )
+        .exclude(estado='cancelada')
+        .select_related('reserva', 'reserva__sucursal')
+    )
+    actualizadas = 0
+    omitidas = 0
+    for c in qs:
+        fo = c.fecha_operacion
+        if c.estado == 'pagada' or (fo and (fo.year, fo.month) in meses_pagados):
+            omitidas += 1
+            continue
+        if pct is None or pct <= 0:
+            _cancelar_o_borrar_comisiones_qs(ComisionVendedor.objects.filter(pk=c.pk))
+            actualizadas += 1
+            continue
+        reserva = c.reserva
+        part = mapa_participacion_productores(reserva=reserva).get(vendedor.id, Decimal('100'))
+        base = Decimal(str(c.monto_total_operacion or 0))
+        nuevo = (base * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))
+        nuevo = monto_comision_productor_con_minimo(
+            nuevo, part, sucursal=getattr(reserva, 'sucursal', None)
+        )
+        if c.porcentaje_comision != pct or c.monto_comision != nuevo:
+            c.porcentaje_comision = pct
+            c.monto_comision = nuevo
+            c.save(update_fields=['porcentaje_comision', 'monto_comision'])
+            actualizadas += 1
+    return actualizadas, omitidas
 
 
 def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja, honorarios_monto):

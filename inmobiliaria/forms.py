@@ -47,6 +47,7 @@ class VendedorUserCreationForm(forms.ModelForm):
             'comision_primer_fichaje_24_meses', 'comision_segundo_fichaje_24_meses',
             'comision_alquiler_24_meses', 'comision_invierno',
             'comision_alquiler_24_meses_propiedad_oficina', 'comision_invierno_propiedad_oficina',
+            'comision_marconi',
             'sueldo_basico', 'basico_no_suma_si_comisiones_superan',
             'fecha_nacimiento', 'nivel', 'sucursal',
         ]
@@ -81,6 +82,9 @@ class VendedorUserCreationForm(forms.ModelForm):
             ),
             'comision_alquiler_24_meses_propiedad_oficina': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_marconi': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100', 'data-no-monto-ar': '1'}
             ),
             'sueldo_basico': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}
@@ -154,6 +158,7 @@ class VendedorChangeForm(UserChangeForm):
             'comision_primer_fichaje_24_meses', 'comision_segundo_fichaje_24_meses',
             'comision_alquiler_24_meses', 'comision_invierno',
             'comision_alquiler_24_meses_propiedad_oficina', 'comision_invierno_propiedad_oficina',
+            'comision_marconi',
             'sueldo_basico', 'basico_no_suma_si_comisiones_superan',
             'celular', 'nivel', 'sucursal',
         ]
@@ -190,6 +195,9 @@ class VendedorChangeForm(UserChangeForm):
             ),
             'comision_alquiler_24_meses_propiedad_oficina': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
+            ),
+            'comision_marconi': forms.NumberInput(
+                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100', 'data-no-monto-ar': '1'}
             ),
             'sueldo_basico': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}

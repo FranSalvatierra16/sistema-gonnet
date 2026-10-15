@@ -261,6 +261,17 @@ class Vendedor(AbstractUser):
         verbose_name='Comisión fichaje de venta (%)',
         help_text='Porcentaje sobre los honorarios de productores de la venta (quien fichó la propiedad).',
     )
+    comision_marconi = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Comisión Marconi (%)',
+        help_text=(
+            'Porcentaje del productor en operaciones cuyo inquilino es Marconi (ID 160). '
+            'Si está vacío, se usa la comisión por día.'
+        ),
+    )
     sueldo_basico = models.DecimalField(
         max_digits=14,
         decimal_places=2,
@@ -381,6 +392,12 @@ class Vendedor(AbstractUser):
         normal del vendedor / default de sucursal, o el de fichaje solo si
         aplica en la ficha y no hay % de operación por día (legado).
         """
+        from inmobiliaria.models.comision import pct_comision_marconi_vendedor
+
+        pct_marconi = pct_comision_marconi_vendedor(self, reserva)
+        if pct_marconi is not None:
+            return pct_marconi
+
         if not reserva or not getattr(reserva, 'propiedad_id', None):
             return self.porcentaje_comision_efectivo()
 

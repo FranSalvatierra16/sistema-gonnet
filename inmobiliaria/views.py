@@ -3073,6 +3073,15 @@ def vendedor_editar(request, vendedor_id):
         if form.is_valid():
             vendedor = form.save()
             messages.success(request, 'Vendedor actualizado exitosamente.')
+            if 'comision_marconi' in form.changed_data or 'comision' in form.changed_data:
+                from inmobiliaria.models.comision import recalcular_comisiones_marconi_vendedor
+
+                actualizadas, omitidas = recalcular_comisiones_marconi_vendedor(vendedor)
+                if actualizadas or omitidas:
+                    texto = f'Comisiones Marconi recalculadas: {actualizadas}.'
+                    if omitidas:
+                        texto += f' {omitidas} ya pagadas no se modificaron.'
+                    messages.info(request, texto)
             return redirect('inmobiliaria:vendedor_detalle', vendedor_id=vendedor.id)
     else:
         form = VendedorChangeForm(

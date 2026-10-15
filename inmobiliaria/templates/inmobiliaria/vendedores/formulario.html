@@ -312,6 +312,18 @@
                                 {{ form.comision_alquiler_24_meses_propiedad_oficina.errors }}
                             </div>
                         </div>
+                        <div class="row g-4 mt-1">
+                            <div class="col-12">
+                                <p class="text-muted small mb-2"><i class="fas fa-handshake me-1"></i><strong>Marconi</strong> — % del productor en operaciones cuyo inquilino es Marconi (ID 160). Vacío = usa la comisión por día.</p>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <label for="id_comision_marconi" class="form-label">
+                                    <i class="fas fa-handshake me-1"></i>Comisión Marconi (%)
+                                </label>
+                                {{ form.comision_marconi }}
+                                {{ form.comision_marconi.errors }}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
