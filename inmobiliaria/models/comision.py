@@ -701,8 +701,8 @@ def _crear_linea_operacion_por_dia(
 def recalcular_comisiones_marconi_vendedor(vendedor):
     """
     Alinea % y monto de las comisiones «por día» del productor en operaciones de Marconi.
-    No toca comisiones pagadas ni de meses marcados como pagados.
-    Devuelve (actualizadas, omitidas_pagadas).
+    No toca comisiones pagadas, de meses marcados como pagados ni de carátulas confirmadas.
+    Devuelve (actualizadas, omitidas).
     """
     if not vendedor:
         return 0, 0
@@ -724,7 +724,11 @@ def recalcular_comisiones_marconi_vendedor(vendedor):
     omitidas = 0
     for c in qs:
         fo = c.fecha_operacion
-        if c.estado == 'pagada' or (fo and (fo.year, fo.month) in meses_pagados):
+        if (
+            c.estado == 'pagada'
+            or (fo and (fo.year, fo.month) in meses_pagados)
+            or (getattr(c.reserva, 'estado_confirmacion_caratula', None) or '') == 'confirmada'
+        ):
             omitidas += 1
             continue
         if pct is None or pct <= 0:

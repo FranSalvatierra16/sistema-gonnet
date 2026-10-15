@@ -3080,7 +3080,7 @@ def vendedor_editar(request, vendedor_id):
                 if actualizadas or omitidas:
                     texto = f'Comisiones Marconi recalculadas: {actualizadas}.'
                     if omitidas:
-                        texto += f' {omitidas} ya pagadas no se modificaron.'
+                        texto += f' {omitidas} pagadas o con carátula confirmada no se modificaron.'
                     messages.info(request, texto)
             return redirect('inmobiliaria:vendedor_detalle', vendedor_id=vendedor.id)
     else:
