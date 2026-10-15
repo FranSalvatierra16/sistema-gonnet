@@ -7466,17 +7466,42 @@ def historial_reservas_vendedor(request, vendedor_id):
 def historial_reservas_inquilino(request, inquilino_id):
     from inmobiliaria.models.historial_inquilino import HistorialInquilino
 
+    from inmobiliaria.models.sucursal import Sucursal
+
     inquilino = get_object_or_404(Inquilino, pk=inquilino_id)
+
+    sucursal_usuario = request.user.sucursal
+    puede_ver_ambas = usuario_en_colon_o_corrientes(request.user)
+    ver_ambas = puede_ver_ambas and request.GET.get('sucursal') == 'ambas'
+    if ver_ambas:
+        sucursal_ids = list(
+            Sucursal.objects.filter(
+                Q(nombre__icontains='colon') | Q(nombre__icontains='corrientes')
+            ).values_list('id', flat=True)
+        )
+    else:
+        sucursal_ids = [sucursal_usuario.id] if sucursal_usuario else []
+
     # Activas + anuladas mezcladas por fecha. Las marcadas "ocultar" (eliminadas desde acá) no salen.
     reservas = (
         Reserva.objects.filter(cliente_id=inquilino_id, ocultar_en_historial_inquilino=False)
-        .select_related('propiedad', 'propiedad__propietario', 'usuario_eliminacion', 'vendedor')
+        .filter(
+            Q(sucursal_id__in=sucursal_ids)
+            | Q(sucursal__isnull=True, propiedad__sucursal_id__in=sucursal_ids)
+        )
+        .select_related('propiedad', 'propiedad__propietario', 'propiedad__sucursal', 'sucursal', 'usuario_eliminacion', 'vendedor')
         .order_by('-fecha_inicio', '-id')
     )
 
     eventos = (
         HistorialInquilino.objects.filter(inquilino_id=inquilino_id)
-        .select_related('reserva', 'reserva__propiedad', 'usuario', 'contrato')
+        .filter(
+            Q(reserva__sucursal_id__in=sucursal_ids)
+            | Q(reserva__sucursal__isnull=True, reserva__propiedad__sucursal_id__in=sucursal_ids)
+            | Q(reserva__isnull=True, contrato__sucursal_id__in=sucursal_ids)
+            | Q(reserva__isnull=True, contrato__isnull=True)
+        )
+        .select_related('reserva', 'reserva__propiedad', 'reserva__sucursal', 'usuario', 'contrato', 'contrato__sucursal')
         .order_by('-creado', '-id')
     )
 
@@ -7500,6 +7525,9 @@ def historial_reservas_inquilino(request, inquilino_id):
         'eventos': eventos,
         'estado_labels': estado_labels,
         'puede_eliminar_reserva': True,
+        'puede_ver_ambas': puede_ver_ambas,
+        'ver_ambas': ver_ambas,
+        'sucursal_usuario': sucursal_usuario,
     })    
 def buscar_propietarios(request):
     """
