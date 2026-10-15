@@ -1125,7 +1125,16 @@ class PropietarioBuscarForm(forms.Form):
     termino = forms.CharField(required=False, label='Buscar por nombre completo o DNI')
 
 class InquilinoBuscarForm(forms.Form):
-    termino = forms.CharField(required=False, label='Buscar nombre completo o DNI')
+    termino = forms.CharField(
+        required=False,
+        label='Buscar nombre completo, DNI o ID',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Buscar por nombre, DNI o ID...',
+            'data-no-monto-ar': '1',
+            'autocomplete': 'off',
+        }),
+    )
 
 class SucursalForm(forms.ModelForm):
     class Meta:

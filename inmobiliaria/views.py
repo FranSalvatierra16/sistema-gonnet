@@ -3177,12 +3177,22 @@ def inquilinos(request):
         termino = form.cleaned_data.get('termino')
         
         if termino:
+            termino = termino.strip()
             palabras = termino.split()
             query = Q()
             for palabra in palabras:
                 query |= Q(nombre__icontains=palabra) | Q(apellido__icontains=palabra)
             query |= Q(dni__icontains=termino)
-            inquilinos = inquilinos.filter(query)
+            if termino.lstrip('#').isdigit():
+                from django.db.models import Value
+
+                id_buscado = int(termino.lstrip('#'))
+                query |= Q(id=id_buscado)
+                inquilinos = inquilinos.filter(query).annotate(
+                    _orden_id=Case(When(id=id_buscado, then=Value(0)), default=Value(1), output_field=IntegerField())
+                ).order_by('_orden_id', 'apellido', 'nombre')
+            else:
+                inquilinos = inquilinos.filter(query)
 
     # Detectar si la solicitud es AJAX
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':

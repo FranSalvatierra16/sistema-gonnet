@@ -3350,12 +3350,19 @@ function buscarInquilinosEnTiempoReal() {
         }
 
     // Filtrar inquilinos
+    const prioridadInquilino = (inquilino) => {
+        const id = inquilino.id.toString();
+        if (id === termino) return 0;
+        if ((inquilino.dni || '').toLowerCase() === termino) return 1;
+        if (id.startsWith(termino)) return 2;
+        return 3;
+    };
     const inquilinosFiltrados = inquilinosOriginales.filter(inquilino => {
         return inquilino.nombre.includes(termino) || 
                inquilino.id.toString().includes(termino) ||
                inquilino.dni.includes(termino) ||
                inquilino.text.toLowerCase().includes(termino);
-    });
+    }).sort((a, b) => prioridadInquilino(a) - prioridadInquilino(b));
     
     // Actualizar select
     inquilinoSelect.innerHTML = '';
