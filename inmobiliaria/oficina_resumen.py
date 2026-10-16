@@ -695,7 +695,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
     cats_mapeadas_ids = set()
     try:
         from inmobiliaria.oficina_gastos import (
-            CONCEPTOS_CAJA_SIEMPRE_GASTO,
+            CONCEPTOS_MANUAL_SIEMPRE_GASTO,
             MAPA_CONCEPTOS_CAJA_A_OFICINA,
             MAPA_NOMBRE_CONCEPTO_A_OFICINA,
             _neto_gastos_oficina_desde_caja_mapeada,
@@ -739,7 +739,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
             )
 
         cats_siempre_gasto = set()
-        for cid_sg in CONCEPTOS_CAJA_SIEMPRE_GASTO:
+        for cid_sg in CONCEPTOS_MANUAL_SIEMPRE_GASTO:
             ruta_sg = MAPA_CONCEPTOS_CAJA_A_OFICINA.get(cid_sg)
             cat_sg = resolver_categoria_oficina_por_ruta(sucursal, *ruta_sg) if ruta_sg else None
             if cat_sg:

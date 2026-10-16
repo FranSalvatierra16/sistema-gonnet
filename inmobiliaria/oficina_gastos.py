@@ -186,9 +186,14 @@ MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
 # subcategoría destino tampoco se guarda en caja con el id del concepto.
 CONCEPTOS_CAJA_SIN_VINCULO_INVERSO = frozenset({'22', '54'})
 
-# En el cierre siempre cuentan como gasto (sin importar si en caja fue ingreso o egreso):
-# 54 suma en Pago IIBB y 22 resta en Ingresos › Gastos bancarios.
-CONCEPTOS_CAJA_SIEMPRE_GASTO = frozenset({'22', '54'})
+# En el neto de caja, el 54 siempre es gasto (abs), sea ingreso o egreso.
+# El 22 (Gastos bancarios) neta por tipo: egreso +, ingreso −. Un traspaso a
+# cuenta propia cargado como salida y como entrada se anula; quedan comisiones e impuestos.
+CONCEPTOS_CAJA_SIEMPRE_GASTO = frozenset({'54'})
+
+# Carga manual del cierre: valor absoluto. Pago IIBB suma en egresos; Gastos
+# bancarios queda positivo y el bloque Ingresos lo descuenta.
+CONCEPTOS_MANUAL_SIEMPRE_GASTO = frozenset({'22', '54'})
 
 # Solo estos pueden aparecer en medio del texto (ej. "RETIRO VERAZ COLON").
 # El resto (gastos bancarios, boletas…) es match exacto/prefijo: si no, cobros
@@ -887,7 +892,7 @@ def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
     Regla dura: solo id de catálogo (22/130/24) + importe de esa línea.
     Si el movimiento es solo ese concepto (sin líneas), usa el total del movimiento.
     Nunca usa el total de un cobro multi-concepto ni el nombre «Gastos bancarios».
-    Egreso +, ingreso −.
+    Egreso +, ingreso −, salvo CONCEPTOS_CAJA_SIEMPRE_GASTO (54), que siempre suma.
     """
     from django.db.models import Q
     from django.db.models.functions import Coalesce, TruncDate
