@@ -287,12 +287,21 @@
 }
 @media print {
     .no-print, nav, footer, .navbar { display: none !important; }
-    .resumen-cierre-wrap { margin: 0; padding: 0; }
-    .resumen-cierre-sheet { border: none !important; box-shadow: none !important; }
+    .resumen-cierre-wrap { margin: 0; padding: 0; width: 100%; max-width: none; }
+    .resumen-cierre-sheet {
+        border: none !important;
+        box-shadow: none !important;
+        width: 100% !important;
+        max-width: none !important;
+        padding: 0 !important;
+        font-size: 10pt;
+    }
     .resumen-cierre-sheet > .row { flex-wrap: nowrap !important; }
-    .resumen-cierre-sheet .col-lg-7 { flex: 0 0 58.333% !important; max-width: 58.333% !important; }
-    .resumen-cierre-sheet .col-lg-5 { flex: 0 0 41.667% !important; max-width: 41.667% !important; }
+    .resumen-cierre-sheet .col-lg-7 { flex: 0 0 58% !important; max-width: 58% !important; }
+    .resumen-cierre-sheet .col-lg-5 { flex: 0 0 42% !important; max-width: 42% !important; }
+    .resumen-bloque-titulo, .resumen-subtotal { font-size: 9.5pt; }
+    .resumen-total-grande { font-size: 11pt; }
 }
 </style>
-{% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.resumen-cierre-sheet' orientacion='portrait' %}
+{% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.resumen-cierre-sheet' orientacion='portrait' sin_zoom='1' %}
 {% endblock %}
