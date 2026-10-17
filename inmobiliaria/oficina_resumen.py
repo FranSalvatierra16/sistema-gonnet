@@ -894,14 +894,19 @@ def construir_resumen_cierre(sucursal, anio, mes):
             continue
 
         if nombre_raiz.lower() == 'ingresos':
+            from inmobiliaria.oficina_gastos import _norm_nombre_cat as _norm_ing
+
             filas = []
             hijos = _hijos_activos(raiz)
             for hijo in hijos:
                 monto_gasto = totales_por_cat.get(hijo.id, Decimal('0'))
                 monto_hon = _monto_honorarios_etiqueta(honorarios_map, hijo.nombre)
                 monto = monto_hon
-                if hijo.id in cats_mapeadas_ids:
-                    # Ingresos − egresos (ej. Gastos bancarios: IIBB/comisiones restan).
+                if _norm_ing(hijo.nombre) == 'gastos bancarios':
+                    # Siempre resta del total de ingresos (comisiones, impuestos, cargas a mano).
+                    monto = -abs(Decimal(str(monto_gasto or 0)))
+                elif hijo.id in cats_mapeadas_ids:
+                    # Ingresos − egresos (ej. líneas de caja que restan).
                     monto -= monto_gasto
                 elif monto_gasto < 0:
                     monto += abs(monto_gasto)
