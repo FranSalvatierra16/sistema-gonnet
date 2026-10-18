@@ -11,8 +11,11 @@
         <div>
             <h1 class="h4 mb-1">Liquidación de productores</h1>
             <p class="text-muted small mb-0">
-                Planilla de honorarios del mes. El básico se edita en la fila <strong>Basico</strong>:
-                el cambio vale desde este mes en adelante (un aumento en agosto no modifica julio).
+                Planilla de honorarios del mes. El básico se edita en la fila <strong>Basico</strong>
+                (vale desde este mes en adelante). La <strong>diferencia de sueldo</strong> es de este mes
+                y se suma al básico. Si con las comisiones de las dos oficinas no llega al básico,
+                cobra el básico más la diferencia en su sucursal: en la otra se ven, pero no suman
+                ni en la planilla ni en el cierre.
             </p>
         </div>
         <div class="d-flex gap-2">
@@ -26,7 +29,7 @@
                 <button type="submit" class="btn btn-warning btn-sm"><i class="fas fa-lock-open me-1"></i>Reabrir liquidación</button>
             </form>
             {% else %}
-            <button type="submit" form="form-basicos" class="btn btn-primary btn-sm">Guardar básicos</button>
+            <button type="submit" form="form-basicos" class="btn btn-primary btn-sm">Guardar sueldos</button>
             <form method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" class="d-inline"
                   onsubmit="return confirm('¿Cerrar la liquidación de {{ mes|stringformat:'02d' }}/{{ anio }}? Queda fija y no se modifica hasta que la reabras.');">
                 {% csrf_token %}
@@ -162,13 +165,43 @@
                 </thead>
                 <tbody>
                     {% for fila in liquidacion.filas %}
-                    <tr class="fila-{{ fila.tipo }}">
+                    <tr class="fila-{{ fila.tipo }}"{% if fila.tipo == 'dato-nosuma' %} title="Se muestra en la planilla y no suma al total ni al cierre: si no llega al básico se cobra en su sucursal; si lo supera, se liquida en la oficina de esas comisiones."{% endif %}>
                         <td class="celda-label{% if fila.label and fila.label == fila.label|upper %} label-fuerte{% endif %}">{{ fila.label }}</td>
-                        {% if fila.tipo == 'basico' %}
+                        {% if fila.tipo == 'diferencia' %}
+                            {% for col in liquidacion.columnas %}
+                            <td class="celda-num{% if col.vid and not col.externo %} celda-basico{% endif %}">
+                                {% if col.vid and not col.externo %}
+                                <span class="{% if not cierre %}solo-imprimir{% endif %}">{% if col.diferencia %}${{ col.diferencia|format_price }}{% endif %}</span>
+                                {% if not cierre %}
+                                <label class="basico-edit no-print">
+                                    <span class="basico-simbolo">$</span>
+                                    <input type="text"
+                                           name="dif_{{ col.vid }}"
+                                           class="input-basico"
+                                           inputmode="decimal"
+                                           autocomplete="off"
+                                           value="{% if col.diferencia %}{{ col.diferencia|format_price }}{% endif %}"
+                                           placeholder="0">
+                                </label>
+                                {% endif %}
+                                {% if col.diferencia_en_total %}
+                                <small class="basico-no-suma" style="color:#856404;">suma al básico</small>
+                                {% endif %}
+                                {% else %}
+                                {% if col.comisiones_no_suman %}
+                                <small class="basico-no-suma">no suma{% if col.sucursal_cobro %} · cobra el básico en {{ col.sucursal_cobro }}{% endif %}</small>
+                                {% endif %}
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        {% elif fila.tipo == 'basico' %}
                             {% for col in liquidacion.columnas %}
                             <td class="celda-num{% if col.vid %} celda-basico{% endif %}{% if col.basico_no_suma %} basico-superado{% endif %}">
                                 {% if col.externo %}
                                 <small class="text-muted no-print" title="El básico lo cobra en {{ col.sucursal_nombre }}">en {{ col.sucursal_nombre }}</small>
+                                {% if col.comisiones_no_suman %}
+                                <small class="basico-no-suma">comisiones no suman{% if col.sucursal_cobro %} (básico en {{ col.sucursal_cobro }}){% endif %}</small>
+                                {% endif %}
                                 {% elif col.vid %}
                                 <span class="{% if not cierre %}solo-imprimir{% endif %}">{% if col.basico is not None %}{% if col.basico_no_suma %}<s>${{ col.basico|format_price }}</s>{% else %}${{ col.basico|format_price }}{% endif %}{% endif %}</span>
                                 {% if not cierre %}
@@ -202,7 +235,7 @@
         </div>
         {% if not cierre %}
         <div class="d-flex justify-content-end mt-2 no-print">
-            <button type="submit" class="btn btn-primary btn-sm">Guardar básicos</button>
+            <button type="submit" class="btn btn-primary btn-sm">Guardar sueldos</button>
         </div>
         {% endif %}
     </form>
@@ -460,6 +493,7 @@
 }
 .tabla-honorarios td.basico-superado { font-weight: 600; }
 .basico-no-suma { display: block; font-size: 0.7em; color: #b02a37; line-height: 1.1; }
+.tabla-honorarios tr.fila-dato-nosuma td { color: #6c757d; font-style: italic; }
 .input-basico {
     width: 100%;
     border: none;

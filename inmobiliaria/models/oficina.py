@@ -490,6 +490,35 @@ class BasicoNoSumaVigencia(models.Model):
         return f'{self.vendedor_id} desde {self.vigente_desde}: {self.activo}'
 
 
+class AjusteLiquidacionProductorMes(models.Model):
+    """
+    Diferencia de sueldo de un productor en un mes.
+    Se suma al básico cuando cobra el básico (las comisiones no lo superan).
+    """
+
+    vendedor = models.ForeignKey(
+        'Vendedor',
+        on_delete=models.CASCADE,
+        related_name='ajustes_liquidacion_mes',
+    )
+    anio = models.PositiveSmallIntegerField()
+    mes = models.PositiveSmallIntegerField()
+    diferencia_sueldo = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0'))
+
+    class Meta:
+        verbose_name = 'Diferencia de sueldo del mes'
+        verbose_name_plural = 'Diferencias de sueldo del mes'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vendedor', 'anio', 'mes'],
+                name='uniq_ajuste_liq_productor_mes',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.vendedor_id} {self.mes:02d}/{self.anio}: {self.diferencia_sueldo}'
+
+
 class LiquidacionProductoresCierre(models.Model):
     """
     Liquidación de productores de un mes cerrada: foto de la planilla y de lo

@@ -1261,6 +1261,7 @@ def oficina_liquidacion_productores(request):
         cuadro_desde_cierre,
         guardar_columnas_cuadro,
         guardar_flag_no_suma_basico,
+        guardar_diferencias_sueldo_mes,
         guardar_sueldos_basicos_mes,
         guardar_total_gral,
         opciones_columnas_vendedores,
@@ -1304,6 +1305,7 @@ def oficina_liquidacion_productores(request):
         if accion == 'cerrar':
             # Si había básicos editados sin guardar, se guardan antes de la foto.
             guardar_sueldos_basicos_mes(sucursal, anio, mes, request.POST)
+            guardar_diferencias_sueldo_mes(sucursal, anio, mes, request.POST)
             cerrar_liquidacion_productores(sucursal, anio, mes, usuario=request.user)
             messages.success(
                 request,
@@ -1365,14 +1367,21 @@ def oficina_liquidacion_productores(request):
                 )
         # Los básicos editados viajan con cualquier botón de guardar de la página.
         cambiados = guardar_sueldos_basicos_mes(sucursal, anio, mes, request.POST)
+        difs = guardar_diferencias_sueldo_mes(sucursal, anio, mes, request.POST)
         if cambiados:
             messages.success(
                 request,
                 f'Se actualizó el básico de {cambiados} productor{"es" if cambiados != 1 else ""} '
                 f'desde {mes:02d}/{anio} en adelante. Los meses anteriores no cambian.',
             )
-        elif accion not in ('columnas', 'columnas_todos', 'total_gral', 'total_gral_todos', 'flag_no_suma'):
-            messages.info(request, 'No hubo cambios en los básicos.')
+        if difs:
+            messages.success(
+                request,
+                f'Se guardó la diferencia de sueldo de {difs} productor{"es" if difs != 1 else ""} '
+                f'para {mes:02d}/{anio}. Suma al básico de ese mes.',
+            )
+        elif accion not in ('columnas', 'columnas_todos', 'total_gral', 'total_gral_todos', 'flag_no_suma') and not cambiados:
+            messages.info(request, 'No hubo cambios en los básicos ni en la diferencia de sueldo.')
         return redirect(
             f"{reverse('inmobiliaria:oficina_liquidacion_productores')}?mes={mes}&anio={anio}"
         )

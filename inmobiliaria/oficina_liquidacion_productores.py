@@ -10,6 +10,7 @@ from django.db.models import Max, Q, Sum
 
 from inmobiliaria.decimal_utils import parse_decimal_monto
 from inmobiliaria.models import (
+    AjusteLiquidacionProductorMes,
     BasicoNoSumaVigencia,
     CategoriaGastoOficina,
     ComisionVendedor,
@@ -132,6 +133,120 @@ def total_a_pagar_productor(sueldo_basico, comisiones, no_suma_si_superan):
     else:
         total = basico
     return total, basico_aplicado
+
+
+def pago_columna_productor(
+    *,
+    basico,
+    diferencia,
+    comisiones_columna,
+    comisiones_combinadas,
+    no_suma_si_superan,
+    es_casa,
+):
+    """
+    - Sin el tilde: comisiones de esta sucursal + básico y diferencia (solo en su sucursal).
+    - Con el tilde y las comisiones de las dos oficinas >= básico + diferencia: solo comisiones de acá.
+    - Con el tilde y no llegan: cobra básico + diferencia en su sucursal. La otra no le paga.
+    """
+    basico = _d(basico)
+    diferencia = _d(diferencia)
+    columna = _d(comisiones_columna)
+    combinadas = _d(comisiones_combinadas)
+    piso = (basico + diferencia).quantize(Decimal('0.01'))
+    if not no_suma_si_superan:
+        extra = piso if es_casa else _d(0)
+        return (columna + extra).quantize(Decimal('0.01')), es_casa and piso > 0, True
+    if combinadas >= piso:
+        return columna, False, True
+    if es_casa:
+        return piso, True, False
+    return _d(0), False, False
+
+
+def diferencias_sueldo_mes(vendedor_ids, anio, mes):
+    ids = list(vendedor_ids)
+    if not ids:
+        return {}
+    filas = AjusteLiquidacionProductorMes.objects.filter(
+        vendedor_id__in=ids, anio=anio, mes=mes,
+    ).values_list('vendedor_id', 'diferencia_sueldo')
+    return {vid: _d(monto) for vid, monto in filas}
+
+
+def guardar_diferencias_sueldo_mes(sucursal, anio, mes, post_data):
+    """Lee dif_<id> del POST. Vale solo para ese mes. Devuelve cuántos cambiaron."""
+    montos = {}
+    prefix = 'dif_'
+    for key, raw in post_data.items():
+        if not str(key).startswith(prefix):
+            continue
+        try:
+            vid = int(str(key)[len(prefix):])
+        except (TypeError, ValueError):
+            continue
+        montos[vid] = parse_decimal_monto(raw).quantize(Decimal('0.01'))
+    if not montos:
+        return 0
+    vendedores = {
+        v.id: v
+        for v in Vendedor.objects.filter(sucursal=sucursal, is_active=True, id__in=montos.keys())
+    }
+    actuales = diferencias_sueldo_mes(vendedores.keys(), anio, mes)
+    cambiados = 0
+    for vid, v in vendedores.items():
+        nuevo = montos[vid]
+        if actuales.get(vid, _d(0)) == nuevo:
+            continue
+        AjusteLiquidacionProductorMes.objects.update_or_create(
+            vendedor=v,
+            anio=anio,
+            mes=mes,
+            defaults={'diferencia_sueldo': nuevo},
+        )
+        cambiados += 1
+    return cambiados
+
+
+def _grupos_misma_persona(sucursal):
+    """{vendedor_id: [vendedores de la misma persona en esta sucursal y la par]}."""
+    locales = _vendedores_activos_sucursal(sucursal)
+    otra = _sucursal_par(sucursal)
+    otros = _vendedores_activos_sucursal(otra) if otra else []
+    todos = locales + otros
+    usado = set()
+    por_id = {}
+    for v in todos:
+        if v.id in usado:
+            continue
+        grupo = [v]
+        usado.add(v.id)
+        for o in todos:
+            if o.id in usado:
+                continue
+            if _misma_persona(v, [o]):
+                grupo.append(o)
+                usado.add(o.id)
+        for p in grupo:
+            por_id[p.id] = grupo
+    return por_id
+
+
+def _monto_desglose_ids(desglose, ids):
+    total = _d(0)
+    for vid in ids:
+        row = desglose.get(vid) or {}
+        total += _d(row.get('total'))
+    return total
+
+
+def _hogar_id(grupo, basicos):
+    """Quien cobra el básico: el registro con básico > 0 más alto."""
+    positivos = [p for p in grupo if _d(basicos.get(p.id)) > 0]
+    if not positivos:
+        return None
+    positivos.sort(key=lambda p: (_d(basicos.get(p.id)), p.id), reverse=True)
+    return positivos[0].id
 
 
 def sueldos_basicos_vigentes(vendedor_ids, anio, mes, fallbacks):
@@ -305,6 +420,11 @@ def construir_liquidacion_productores(sucursal, anio, mes):
     """
     fecha_desde, fecha_hasta = _rango_mes(anio, mes)
     desglose_map = comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta)
+    otra = _sucursal_par(sucursal)
+    desglose_otra = (
+        comisiones_desglose_vendedores(otra, fecha_desde, fecha_hasta) if otra else {}
+    )
+    grupos = _grupos_misma_persona(sucursal)
 
     vendedores = list(
         Vendedor.objects.filter(sucursal=sucursal, is_active=True)
@@ -314,13 +434,28 @@ def construir_liquidacion_productores(sucursal, anio, mes):
             'apellido',
             'sueldo_basico',
             'basico_no_suma_si_comisiones_superan',
+            'sucursal_id',
         )
         .order_by('apellido', 'nombre', 'id')
     )
 
-    fallbacks = {v.id: getattr(v, 'sueldo_basico', None) for v in vendedores}
-    basicos = sueldos_basicos_vigentes([v.id for v in vendedores], anio, mes, fallbacks)
-    flags = flags_no_suma_vigentes(vendedores, anio, mes)
+    ids_grupo = []
+    for v in vendedores:
+        ids_grupo.extend(p.id for p in grupos.get(v.id, [v]))
+    ids_grupo = list(dict.fromkeys(ids_grupo))
+    personas = {p.id: p for grupo in grupos.values() for p in grupo}
+    fallbacks = {
+        pid: getattr(personas.get(pid), 'sueldo_basico', None) for pid in ids_grupo
+    }
+    for v in vendedores:
+        fallbacks.setdefault(v.id, getattr(v, 'sueldo_basico', None))
+    basicos = sueldos_basicos_vigentes(ids_grupo or [v.id for v in vendedores], anio, mes, fallbacks)
+    flags = flags_no_suma_vigentes(
+        [personas[pid] for pid in ids_grupo if pid in personas] or vendedores,
+        anio,
+        mes,
+    )
+    diferencias = diferencias_sueldo_mes(ids_grupo or [v.id for v in vendedores], anio, mes)
 
     filas = []
     tot_desglose = _desglose_vacio()
@@ -330,12 +465,27 @@ def construir_liquidacion_productores(sucursal, anio, mes):
     for v in vendedores:
         desg = desglose_map.get(v.id) or _desglose_vacio()
         comis = desg['total']
-        basico = basicos.get(v.id, Decimal('0.00'))
-        flag = flags.get(v.id, False)
-        total, basico_aplicado = total_a_pagar_productor(basico, comis, flag)
-        basico_en_total = basico if basico_aplicado else Decimal('0')
+        grupo = grupos.get(v.id, [v])
+        ids = [p.id for p in grupo]
+        hogar = _hogar_id(grupo, basicos) or v.id
+        combinadas = (
+            _monto_desglose_ids(desglose_map, ids) + _monto_desglose_ids(desglose_otra, ids)
+        ).quantize(Decimal('0.01'))
+        basico = basicos.get(hogar, Decimal('0.00'))
+        diferencia = diferencias.get(hogar, Decimal('0.00'))
+        flag = flags.get(hogar, False)
+        es_casa = hogar == v.id
+        total, basico_aplicado, _comisiones_suman = pago_columna_productor(
+            basico=basico,
+            diferencia=diferencia,
+            comisiones_columna=comis,
+            comisiones_combinadas=combinadas,
+            no_suma_si_superan=flag,
+            es_casa=es_casa,
+        )
+        basico_en_total = (basico + diferencia) if basico_aplicado else Decimal('0')
 
-        if comis == 0 and basico == 0:
+        if comis == 0 and basico == 0 and diferencia == 0:
             continue
 
         nombre = f'{(v.apellido or "").strip()}, {(v.nombre or "").strip()}'.strip(', ') or str(v)
@@ -907,10 +1057,35 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     vendedores_sueldos = vendedores_en_sueldos(sucursal)
     vendedores = vendedores_para_columnas(sucursal, anio, mes)
     locales = [v for v in vendedores if not getattr(v, 'externo', False)]
-    fallbacks = {v.id: getattr(v, 'sueldo_basico', None) for v in locales}
-    basicos = sueldos_basicos_vigentes([v.id for v in locales], anio, mes, fallbacks)
-    flags = flags_no_suma_vigentes(locales, anio, mes)
+    grupos = _grupos_misma_persona(sucursal)
+    ids_grupo = []
+    for v in vendedores:
+        ids_grupo.extend(p.id for p in grupos.get(v.id, [v]))
+    ids_grupo = list(dict.fromkeys(ids_grupo))
+    personas = {p.id: p for grupo in grupos.values() for p in grupo}
+    fallbacks = {
+        pid: getattr(personas.get(pid), 'sueldo_basico', None) for pid in ids_grupo
+    }
+    for v in locales:
+        fallbacks.setdefault(v.id, getattr(v, 'sueldo_basico', None))
+    basicos = sueldos_basicos_vigentes(ids_grupo or [v.id for v in locales], anio, mes, fallbacks)
+    flags = flags_no_suma_vigentes(
+        [personas[pid] for pid in ids_grupo if pid in personas] or locales,
+        anio,
+        mes,
+    )
+    diferencias = diferencias_sueldo_mes(ids_grupo or [v.id for v in locales], anio, mes)
     desglose = comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta)
+    otra = _sucursal_par(sucursal)
+    desglose_otra = (
+        comisiones_desglose_vendedores(otra, fecha_desde, fecha_hasta) if otra else {}
+    )
+    nombre_otra = (otra.nombre or '').strip() if otra else ''
+    label_comisiones_otra = (
+        'Comisiones Corrientes'
+        if 'corrientes' in nombre_otra.lower()
+        else (f'Comisiones {nombre_otra}' if nombre_otra else 'Comisiones otra sucursal')
+    )
     hon_map, total_fondo, total_cochera = _honorarios_por_etiqueta(
         sucursal, fecha_desde, fecha_hasta
     )
@@ -928,6 +1103,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
             'externo': externo,
             'sucursal_nombre': v.sucursal.nombre if externo and v.sucursal_id else '',
             'basico': None if externo else basicos.get(v.id, _d(0)),
+            'diferencia': None if externo else diferencias.get(v.id, _d(0)),
             'no_suma_si_superan': False if externo else flags.get(v.id, False),
         })
     n = len(columnas)
@@ -1030,7 +1206,15 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     )
     filas.append({'tipo': 'total', 'label': 'TOTAL:', 'celdas': tot_honorarios})
 
-    filas.append({'tipo': 'dato', 'label': 'Diferencia Sueldo', 'celdas': [None] * n})
+    celdas_diferencia = [None] * n
+    for i, col in enumerate(columnas):
+        if col.get('vid') and not col.get('externo'):
+            celdas_diferencia[i] = diferencias.get(col['vid'], _d(0))
+    filas.append({
+        'tipo': 'diferencia',
+        'label': 'Diferencia Sueldo',
+        'celdas': celdas_diferencia,
+    })
 
     celdas_basico = [None] * n
     for i, col in enumerate(columnas):
@@ -1051,19 +1235,65 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     fila_comis = _celdas(n, por_id=por_resto, columnas=columnas)
     filas.append({'tipo': 'dato', 'label': 'Comisiones encargados.', 'celdas': fila_comis})
 
-    # Productor con el tilde: cobra comisiones o básico, el mayor (nunca los dos).
+    celdas_otra = [None] * n
+    for i, col in enumerate(columnas):
+        vid = col.get('vid')
+        if not vid or col.get('externo'):
+            continue
+        grupo = grupos.get(vid, [col.get('vendedor')])
+        ids = [p.id for p in grupo if p]
+        monto_otra = _monto_desglose_ids(desglose_otra, ids)
+        if monto_otra != 0:
+            celdas_otra[i] = monto_otra
+    filas.append({
+        'tipo': 'dato-nosuma',
+        'label': label_comisiones_otra,
+        'celdas': celdas_otra,
+    })
+
+    # Con el tilde: cobra comisiones o básico+diferencia, el mayor (nunca los dos).
+    # Las comisiones de la otra sucursal entran en la comparación, no en el total de acá
+    # cuando no llega al básico: la otra oficina no le paga.
     tot_final = _sumar_celdas([tot_honorarios, celdas_basico, fila_comis], n)
     for i, col in enumerate(columnas):
         vend = col.get('vendedor')
-        if col.get('externo') or not vend or not col.get('no_suma_si_superan'):
+        vid = col.get('vid')
+        if not vid or not vend:
             continue
-        comis = _d(tot_honorarios[i]) + _d(fila_comis[i])
-        total, basico_aplicado = total_a_pagar_productor(col.get('basico'), comis, True)
-        tot_final[i] = total
-        if not basico_aplicado:
+        grupo = grupos.get(vid, [vend])
+        ids = [p.id for p in grupo if p]
+        hogar = _hogar_id(grupo, basicos)
+        es_casa = (not col.get('externo')) and (hogar is None or hogar == vid)
+        basico_piso = basicos.get(hogar if hogar else vid, _d(0))
+        dif_piso = diferencias.get(hogar if hogar else vid, _d(0))
+        flag = flags.get(hogar if hogar else vid, False)
+        comis_col = _d(tot_honorarios[i]) + _d(fila_comis[i])
+        combinadas = (
+            _monto_desglose_ids(desglose, ids) + _monto_desglose_ids(desglose_otra, ids)
+        ).quantize(Decimal('0.01'))
+        total, basico_aplicado, comisiones_suman = pago_columna_productor(
+            basico=basico_piso,
+            diferencia=dif_piso,
+            comisiones_columna=comis_col,
+            comisiones_combinadas=combinadas,
+            no_suma_si_superan=flag,
+            es_casa=es_casa,
+        )
+        if flag or not col.get('externo'):
+            tot_final[i] = total
+        if flag and not basico_aplicado and es_casa and _d(basico_piso) > 0:
             col['basico_no_suma'] = True
-        elif comis != 0 and comis < _d(col.get('basico')):
+        if not comisiones_suman and comis_col != 0:
             col['comisiones_no_suman'] = True
+        if es_casa and flag and not comisiones_suman and _d(dif_piso) > 0:
+            col['diferencia_en_total'] = True
+        elif es_casa and not flag and _d(dif_piso) > 0:
+            col['diferencia_en_total'] = True
+        if not es_casa and not comisiones_suman:
+            col['comisiones_no_suman'] = True
+            col['sucursal_cobro'] = (
+                vend.sucursal.nombre if getattr(vend, 'sucursal', None) else col.get('sucursal_nombre') or ''
+            )
     filas.append({'tipo': 'total-final', 'label': 'TOTAL.:', 'celdas': tot_final})
 
     filas_sg = filas_sueldos(sucursal)
