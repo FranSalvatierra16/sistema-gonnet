@@ -233,9 +233,14 @@
     const totalFichaje = document.getElementById('total-fichaje-display');
 
     function parseMontoAR(val) {
+        if (typeof window.parseMontoAR === 'function') {
+            return window.parseMontoAR(val);
+        }
         if (!val) return 0;
         let t = String(val).trim().replace(/[^\d.,-]/g, '');
         if (!t) return 0;
+        const neg = t.charAt(0) === '-';
+        if (neg) t = t.slice(1);
         if (t.indexOf(',') >= 0) {
             if (t.indexOf('.') >= 0) {
                 t = t.replace(/\./g, '').replace(',', '.');
@@ -244,10 +249,13 @@
                 const last = parts[parts.length - 1];
                 t = (last.length <= 2) ? parts.slice(0, -1).join('') + '.' + last : t.replace(/,/g, '');
             }
-        } else if ((t.match(/\./g) || []).length > 1) {
-            t = t.replace(/\./g, '');
+        } else if (t.indexOf('.') >= 0) {
+            const segs = t.split('.');
+            if (!(segs.length === 2 && segs[1].length <= 2)) {
+                t = t.replace(/\./g, '');
+            }
         }
-        const n = parseFloat(t);
+        const n = parseFloat((neg ? '-' : '') + t);
         return isNaN(n) ? 0 : n;
     }
 
