@@ -709,8 +709,10 @@
                         {% if op.es_invierno %}
                         {% if op.saldo_pendiente == 0 %}pagada-completa{% else %}pago-parcial{% endif %}
                         {% else %}
-                        {% if op.tiene_pagos and op.saldo_pendiente == 0 %}pagada-completa
+                        {% if op.tiene_pagos and op.saldo_pendiente == 0 and op.deposito_estado == 'pendiente' and op.total_deposito_pagado > 0 %}pago-parcial
+                        {% elif op.tiene_pagos and op.saldo_pendiente == 0 %}pagada-completa
                         {% elif op.tiene_pagos and op.saldo_pendiente > 0 %}pago-parcial
+                        {% elif op.estado == 'pagada' and op.saldo_pendiente == 0 and op.deposito_estado == 'pendiente' and op.total_deposito_pagado > 0 %}pago-parcial
                         {% elif op.estado == 'pagada' and op.saldo_pendiente == 0 %}pagada-completa
                         {% elif op.estado == 'pagada' and op.saldo_pendiente > 0 %}pago-parcial
                         {% else %}pendiente{% endif %}
@@ -723,6 +725,10 @@
                                 <i class="fas fa-home"></i>
                                 {% if op.es_invierno %}
                                 <span class="badge bg-info position-absolute" style="top: -5px; right: -5px; font-size: 0.65rem;">Invierno</span>
+                                {% elif op.tiene_pagos and op.saldo_pendiente == 0 and op.deposito_estado == 'pendiente' and op.total_deposito_pagado > 0 %}
+                                    <div style="position: absolute; top: -3px; right: -3px; background: #ffc107; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-exclamation" style="font-size: 0.6rem; color: #212529;"></i>
+                                    </div>
                                 {% elif op.tiene_pagos and op.saldo_pendiente == 0 %}
                                     <div style="position: absolute; top: -3px; right: -3px; background: #28a745; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">
                                         <i class="fas fa-check" style="font-size: 0.6rem; color: white;"></i>
@@ -751,18 +757,24 @@
                                         {% if op.es_invierno %}
                                         {% if op.saldo_pendiente == 0 %}status-pagada{% else %}status-parcial{% endif %}
                                         {% else %}
-                                        {% if op.tiene_pagos and op.saldo_pendiente == 0 %}status-pagada
+                                        {% if op.tiene_pagos and op.saldo_pendiente == 0 and op.deposito_estado == 'pendiente' and op.total_deposito_pagado > 0 %}status-parcial
+                                        {% elif op.tiene_pagos and op.saldo_pendiente == 0 %}status-pagada
                                         {% elif op.tiene_pagos and op.saldo_pendiente > 0 %}status-parcial
+                                        {% elif op.estado == 'pagada' and op.saldo_pendiente == 0 and op.deposito_estado == 'pendiente' and op.total_deposito_pagado > 0 %}status-parcial
                                         {% elif op.estado == 'pagada' and op.saldo_pendiente == 0 %}status-pagada
                                         {% elif op.estado == 'pagada' and op.saldo_pendiente > 0 %}status-parcial
                                         {% else %}status-pendiente{% endif %}
                                         {% endif %}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">
                                         {% if op.es_invierno %}
                                             {% if op.saldo_pendiente == 0 %}✅ Pagado Completo{% else %}⏳ Pendiente - Seña Pagada{% endif %}
+                                        {% elif op.tiene_pagos and op.saldo_pendiente == 0 and op.deposito_estado == 'pendiente' and op.total_deposito_pagado > 0 %}
+                                            ✅ Saldo pagado · Depósito pendiente
                                         {% elif op.tiene_pagos and op.saldo_pendiente == 0 %}
                                             ✅ Pagada Completa
                                         {% elif op.tiene_pagos and op.saldo_pendiente > 0 %}
                                             ⏳ Pendiente - Seña Pagada
+                                        {% elif op.estado == 'pagada' and op.saldo_pendiente == 0 and op.deposito_estado == 'pendiente' and op.total_deposito_pagado > 0 %}
+                                            ✅ Saldo pagado · Depósito pendiente
                                         {% elif op.estado == 'pagada' and op.saldo_pendiente == 0 %}
                                             ✅ Pagada Completa
                                         {% elif op.estado == 'pagada' and op.saldo_pendiente > 0 %}
@@ -925,10 +937,10 @@
                                 </a>
                             {% endif %}
                             
-                            {% if op.estado == 'confirmada_no_pagada' or op.saldo_pendiente > 0 %}
+                            {% if op.estado == 'confirmada_no_pagada' or op.saldo_pendiente > 0 or op.deposito_estado == 'pendiente' and op.total_deposito_pagado > 0 %}
                                 <a href="{% url 'inmobiliaria:finalizar_reserva_nueva' op.id %}" class="btn-action btn-finalizar">
                                     <i class="fas fa-check"></i>
-                                    {% if op.saldo_pendiente > 0 %}Completar Pago{% else %}Finalizar{% endif %}
+                                    {% if op.deposito_estado == 'pendiente' and op.total_deposito_pagado > 0 and op.saldo_pendiente <= 0 %}Cobrar depósito{% elif op.saldo_pendiente > 0 %}Completar Pago{% else %}Finalizar{% endif %}
                                 </a>
                             {% endif %}
                             
