@@ -3061,33 +3061,20 @@ def acreditar_comisiones_por_fecha_vencida(sucursal=None):
 
 def confirmar_comisiones_por_liquidacion(liquidacion):
     """
-    Acredita comisiones de vendedor (pendiente → confirmada) al crear liquidación al propietario.
-    También marca la carátula como confirmada para que las comisiones aparezcan en el listado.
+    Acredita comisiones de vendedor (pendiente → confirmada) de la liquidación.
+
+    No marca la carátula: la operación sigue pendiente hasta «Confirmar operación».
     """
     if not liquidacion or getattr(liquidacion, 'estado', None) == 'cancelada':
         return 0
     total = 0
     reserva_ids = _reserva_ids_desde_liquidacion(liquidacion)
     if reserva_ids:
-        from inmobiliaria.models.propiedad import Reserva
-
-        Reserva.objects.filter(
-            pk__in=reserva_ids,
-        ).exclude(estado_confirmacion_caratula='confirmada').update(
-            estado_confirmacion_caratula='confirmada'
-        )
         total += ComisionVendedor.objects.filter(
             reserva_id__in=reserva_ids,
             estado='pendiente',
         ).update(estado='confirmada')
     if liquidacion.contrato_id:
-        from inmobiliaria.models.contrato import ContratoAlquiler
-
-        ContratoAlquiler.objects.filter(
-            pk=liquidacion.contrato_id,
-        ).exclude(estado_confirmacion_caratula='confirmada').update(
-            estado_confirmacion_caratula='confirmada'
-        )
         total += ComisionVendedor.objects.filter(
             contrato_id=liquidacion.contrato_id,
             estado='pendiente',

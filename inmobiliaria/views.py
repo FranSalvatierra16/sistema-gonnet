@@ -29879,10 +29879,6 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 # Recalcular monto a pagar con los gastos
                 liquidacion.calcular_monto_a_pagar()
 
-                from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
-
-                confirmar_comisiones_por_liquidacion(liquidacion)
-
             msg_ok = 'Liquidación creada correctamente.'
             if reserva is not None:
                 from inmobiliaria.liquidacion_operacion import saldo_liquidacion_reserva
@@ -33971,9 +33967,6 @@ def editar_liquidacion(request, liquidacion_id):
                 )
 
             liquidacion.calcular_monto_a_pagar()
-            from inmobiliaria.models.comision import confirmar_comisiones_por_liquidacion
-
-            confirmar_comisiones_por_liquidacion(liquidacion)
 
             messages.success(request, f'Liquidación #{liquidacion.id} actualizada.')
             return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)

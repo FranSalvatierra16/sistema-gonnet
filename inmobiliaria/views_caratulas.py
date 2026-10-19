@@ -3861,11 +3861,16 @@ def lista_caratulas(request):
     raw_hasta = request.GET.get('fecha_hasta', '').strip()
     periodo_completo = request.GET.get('todo') == '1'
 
+    hay_busqueda_previa = bool(q) or bool(operacion) or bool(propiedad_id)
     if periodo_completo:
-        fecha_desde = raw_desde
-        fecha_hasta = raw_hasta
-    elif raw_desde == '' and raw_hasta == '':
+        fecha_desde = ''
+        fecha_hasta = ''
+    elif raw_desde == '' and raw_hasta == '' and not hay_busqueda_previa:
         fecha_desde = fecha_hasta = today
+    elif raw_desde == '' and raw_hasta == '':
+        # Búsqueda sin fechas: no volver a imponer «hoy» ni borrar un rango que no mandaron.
+        fecha_desde = ''
+        fecha_hasta = ''
     else:
         fecha_desde = raw_desde
         fecha_hasta = raw_hasta
@@ -3896,6 +3901,7 @@ def lista_caratulas(request):
                 'liquidacion_filtro': liquidacion_filtro,
                 'estado_caratula_filtro': estado_caratula_filtro,
                 'periodo_completo': periodo_completo,
+                'hoy': today,
                 'carpeta_default': _carpeta_default_actual(request),
                 'lista_filtros_qs': lista_filtros_qs,
                 'puede_imprimir_caratula': _puede_imprimir_caratula(request.user),
@@ -3933,9 +3939,9 @@ def lista_caratulas(request):
         reservas = reservas.filter(id=operacion_num) if operacion_num is not None else reservas.none()
 
     hay_busqueda = bool(q) or bool(operacion) or bool(propiedad_id)
-    # Con dirección / N° op / ficha elegida: no limitar por fechas (si no, “hoy” deja todo vacío).
-    # Sin búsqueda: por defecto hoy, salvo botón Todo.
-    omitir_filtro_fechas = periodo_completo or hay_busqueda
+    # El botón Todo ignora fechas. Cliente + Desde/Hasta se aplican juntos.
+    # Sin búsqueda y sin fechas, el listado queda en hoy.
+    omitir_filtro_fechas = periodo_completo or (hay_busqueda and not fecha_desde and not fecha_hasta)
 
     if propiedad_id.isdigit():
         reservas = reservas.filter(propiedad_id=int(propiedad_id))
@@ -4234,6 +4240,7 @@ def lista_caratulas(request):
             'liquidacion_filtro': liquidacion_filtro,
             'estado_caratula_filtro': estado_caratula_filtro,
             'periodo_completo': periodo_completo,
+            'hoy': today,
             'busqueda_activa': hay_busqueda,
             'omitir_filtro_fechas': omitir_filtro_fechas,
             'carpeta_default': _carpeta_default_actual(request),

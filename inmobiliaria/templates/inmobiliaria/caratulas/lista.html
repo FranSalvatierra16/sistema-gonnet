@@ -35,10 +35,10 @@
                 Listado <strong>sin filtro de fechas</strong>.
                 <a href="{% url 'inmobiliaria:lista_caratulas' %}" class="alert-link">Solo operaciones de hoy</a>
             </div>
-            {% elif busqueda_activa %}
+            {% elif busqueda_activa and omitir_filtro_fechas %}
             <div class="alert alert-info py-2 small mb-3">
-                Búsqueda activa: se muestran resultados <strong>de todas las fechas</strong>
-                (dirección / N° operación no se limitan al día de hoy).
+                Búsqueda sin fechas: se muestran resultados <strong>de todas las fechas</strong>.
+                Completá Desde y Hasta para acotarlas.
             </div>
             {% endif %}
             <form method="get" class="row g-2 align-items-end">
@@ -96,7 +96,7 @@
                 </div>
                 <div class="col-md-2 d-flex flex-wrap gap-1 align-items-end">
                     <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filtrar</button>
-                    <a class="btn btn-outline-secondary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}&liquidacion={{ liquidacion_filtro|urlencode }}&estado_caratula={{ estado_caratula_filtro|urlencode }}" title="Fecha desde y hasta = hoy">Hoy</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&fecha_desde={{ hoy }}&fecha_hasta={{ hoy }}&tipo={{ tipo_filtro|urlencode }}&liquidacion={{ liquidacion_filtro|urlencode }}&estado_caratula={{ estado_caratula_filtro|urlencode }}" title="Fecha desde y hasta = hoy">Hoy</a>
                     <a class="btn btn-outline-primary btn-sm" href="{% url 'inmobiliaria:lista_caratulas' %}?todo=1&q={{ q|urlencode }}&operacion={{ operacion|urlencode }}&tipo={{ tipo_filtro|urlencode }}&liquidacion={{ liquidacion_filtro|urlencode }}&estado_caratula={{ estado_caratula_filtro|urlencode }}">Todo</a>
                 </div>
             </form>
@@ -104,7 +104,7 @@
                 El rango <strong>Desde / Hasta</strong> filtra por <strong>fecha de la operación</strong>
                 (día en que se cargó la reserva o la fecha de operación del contrato), no por fechas de entrada/salida del alquiler.
                 Por defecto muestra <strong>hoy</strong>.
-                Si buscás por <strong>dirección</strong>, <strong>cliente</strong> o <strong>N° operación</strong>, se ignoran las fechas para que aparezcan todas las operaciones.
+                Si buscás por <strong>cliente</strong>, <strong>dirección</strong> o <strong>N° operación</strong> y dejás Desde / Hasta, se aplican los dos filtros juntos.
                 En <strong>Buscar</strong> podés usar apellido del inquilino/cliente, <strong>nombre de la propiedad</strong>, dirección o propietario.
                 Mientras escribís aparecen sugerencias con los nombres de las propiedades.
                 El listado va en orden cronológico (primera operación cargada arriba, con hora).
