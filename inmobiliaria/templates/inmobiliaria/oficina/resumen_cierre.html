@@ -312,20 +312,28 @@
 }
 @media print {
     .no-print, nav, footer, .navbar { display: none !important; }
-    .resumen-cierre-wrap { margin: 0; padding: 0; width: 100%; max-width: none; }
+    .resumen-cierre-wrap { margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: none !important; }
     .resumen-cierre-sheet {
         border: none !important;
         box-shadow: none !important;
         width: 100% !important;
         max-width: none !important;
         padding: 0 !important;
-        font-size: 10pt;
+        font-size: 15pt !important;
+        line-height: 1.4 !important;
     }
+    .resumen-titulo { font-size: 20pt !important; line-height: 1.25 !important; margin-bottom: 8pt !important; }
     .resumen-cierre-sheet > .row { flex-wrap: nowrap !important; }
     .resumen-cierre-sheet .col-lg-7 { flex: 0 0 58% !important; max-width: 58% !important; }
     .resumen-cierre-sheet .col-lg-5 { flex: 0 0 42% !important; max-width: 42% !important; }
-    .resumen-bloque-titulo, .resumen-subtotal { font-size: 9.5pt; }
-    .resumen-total-grande { font-size: 11pt; }
+    .resumen-col-header { font-size: 16pt !important; padding: 5pt 0 !important; }
+    .resumen-tabla { width: 100% !important; font-size: 15pt !important; }
+    .resumen-tabla td { padding: 4pt 6pt !important; font-size: 15pt !important; }
+    .resumen-bloque { margin-bottom: 12pt !important; }
+    .resumen-bloque-titulo, .resumen-subtotal { font-size: 15pt !important; }
+    .resumen-total-grande { font-size: 17pt !important; padding: 7pt 4pt !important; }
+    .resumen-resumen-general { font-size: 15pt !important; }
+    .resumen-saldo-amarillo { font-size: 16pt !important; padding: 6pt 8pt !important; }
 }
 </style>
 {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.resumen-cierre-sheet' orientacion='portrait' sin_zoom='1' %}

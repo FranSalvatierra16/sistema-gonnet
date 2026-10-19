@@ -6,7 +6,7 @@ Con ancho_hoja='1' el bloque se arma al ancho de la hoja (no al de la pantalla):
 impresa queda del tamaño del CSS de impresión en vez de achicarse según el monitor.
 {% endcomment %}
 <style>
-@page { size: A4 {{ orientacion|default:'portrait' }};{% if not sin_zoom %} margin: 7mm;{% endif %} }
+@page { size: A4 {{ orientacion|default:'portrait' }}; margin: {% if sin_zoom %}6mm{% else %}7mm{% endif %}; }
 @media print {
     html, body { margin: 0 !important; padding: 0 !important; }
     body > nav, body > .navbar, body > footer { display: none !important; }
@@ -24,7 +24,39 @@ impresa queda del tamaño del CSS de impresión en vez de achicarse según el mo
     {{ selector }} thead { display: table-header-group; }
 }
 </style>
-{% if not sin_zoom %}
+{% if sin_zoom %}
+<script>
+(function () {
+    var SELECTOR = '{{ selector|escapejs }}';
+
+    function antesDeImprimir() {
+        var el = document.querySelector(SELECTOR);
+        if (!el) return;
+        el.querySelectorAll('.no-print').forEach(function (n) { n.style.display = 'none'; });
+        el.style.zoom = '1';
+        el.style.width = '100%';
+        el.style.maxWidth = '100%';
+    }
+
+    function despuesDeImprimir() {
+        var el = document.querySelector(SELECTOR);
+        if (!el) return;
+        el.style.zoom = '';
+        el.style.width = '';
+        el.style.maxWidth = '';
+    }
+
+    window.addEventListener('beforeprint', antesDeImprimir);
+    window.addEventListener('afterprint', despuesDeImprimir);
+    if (window.matchMedia) {
+        var mq = window.matchMedia('print');
+        var onChange = function (e) { if (e.matches) antesDeImprimir(); else despuesDeImprimir(); };
+        if (mq.addEventListener) mq.addEventListener('change', onChange);
+        else if (mq.addListener) mq.addListener(onChange);
+    }
+})();
+</script>
+{% else %}
 <script>
 (function () {
     var SELECTOR = '{{ selector|escapejs }}';
