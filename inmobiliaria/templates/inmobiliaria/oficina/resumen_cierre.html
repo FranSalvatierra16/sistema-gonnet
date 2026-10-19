@@ -30,12 +30,37 @@
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm">Ver</button>
             </form>
+            {% if cierre_mes %}
+            <form method="post" class="d-inline" onsubmit="return confirm('¿Reabrir {{ mes_sel|stringformat:'02d' }}/{{ anio_sel }}? El detalle vuelve a poder modificarse.');">
+                {% csrf_token %}
+                <input type="hidden" name="mes" value="{{ mes_sel }}">
+                <input type="hidden" name="anio" value="{{ anio_sel }}">
+                <input type="hidden" name="accion" value="reabrir_mes">
+                <button type="submit" class="btn btn-warning btn-sm"><i class="fas fa-lock-open me-1"></i>Reabrir mes</button>
+            </form>
+            {% else %}
+            <form method="post" class="d-inline" onsubmit="return confirm('¿Cerrar {{ mes_sel|stringformat:'02d' }}/{{ anio_sel }}? Departamentos, productores y este cierre quedan fijos.');">
+                {% csrf_token %}
+                <input type="hidden" name="mes" value="{{ mes_sel }}">
+                <input type="hidden" name="anio" value="{{ anio_sel }}">
+                <input type="hidden" name="accion" value="cerrar_mes">
+                <button type="submit" class="btn btn-success btn-sm"><i class="fas fa-lock me-1"></i>Cerrar mes</button>
+            </form>
+            {% endif %}
             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">
                 <i class="fas fa-print me-1"></i>Imprimir
             </button>
             <a href="{% url 'inmobiliaria:oficina_dashboard' %}" class="btn btn-outline-secondary btn-sm">Volver</a>
         </div>
     </div>
+
+    {% if cierre_mes %}
+    <div class="alert alert-success py-2 no-print">
+        <i class="fas fa-lock me-1"></i>
+        <strong>Mes cerrado</strong> el {{ cierre_mes.fecha_cierre|date:"d/m/Y H:i" }}{% if cierre_mes.usuario_cierre %} por {{ cierre_mes.usuario_cierre }}{% endif %}.
+        El detalle queda como estaba al cerrar. Para una corrección, reabrí el mes.
+    </div>
+    {% endif %}
 
     <div class="resumen-cierre-sheet border shadow-sm bg-white p-3">
         <div class="text-center mb-3 resumen-titulo">

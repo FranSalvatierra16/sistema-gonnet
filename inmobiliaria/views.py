@@ -29431,6 +29431,20 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                         ).select_related('contrato').first()
                     if not cq:
                         continue
+                    slot_ya = (
+                        getattr(propiedad, '_cache_montos_liq_cuota_0', None) or {}
+                    ).get(cq_pk) or {}
+                    ya_liq = Decimal(str(slot_ya.get('monto') or 0))
+                    if ya_liq > Decimal('0.05') and cq.estado in ('pagada', 'pagada_con_mora'):
+                        tope = (Decimal(str(cq.monto_total or 0)) - ya_liq).quantize(Decimal('0.01'))
+                        if tope < 0:
+                            tope = Decimal('0')
+                        m_op = _monto_propietario_op_cuota(o)
+                        if m_op is not None and m_op > tope + Decimal('0.05'):
+                            raise ValueError(
+                                f'La cuota {cq.numero_cuota} ya tiene ${ya_liq} liquidados a cuenta. '
+                                f'El saldo para liquidar es ${tope}.'
+                            )
                     ctr = cq.contrato
                     o['id'] = cq_pk
                     o['contrato_id'] = int(ctr.id)
@@ -29972,6 +29986,31 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
     return render(request, 'inmobiliaria/liquidaciones/crear.html', context)
 
 
+def _monto_propietario_op_cuota(op):
+    """None = la cuota se toma liquidada entera (liquidaciones viejas sin importe)."""
+    if not isinstance(op, dict) or 'monto_propietario' not in op:
+        return None
+    raw = op.get('monto_propietario')
+    if raw is None or str(raw).strip() == '':
+        return None
+    try:
+        return Decimal(str(raw))
+    except Exception:
+        return None
+
+
+def _anotar_cuota_liquidada(acum, cid, monto):
+    try:
+        cid = int(cid)
+    except (TypeError, ValueError):
+        return
+    slot = acum.setdefault(cid, {'monto': Decimal('0'), 'completa': False})
+    if monto is None:
+        slot['completa'] = True
+    else:
+        slot['monto'] += Decimal(str(monto))
+
+
 def _cuotas_excluidas_por_liquidaciones_contrato(propiedad, excepto_liquidacion_id=None):
     """
     IDs de cuotas (ContratoAlquiler) ya imputadas en liquidaciones no canceladas.
@@ -29996,6 +30035,9 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad, excepto_liquidacion_
         return cached
 
     cuotas_excluidas = set()
+    # cuota_id → {monto, completa}. Un pago a cuenta no cierra la cuota:
+    # el saldo se puede liquidar cuando se cobra el resto.
+    liquidados = {}
     qs = (
         LiquidacionPropietario.objects.filter(propiedad=propiedad)
         .exclude(estado='cancelada')
@@ -30018,20 +30060,14 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad, excepto_liquidacion_
                     continue
                 tlo = (op.get('tipo') or '').lower()
                 if tlo == 'contrato_cuota':
-                    try:
-                        cuotas_excluidas.add(int(op.get('id')))
-                    except (TypeError, ValueError):
-                        pass
+                    _anotar_cuota_liquidada(liquidados, op.get('id'), _monto_propietario_op_cuota(op))
                     continue
                 if tlo != 'contrato':
                     continue
                 raw_ids = op.get('cuotas_ids') or op.get('cuota_ids')
                 if raw_ids and isinstance(raw_ids, list):
                     for x in raw_ids:
-                        try:
-                            cuotas_excluidas.add(int(x))
-                        except (TypeError, ValueError):
-                            pass
+                        _anotar_cuota_liquidada(liquidados, x, None)
             continue
 
         ref_dt = liq.fecha_procesamiento or liq.fecha_creacion
@@ -30045,10 +30081,7 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad, excepto_liquidacion_
             tlo = (op.get('tipo') or '').lower()
             if tlo == 'contrato_cuota':
                 vio_contrato_en_ops = True
-                try:
-                    cuotas_excluidas.add(int(op.get('id')))
-                except (TypeError, ValueError):
-                    pass
+                _anotar_cuota_liquidada(liquidados, op.get('id'), _monto_propietario_op_cuota(op))
                 continue
             if tlo != 'contrato':
                 continue
@@ -30060,10 +30093,7 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad, excepto_liquidacion_
             raw_ids = op.get('cuotas_ids') or op.get('cuota_ids')
             if raw_ids and isinstance(raw_ids, list):
                 for x in raw_ids:
-                    try:
-                        cuotas_excluidas.add(int(x))
-                    except (TypeError, ValueError):
-                        pass
+                    _anotar_cuota_liquidada(liquidados, x, None)
             elif ref_fecha is not None:
                 for cq_id in CuotaMensual.objects.filter(
                     contrato_id=cid,
@@ -30071,7 +30101,7 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad, excepto_liquidacion_
                     fecha_pago__isnull=False,
                     fecha_pago__lte=ref_fecha,
                 ).values_list('id', flat=True):
-                    cuotas_excluidas.add(cq_id)
+                    _anotar_cuota_liquidada(liquidados, cq_id, None)
         if not vio_contrato_en_ops and liq.contrato_id and ref_fecha is not None:
             for cq_id in CuotaMensual.objects.filter(
                 contrato_id=liq.contrato_id,
@@ -30079,9 +30109,21 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad, excepto_liquidacion_
                 fecha_pago__isnull=False,
                 fecha_pago__lte=ref_fecha,
             ).values_list('id', flat=True):
-                cuotas_excluidas.add(cq_id)
+                _anotar_cuota_liquidada(liquidados, cq_id, None)
+    tol = Decimal('0.05')
+    totales = {}
+    if liquidados:
+        for cid, total in CuotaMensual.objects.filter(id__in=list(liquidados)).values_list(
+            'id', 'monto_total'
+        ):
+            totales[cid] = Decimal(str(total or 0))
+    for cid, slot in liquidados.items():
+        total = totales.get(cid, Decimal('0'))
+        if slot['completa'] or slot['monto'] + tol >= total:
+            cuotas_excluidas.add(cid)
     if propiedad is not None:
         setattr(propiedad, cache_key, cuotas_excluidas)
+        setattr(propiedad, f'_cache_montos_liq_cuota_{excepto or 0}', liquidados)
     return cuotas_excluidas
 
 
@@ -30498,8 +30540,21 @@ def _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_
         )
     else:
         cuotas_iter = contrato.cuotas.filter(numero_cuota__lte=limite_num).order_by('numero_cuota')
+    liquidados = getattr(contrato.propiedad, '_cache_montos_liq_cuota_0', None) or {}
+    tol = Decimal('0.05')
     for cuota in cuotas_iter:
         if cuota.id in ids_excl:
+            continue
+        slot = liquidados.get(cuota.id) or {}
+        ya = Decimal(str(slot.get('monto') or 0))
+        if ya > tol:
+            if cuota.estado in ('pagada', 'pagada_con_mora'):
+                cobrado = Decimal(str(cuota.monto_total or 0))
+            else:
+                cobrado = Decimal(str(parciales_map.get(cuota.id) or 0))
+            saldo = (cobrado - ya).quantize(Decimal('0.01'))
+            if saldo > tol:
+                out.append((cuota, saldo, True, False))
             continue
         if cuota.id in parciales_map:
             out.append((cuota, parciales_map[cuota.id], True, False))
@@ -30509,7 +30564,7 @@ def _cuotas_en_ventana_liquidacion(contrato, cuotas_excluidas, sucursal, ids_ya_
             continue
         if cuota.estado in ('pendiente', 'vencida'):
             m = Decimal(str(cuota.monto_total or 0))
-            if m <= Decimal('0.05'):
+            if m <= tol:
                 continue
             out.append((cuota, m, False, True))
     return out
@@ -32186,7 +32241,9 @@ def _operaciones_gastos_pendientes_data(
             occ_d, occ_h = _periodo_ocupacion_cuota_mensual(cuota)
             fi_s = occ_d.strftime('%Y-%m-%d') if occ_d else (fv.strftime('%Y-%m-%d') if fv else '')
             fh_s = occ_h.strftime('%Y-%m-%d') if occ_h else fi_s
-            if parcial:
+            if parcial and cuota.estado in ('pagada', 'pagada_con_mora'):
+                suf = ' (saldo: ya se liquidó un pago a cuenta)'
+            elif parcial:
                 suf = ' (cobro parcial registrado)'
             elif anticipada:
                 suf = ' (liquidación anticipada — cobro aún no registrado)'

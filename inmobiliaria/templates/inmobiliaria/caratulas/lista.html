@@ -108,6 +108,7 @@
                 En <strong>Buscar</strong> podés usar apellido del inquilino/cliente, <strong>nombre de la propiedad</strong>, dirección o propietario.
                 Mientras escribís aparecen sugerencias con los nombres de las propiedades.
                 El listado va en orden cronológico (primera operación cargada arriba, con hora).
+                La columna <strong>Alquiler</strong> es la entrada y la salida, para ubicar la operación sin abrirla.
                 Las filas en <span class="badge bg-success">verde</span> ya tienen liquidación al propietario.
                 La columna <strong>Operación</strong> indica si la carátula está <span class="badge bg-warning text-dark">Pendiente</span> o <span class="badge bg-success">Confirmada</span> (botón en cada carátula).
             </p>
@@ -124,6 +125,7 @@
                     <th>Tipo</th>
                     <th>Nº</th>
                     <th>Fecha op.</th>
+                    <th>Alquiler</th>
                     <th>Carátula</th>
                     <th>Propietario</th>
                     <th>Dirección</th>
@@ -148,6 +150,10 @@
                     </td>
                     <td><strong>{{ f.numero_display|default:f.numero }}</strong></td>
                     <td>{{ f.fecha|date:"d/m/Y" }}{% if f.sort_instante %} <span class="text-muted">{{ f.sort_instante|date:"H:i" }}</span>{% endif %}</td>
+                    <td class="text-nowrap small">
+                        {% if f.fecha_desde %}{{ f.fecha_desde|date:"d/m/Y" }}{% else %}—{% endif %}
+                        {% if f.fecha_hasta %} – {{ f.fecha_hasta|date:"d/m/Y" }}{% endif %}
+                    </td>
                     <td>{{ f.caratula }}</td>
                     <td class="small">
                         <strong>{{ f.propietario_nombre }}</strong>
@@ -205,7 +211,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="13" class="text-center text-muted py-4">No hay operaciones con los filtros actuales.</td></tr>
+                <tr><td colspan="14" class="text-center text-muted py-4">No hay operaciones con los filtros actuales.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

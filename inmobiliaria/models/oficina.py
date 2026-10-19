@@ -623,6 +623,45 @@ class CuadroHonorariosTotalGral(models.Model):
         return f'{self.sucursal_id} · total {self.vendedor_id}'
 
 
+class CierreOficinaMes(models.Model):
+    """
+    Mes de oficina cerrado: foto del resumen de cierre y del reporte de
+    departamentos. Mientras exista, ese detalle no se recalcula ni se edita.
+    Reabrir borra la foto (y reabre la liquidación de productores).
+    """
+
+    sucursal = models.ForeignKey(
+        'Sucursal',
+        on_delete=models.CASCADE,
+        related_name='cierres_oficina_mes',
+    )
+    anio = models.PositiveSmallIntegerField()
+    mes = models.PositiveSmallIntegerField()
+    resumen = models.JSONField(default=dict)
+    reporte_deptos = models.JSONField(default=dict)
+    fecha_cierre = models.DateTimeField(auto_now_add=True)
+    usuario_cierre = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cierres_oficina_mes',
+    )
+
+    class Meta:
+        verbose_name = 'Cierre mensual de oficina'
+        verbose_name_plural = 'Cierres mensuales de oficina'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['sucursal', 'anio', 'mes'],
+                name='uniq_cierre_oficina_mes',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.sucursal_id} {self.mes:02d}/{self.anio} cerrado'
+
+
 class ReporteDeptosOficinaPreferencia(models.Model):
     """
     Preferencias del resumen mensual de departamentos de oficina por sucursal.

@@ -21,22 +21,22 @@
         <div class="d-flex gap-2">
             {% if cierre %}
             <form method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" class="d-inline"
-                  onsubmit="return confirm('¿Reabrir la liquidación de {{ mes|stringformat:'02d' }}/{{ anio }}? Vuelve a calcularse con los datos actuales.');">
+                  onsubmit="return confirm('¿Reabrir {{ mes|stringformat:'02d' }}/{{ anio }}? Departamentos, productores y cierre vuelven a poder modificarse.');">
                 {% csrf_token %}
                 <input type="hidden" name="mes" value="{{ mes }}">
                 <input type="hidden" name="anio" value="{{ anio }}">
                 <input type="hidden" name="accion" value="reabrir">
-                <button type="submit" class="btn btn-warning btn-sm"><i class="fas fa-lock-open me-1"></i>Reabrir liquidación</button>
+                <button type="submit" class="btn btn-warning btn-sm"><i class="fas fa-lock-open me-1"></i>Reabrir mes</button>
             </form>
             {% else %}
             <button type="submit" form="form-basicos" class="btn btn-primary btn-sm">Guardar sueldos</button>
             <form method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" class="d-inline"
-                  onsubmit="return confirm('¿Cerrar la liquidación de {{ mes|stringformat:'02d' }}/{{ anio }}? Queda fija y no se modifica hasta que la reabras.');">
+                  onsubmit="return confirm('¿Cerrar {{ mes|stringformat:'02d' }}/{{ anio }}? Se fija el detalle de departamentos, esta liquidación de productores y el cierre. No se puede modificar hasta reabrirlo.');">
                 {% csrf_token %}
                 <input type="hidden" name="mes" value="{{ mes }}">
                 <input type="hidden" name="anio" value="{{ anio }}">
                 <input type="hidden" name="accion" value="cerrar">
-                <button type="submit" class="btn btn-success btn-sm"><i class="fas fa-lock me-1"></i>Cerrar liquidación</button>
+                <button type="submit" class="btn btn-success btn-sm"><i class="fas fa-lock me-1"></i>Cerrar mes</button>
             </form>
             {% endif %}
             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()">Imprimir</button>
@@ -69,8 +69,8 @@
     {% if cierre %}
     <div class="alert alert-success py-2 mb-3 no-print">
         <i class="fas fa-lock me-1"></i>
-        <strong>Liquidación cerrada</strong> el {{ cierre.fecha_cierre|date:"d/m/Y H:i" }}{% if cierre.usuario_cierre %} por {{ cierre.usuario_cierre }}{% endif %}.
-        Se muestra tal como quedó al cerrar y no se modifica (tampoco en el cierre de oficina). Para cambiarla, reabrila.
+        <strong>Mes cerrado</strong> el {{ cierre.fecha_cierre|date:"d/m/Y H:i" }}{% if cierre.usuario_cierre %} por {{ cierre.usuario_cierre }}{% endif %}.
+        Departamentos, esta planilla y el cierre quedan fijos. Para una corrección, reabrí el mes.
     </div>
     {% endif %}
 

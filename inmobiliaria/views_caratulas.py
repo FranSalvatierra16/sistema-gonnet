@@ -2516,8 +2516,12 @@ def _cuotas_pendientes_liquidar_contrato(contrato, sucursal):
 
 
 def _contrato_al_dia_liquidacion_cobros(contrato):
-    """True si todas las cuotas ya cobradas figuran en alguna liquidación."""
-    mapa = _mapa_liquidacion_por_cuota_contrato(contrato)
+    """True si todas las cuotas ya cobradas están liquidadas por el total (no solo a cuenta)."""
+    from inmobiliaria.views import _cuotas_excluidas_por_liquidaciones_contrato
+
+    if not contrato or not contrato.propiedad_id:
+        return False
+    excl = _cuotas_excluidas_por_liquidaciones_contrato(contrato.propiedad)
     # Usar prefetch en memoria (evitar .filter() que dispara N+1).
     if 'cuotas' in getattr(contrato, '_prefetched_objects_cache', {}):
         cobradas = [
@@ -2529,7 +2533,7 @@ def _contrato_al_dia_liquidacion_cobros(contrato):
         cobradas = list(contrato.cuotas.filter(estado__in=['pagada', 'pagada_con_mora']))
     if not cobradas:
         return False
-    return all(c.id in mapa for c in cobradas)
+    return all(c.id in excl for c in cobradas)
 
 
 def _ultima_liquidacion_contrato_id(contrato):
@@ -4112,6 +4116,8 @@ def lista_caratulas(request):
                 'numero_display': f'OP {r.id}',
                 'fecha': _fecha_operacion_reserva(r),
                 'fecha_operacion': _fecha_operacion_reserva(r),
+                'fecha_desde': getattr(r, 'fecha_inicio', None),
+                'fecha_hasta': getattr(r, 'fecha_fin', None),
                 'sort_instante': _instante_operacion_reserva(r),
                 'caratula': _caratula_nombre_cliente(r.cliente),
                 'propietario_nombre': _nombre_propietario_papel(getattr(p, 'propietario', None) if p else None),
@@ -4162,6 +4168,8 @@ def lista_caratulas(request):
                 'numero_display': f'CT {c.id}',
                 'fecha': c.fecha_operacion,
                 'fecha_operacion': c.fecha_operacion,
+                'fecha_desde': getattr(c, 'fecha_inicio', None),
+                'fecha_hasta': getattr(c, 'fecha_fin', None),
                 'sort_instante': _instante_operacion_contrato(c),
                 'caratula': _caratula_nombre_cliente(c.inquilino),
                 'propietario_nombre': _nombre_propietario_papel(getattr(p, 'propietario', None) if p else None),

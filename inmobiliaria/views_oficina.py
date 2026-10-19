@@ -1199,8 +1199,9 @@ def oficina_resumen_cierre(request):
     _sync_categorias_oficina_seguro(sucursal)
 
     today = timezone.localdate()
-    anio_s = (request.GET.get('anio') or '').strip()
-    mes_s = (request.GET.get('mes') or '').strip()
+    src = request.POST if request.method == 'POST' else request.GET
+    anio_s = (src.get('anio') or '').strip()
+    mes_s = (src.get('mes') or '').strip()
     try:
         anio = int(anio_s) if anio_s else today.year
         mes = int(mes_s) if mes_s else today.month
@@ -1209,20 +1210,61 @@ def oficina_resumen_cierre(request):
     except (TypeError, ValueError):
         anio, mes = today.year, today.month
 
-    try:
-        resumen = construir_resumen_cierre(sucursal, anio, mes)
-    except Exception:
-        logger.exception(
-            'oficina_resumen_cierre: error armando resumen (sucursal_id=%s, %s-%02d)',
-            getattr(sucursal, 'pk', None),
-            anio,
-            mes,
+    from inmobiliaria.oficina_cierre_mes import (
+        cerrar_oficina_mes,
+        cierre_oficina_mes,
+        reabrir_oficina_mes,
+        resumen_desde_cierre,
+    )
+
+    if request.method == 'POST':
+        accion = (request.POST.get('accion') or '').strip()
+        url_mes = (
+            reverse('inmobiliaria:oficina_resumen_cierre')
+            + f'?anio={anio}&mes={mes}'
         )
-        messages.error(
-            request,
-            'No se pudo armar el resumen de cierre. Probá de nuevo; si sigue fallando, avisá a sistemas.',
-        )
-        return redirect('inmobiliaria:oficina_dashboard')
+        if accion == 'reabrir_mes':
+            if reabrir_oficina_mes(sucursal, anio, mes):
+                messages.success(
+                    request,
+                    f'Mes {mes:02d}/{anio} reabierto. Podés corregir departamentos, productores y el cierre.',
+                )
+            else:
+                messages.info(request, f'El mes {mes:02d}/{anio} no estaba cerrado.')
+            return redirect(url_mes)
+        if accion == 'cerrar_mes':
+            try:
+                cerrar_oficina_mes(sucursal, anio, mes, usuario=request.user)
+            except Exception:
+                logger.exception('cerrar mes oficina %s-%s', anio, mes)
+                messages.error(request, 'No se pudo cerrar el mes. Probá de nuevo.')
+                return redirect(url_mes)
+            messages.success(
+                request,
+                f'Mes {mes:02d}/{anio} cerrado. El detalle queda fijo hasta que lo reabras.',
+            )
+            return redirect(url_mes)
+        messages.error(request, 'Acción no válida.')
+        return redirect(url_mes)
+
+    cierre_mes = cierre_oficina_mes(sucursal, anio, mes)
+    if cierre_mes:
+        resumen = resumen_desde_cierre(cierre_mes, sucursal)
+    else:
+        try:
+            resumen = construir_resumen_cierre(sucursal, anio, mes)
+        except Exception:
+            logger.exception(
+                'oficina_resumen_cierre: error armando resumen (sucursal_id=%s, %s-%02d)',
+                getattr(sucursal, 'pk', None),
+                anio,
+                mes,
+            )
+            messages.error(
+                request,
+                'No se pudo armar el resumen de cierre. Probá de nuevo; si sigue fallando, avisá a sistemas.',
+            )
+            return redirect('inmobiliaria:oficina_dashboard')
 
     anios_opts = list(range(today.year - 2, today.year + 2))
     meses_opts = list(enumerate(
@@ -1240,6 +1282,7 @@ def oficina_resumen_cierre(request):
             'meses_opts': meses_opts,
             'anio_sel': anio,
             'mes_sel': mes,
+            'cierre_mes': cierre_mes,
         },
     )
 
@@ -1287,13 +1330,16 @@ def oficina_liquidacion_productores(request):
     if request.method == 'POST':
         accion = (request.POST.get('accion') or 'basicos').strip()
         if accion == 'reabrir':
-            if reabrir_liquidacion_productores(sucursal, anio, mes):
+            from inmobiliaria.oficina_cierre_mes import reabrir_oficina_mes
+
+            if reabrir_oficina_mes(sucursal, anio, mes):
                 messages.success(
                     request,
-                    f'Liquidación de {mes:02d}/{anio} reabierta: vuelve a calcularse con los datos actuales.',
+                    f'Mes {mes:02d}/{anio} reabierto: departamentos, productores y cierre '
+                    'vuelven a calcularse y se pueden corregir.',
                 )
             else:
-                messages.info(request, f'La liquidación de {mes:02d}/{anio} no estaba cerrada.')
+                messages.info(request, f'El mes {mes:02d}/{anio} no estaba cerrado.')
             return redirect(url_mes)
 
         if cierre_liquidacion_productores(sucursal, anio, mes):
@@ -1305,13 +1351,21 @@ def oficina_liquidacion_productores(request):
             return redirect(url_mes)
 
         if accion == 'cerrar':
+            from inmobiliaria.oficina_cierre_mes import cerrar_oficina_mes
+
             # Si había básicos editados sin guardar, se guardan antes de la foto.
             guardar_sueldos_basicos_mes(sucursal, anio, mes, request.POST)
             guardar_diferencias_sueldo_mes(sucursal, anio, mes, request.POST)
-            cerrar_liquidacion_productores(sucursal, anio, mes, usuario=request.user)
+            try:
+                cerrar_oficina_mes(sucursal, anio, mes, usuario=request.user)
+            except Exception:
+                logger.exception('cerrar mes desde productores %s-%s', anio, mes)
+                messages.error(request, 'No se pudo cerrar el mes. Probá de nuevo.')
+                return redirect(url_mes)
             messages.success(
                 request,
-                f'Liquidación de {mes:02d}/{anio} cerrada: queda fija hasta que la reabras.',
+                f'Mes {mes:02d}/{anio} cerrado: departamentos, productores y cierre '
+                'quedan fijos hasta que lo reabras.',
             )
             return redirect(url_mes)
 
@@ -1444,6 +1498,15 @@ def oficina_reporte_deptos_mensual(request):
     except (TypeError, ValueError):
         anio, mes = today.year, today.month
 
+    from inmobiliaria.oficina_cierre_mes import (
+        cerrar_oficina_mes,
+        cierre_oficina_mes,
+        reabrir_oficina_mes,
+        reporte_deptos_desde_cierre,
+    )
+
+    cierre_mes = cierre_oficina_mes(sucursal, anio, mes)
+
     if request.method == 'POST':
         accion = (request.POST.get('accion') or '').strip()
         prop_id = (request.POST.get('propiedad_id') or '').strip()
@@ -1451,6 +1514,33 @@ def oficina_reporte_deptos_mensual(request):
             reverse('inmobiliaria:oficina_reporte_deptos_mensual')
             + f'?anio={anio}&mes={mes}'
         )
+        if accion == 'reabrir_mes':
+            if reabrir_oficina_mes(sucursal, anio, mes):
+                messages.success(
+                    request,
+                    f'Mes {mes:02d}/{anio} reabierto. Podés corregir el detalle.',
+                )
+            else:
+                messages.info(request, f'El mes {mes:02d}/{anio} no estaba cerrado.')
+            return redirect(redirect_url)
+        if accion == 'cerrar_mes':
+            try:
+                cerrar_oficina_mes(sucursal, anio, mes, usuario=request.user)
+            except Exception:
+                logger.exception('cerrar mes desde deptos %s-%s', anio, mes)
+                messages.error(request, 'No se pudo cerrar el mes. Probá de nuevo.')
+                return redirect(redirect_url)
+            messages.success(
+                request,
+                f'Mes {mes:02d}/{anio} cerrado. El detalle queda fijo hasta que lo reabras.',
+            )
+            return redirect(redirect_url)
+        if cierre_mes:
+            messages.error(
+                request,
+                f'El mes {mes:02d}/{anio} está cerrado. Reabrilo si hace falta una corrección.',
+            )
+            return redirect(redirect_url)
         if accion in ('sacar', 'agregar') and prop_id:
             if not _propiedad_en_cartera_oficina(request.user, prop_id)[1]:
                 messages.error(request, 'Esa propiedad no está en la cartera de oficina.')
@@ -1480,20 +1570,23 @@ def oficina_reporte_deptos_mensual(request):
         messages.error(request, 'Acción no válida.')
         return redirect(redirect_url)
 
-    try:
-        reporte = construir_reporte_mensual_deptos_oficina(sucursal, anio, mes)
-    except Exception:
-        logger.exception(
-            'oficina_reporte_deptos_mensual: error (sucursal_id=%s, %s-%02d)',
-            getattr(sucursal, 'pk', None),
-            anio,
-            mes,
-        )
-        messages.error(
-            request,
-            'No se pudo armar el reporte de departamentos. Probá de nuevo; si sigue fallando, avisá a sistemas.',
-        )
-        return redirect('inmobiliaria:oficina_dashboard')
+    if cierre_mes:
+        reporte = reporte_deptos_desde_cierre(cierre_mes)
+    else:
+        try:
+            reporte = construir_reporte_mensual_deptos_oficina(sucursal, anio, mes)
+        except Exception:
+            logger.exception(
+                'oficina_reporte_deptos_mensual: error (sucursal_id=%s, %s-%02d)',
+                getattr(sucursal, 'pk', None),
+                anio,
+                mes,
+            )
+            messages.error(
+                request,
+                'No se pudo armar el reporte de departamentos. Probá de nuevo; si sigue fallando, avisá a sistemas.',
+            )
+            return redirect('inmobiliaria:oficina_dashboard')
 
     anios_opts = list(range(today.year - 2, today.year + 2))
     meses_opts = list(enumerate(
@@ -1511,6 +1604,7 @@ def oficina_reporte_deptos_mensual(request):
             'mes': mes,
             'anios_opts': anios_opts,
             'meses_opts': meses_opts,
+            'cierre_mes': cierre_mes,
         },
     )
 
