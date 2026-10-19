@@ -1683,6 +1683,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const fd = new FormData();
             fd.append('linea_id', lineaId);
             fd.append('propiedad_id', propiedadMov);
+            const liqEditInput = document.querySelector('input[name="liquidacion_id"]');
+            if (liqEditInput && liqEditInput.value) {
+                fd.append('liquidacion_id', liqEditInput.value);
+            }
             fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
             fetch('{% url "inmobiliaria:eliminar_gasto_pendiente" %}', {
                 method: 'POST',

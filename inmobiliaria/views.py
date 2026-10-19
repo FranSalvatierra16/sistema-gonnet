@@ -34544,10 +34544,27 @@ def agregar_deposito_garantia_liquidacion(request, liquidacion_id):
     return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
 
 
-def _eliminar_linea_gasto_pendiente(propiedad, propietario, linea_id, sucursal):
+def _marcar_movimiento_caja_no_liquidable(observaciones, propiedad, sucursal):
+    """Si el gasto salió de un egreso de caja, no volver a ofrecerlo en pendientes."""
+    m = re.search(r'Movimiento de caja #(\d+)', observaciones or '')
+    if not m or not propiedad:
+        return
+    try:
+        mov_id = int(m.group(1))
+    except (TypeError, ValueError):
+        return
+    MovimientoCaja.objects.filter(
+        id=mov_id,
+        propiedad=propiedad,
+        sucursal=sucursal,
+        tipo=TipoMovimientoCajaEnum.EGRESO,
+    ).update(a_descontar='inquilino')
+
+
+def _eliminar_linea_gasto_pendiente(propiedad, propietario, linea_id, sucursal, liquidacion_id=None):
     """
     Quita un movimiento de la lista de pendientes:
-    - gasto manual (GastoPropietario sin liquidación): se elimina.
+    - gasto manual sin liquidación, o ya cargado en la liquidación que se está editando: se elimina.
     - egreso de caja (movimiento_N): se marca como inquilino para no volver a ofrecerlo.
     """
     linea_id = (linea_id or '').strip()
@@ -34579,16 +34596,24 @@ def _eliminar_linea_gasto_pendiente(propiedad, propietario, linea_id, sucursal):
             return True, None
 
         gasto_id = int(linea_id)
-        gasto = GastoPropietario.objects.get(
-            id=gasto_id,
-            liquidacion__isnull=True,
-            sucursal=sucursal,
-        )
+        gasto = GastoPropietario.objects.get(id=gasto_id, sucursal=sucursal)
         if propietario and gasto.propietario_id and gasto.propietario_id != propietario.id:
             return False, 'Ese movimiento pertenece a otro propietario.'
         if gasto.propiedad_id and gasto.propiedad_id != propiedad.id:
             return False, 'Ese movimiento pertenece a otra propiedad.'
+        if gasto.liquidacion_id:
+            try:
+                lid = int(liquidacion_id)
+            except (TypeError, ValueError):
+                lid = None
+            if not lid or gasto.liquidacion_id != lid:
+                return False, 'Ese movimiento ya está incluido en otra liquidación.'
+        liq = gasto.liquidacion
+        obs = gasto.observaciones
         gasto.delete()
+        _marcar_movimiento_caja_no_liquidable(obs, propiedad, sucursal)
+        if liq is not None:
+            liq.calcular_monto_a_pagar()
         return True, None
     except (GastoPropietario.DoesNotExist, MovimientoCaja.DoesNotExist, ValueError):
         return False, 'No se encontró el movimiento pendiente indicado.'
@@ -34616,6 +34641,7 @@ def eliminar_gasto_pendiente_liquidacion(request, liquidacion_id):
         liquidacion.propietario,
         linea_id,
         request.user.sucursal,
+        liquidacion_id=liquidacion.id,
     )
     if ok:
         return JsonResponse({'success': True, 'message': 'Movimiento eliminado correctamente.'})
@@ -34632,11 +34658,32 @@ def eliminar_gasto_pendiente(request):
         return JsonResponse({'success': False, 'error': 'Debe indicar la propiedad.'})
     propiedad = get_object_or_404(Propiedad, id=propiedad_id, sucursal=request.user.sucursal)
     propietario = getattr(propiedad, 'propietario', None)
+    liquidacion_id = (request.POST.get('liquidacion_id') or '').strip()
+    if liquidacion_id:
+        try:
+            liquidacion_id = int(liquidacion_id)
+        except (TypeError, ValueError):
+            return JsonResponse({'success': False, 'error': 'Liquidación inválida.'})
+        liq_edit = LiquidacionPropietario.objects.filter(
+            id=liquidacion_id,
+            sucursal=request.user.sucursal,
+        ).first()
+        if not liq_edit or not _liquidacion_permite_editar_movimientos(liq_edit):
+            return JsonResponse({
+                'success': False,
+                'error': 'Solo se pueden borrar conceptos mientras la liquidación está pendiente o cerrada.',
+            })
+        if liq_edit.propiedad_id and liq_edit.propiedad_id != propiedad.id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Ese movimiento pertenece a otra propiedad.',
+            })
     ok, err = _eliminar_linea_gasto_pendiente(
         propiedad,
         propietario,
         linea_id,
         request.user.sucursal,
+        liquidacion_id=liquidacion_id or None,
     )
     if ok:
         return JsonResponse({'success': True, 'message': 'Movimiento eliminado correctamente.'})
