@@ -266,6 +266,7 @@ urlpatterns = [
     path('caja/nuevo/', views.nuevo_movimiento, name='nuevo_movimiento'),
     path('caja/eliminar/<int:movimiento_id>/', views.eliminar_movimiento, name='eliminar_movimiento'),
     path('caja/movimiento/<int:movimiento_id>/editar/', views.editar_movimiento_caja, name='editar_movimiento_caja'),
+    path('caja/movimiento/<int:movimiento_id>/reciclable/', views.movimiento_caja_reciclable, name='movimiento_caja_reciclable'),
     path('cajas/<int:numero>/arqueo/', views.guardar_arqueo_caja, name='guardar_arqueo_caja'),
     path('cajas/<int:numero>/anterior-matriz/', views.guardar_anterior_matriz_caja, name='guardar_anterior_matriz_caja'),
     path('cajas/', views.lista_cajas, name='lista_cajas'),

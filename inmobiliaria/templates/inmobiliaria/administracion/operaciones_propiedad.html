@@ -190,7 +190,10 @@
                             <tr>
                                 <td>{{ g.fecha|date:"d/m/Y H:i" }}</td>
                                 <td>{% if g.movimiento_num %}#{{ g.movimiento_num }}{% else %}-{% endif %}</td>
-                                <td>{{ g.concepto|default:"-" }}</td>
+                                <td>
+                                    {{ g.concepto|default:"-" }}
+                                    {% if g.reciclable %}<span class="badge bg-success ms-1"><i class="fas fa-recycle me-1"></i>Reciclado</span>{% endif %}
+                                </td>
                                 <td>{{ g.detalle|default:"-" }}</td>
                                 <td class="text-end">
                                     {% if g.monto_usd %}
@@ -200,6 +203,16 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-center text-nowrap">
+                                    {% if g.url_reciclable %}
+                                    <form method="post" action="{{ g.url_reciclable }}" class="d-inline m-0">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}#pane-gastos">
+                                        <button type="submit" class="btn btn-sm {% if g.reciclable %}btn-success{% else %}btn-outline-success{% endif %}"
+                                                title="{% if g.reciclable %}Quitar marca de reciclado{% else %}Pasar como reciclado{% endif %}">
+                                            <i class="fas fa-recycle"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
                                     {% if g.url_recibo %}
                                     <a href="{{ g.url_recibo }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver recibo">
                                         <i class="fas fa-receipt"></i>
@@ -219,7 +232,7 @@
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </form>
-                                    {% elif not g.url_recibo and not g.url_editar %}—{% endif %}
+                                    {% elif not g.url_recibo and not g.url_editar and not g.url_reciclable %}—{% endif %}
                                 </td>
                             </tr>
                             {% empty %}
@@ -247,7 +260,10 @@
                             <tr>
                                 <td>{{ g.fecha|date:"d/m/Y H:i" }}</td>
                                 <td>{% if g.movimiento_num %}#{{ g.movimiento_num }}{% else %}-{% endif %}</td>
-                                <td>{{ g.concepto|default:"-" }}</td>
+                                <td>
+                                    {{ g.concepto|default:"-" }}
+                                    {% if g.reciclable %}<span class="badge bg-success ms-1"><i class="fas fa-recycle me-1"></i>Reciclado</span>{% endif %}
+                                </td>
                                 <td>{{ g.detalle|default:"-" }}</td>
                                 <td class="text-end">
                                     {% if g.monto_usd %}
@@ -257,6 +273,16 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-center text-nowrap">
+                                    {% if g.url_reciclable %}
+                                    <form method="post" action="{{ g.url_reciclable }}" class="d-inline m-0">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}#pane-gastos">
+                                        <button type="submit" class="btn btn-sm {% if g.reciclable %}btn-success{% else %}btn-outline-success{% endif %}"
+                                                title="{% if g.reciclable %}Quitar marca de reciclado{% else %}Pasar como reciclado{% endif %}">
+                                            <i class="fas fa-recycle"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
                                     {% if g.url_recibo %}
                                     <a href="{{ g.url_recibo }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Ver recibo">
                                         <i class="fas fa-receipt"></i>
@@ -276,7 +302,7 @@
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </form>
-                                    {% elif not g.url_recibo and not g.url_editar %}—{% endif %}
+                                    {% elif not g.url_recibo and not g.url_editar and not g.url_reciclable %}—{% endif %}
                                 </td>
                             </tr>
                             {% empty %}
@@ -576,6 +602,15 @@
     });
 })();
 {% endif %}
+(function () {
+    document.addEventListener('DOMContentLoaded', function () {
+        if ((location.hash || '') !== '#pane-gastos') return;
+        var tab = document.getElementById('tab-gastos');
+        if (tab && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+            bootstrap.Tab.getOrCreateInstance(tab).show();
+        }
+    });
+})();
 </script>
 {% endblock %}
 

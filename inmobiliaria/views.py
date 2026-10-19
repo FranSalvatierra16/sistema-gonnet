@@ -2526,6 +2526,9 @@ def administracion_propiedades_operaciones(request):
         puede_editar_mov = usuario_puede_editar_movimiento_caja(request.user)
         url_admin_ops = request.get_full_path()
         from urllib.parse import quote
+        reciclable_por_mov = {
+            m.id: bool(getattr(m, 'reciclable', False)) for m in movimientos
+        }
 
         def _url_editar_mov_admin(mov_id):
             if not puede_editar_mov or not mov_id:
@@ -2534,6 +2537,11 @@ def administracion_propiedades_operaciones(request):
                 reverse('inmobiliaria:editar_movimiento_caja', args=[int(mov_id)])
                 + '?next=' + quote(url_admin_ops, safe='')
             )
+
+        def _url_reciclable_mov_admin(mov_id):
+            if not puede_editar_mov or not mov_id:
+                return ''
+            return reverse('inmobiliaria:movimiento_caja_reciclable', args=[int(mov_id)])
 
         def _es_concepto_pago_liquidacion(nombre_concepto, movimiento=None):
             nc = (nombre_concepto or '').casefold()
@@ -2591,6 +2599,8 @@ def administracion_propiedades_operaciones(request):
                 ) if puede_eliminar_mov else '',
                 'puede_editar': bool(puede_editar_mov),
                 'url_editar': _url_editar_mov_admin(m.id),
+                'reciclable': bool(getattr(m, 'reciclable', False)),
+                'url_reciclable': _url_reciclable_mov_admin(m.id),
             }
 
         gastos_items = []
@@ -2634,6 +2644,8 @@ def administracion_propiedades_operaciones(request):
                 ) if (puede_eliminar_mov and mov_num) else '',
                 'puede_editar': bool(puede_editar_mov and mov_num),
                 'url_editar': _url_editar_mov_admin(mov_num),
+                'reciclable': bool(reciclable_por_mov.get(mov_num)) if mov_num else False,
+                'url_reciclable': _url_reciclable_mov_admin(mov_num),
             }
             if _es_concepto_pago_liquidacion(concepto_g):
                 pagos_liquidacion_items.append(item)
@@ -13358,6 +13370,71 @@ def editar_movimiento_caja(request, movimiento_id):
         params['next'] = next_url
     url = reverse('inmobiliaria:nuevo_movimiento')
     return redirect(f'{url}?{urlencode(params)}')
+
+
+@login_required
+@require_POST
+def movimiento_caja_reciclable(request, movimiento_id):
+    """Marca o desmarca un movimiento de caja como gasto reciclado."""
+    siguiente = (request.POST.get('next') or '').strip()
+    if not (siguiente.startswith('/') and not siguiente.startswith('//')):
+        siguiente = ''
+
+    def _volver():
+        if siguiente:
+            return redirect(siguiente)
+        return redirect('inmobiliaria:administracion_propiedades_operaciones')
+
+    if not usuario_puede_editar_movimiento_caja(request.user):
+        messages.error(request, 'Solo el super administrador puede marcar un gasto como reciclado.')
+        return _volver()
+
+    movimiento = get_object_or_404(
+        MovimientoCaja.objects.select_related('caja'),
+        id=movimiento_id,
+        sucursal=request.user.sucursal,
+    )
+    if getattr(movimiento, 'fecha_eliminacion', None):
+        messages.error(request, 'No se puede marcar un movimiento anulado.')
+        return _volver()
+
+    nuevo = not bool(movimiento.reciclable)
+    from inmobiliaria.models.oficina import GastoOficina
+
+    gastos_ids = set(
+        GastoOficina.objects.filter(movimiento_caja_id=movimiento.id).values_list('id', flat=True)
+    )
+    if gastos_ids:
+        relacionados = set(
+            GastoOficina.objects.filter(id__in=gastos_ids)
+            .exclude(gasto_relacionado_id__isnull=True)
+            .values_list('gasto_relacionado_id', flat=True)
+        )
+        gastos_ids |= relacionados
+        gastos_ids |= set(
+            GastoOficina.objects.filter(gasto_relacionado_id__in=gastos_ids).values_list('id', flat=True)
+        )
+        GastoOficina.objects.filter(id__in=gastos_ids).update(
+            reciclable=nuevo,
+            fecha_modificacion=timezone.now(),
+        )
+        mov_ids = set(
+            GastoOficina.objects.filter(id__in=gastos_ids, movimiento_caja__isnull=False)
+            .values_list('movimiento_caja_id', flat=True)
+        )
+        mov_ids.add(movimiento.id)
+        MovimientoCaja.all_objects.filter(id__in=mov_ids).update(reciclable=nuevo)
+    else:
+        movimiento.reciclable = nuevo
+        movimiento.save(update_fields=['reciclable'])
+
+    messages.success(
+        request,
+        f'Movimiento #{movimiento.id} marcado como reciclado.'
+        if nuevo else
+        f'Movimiento #{movimiento.id} dejó de estar marcado como reciclado.',
+    )
+    return _volver()
 
 
 @login_required
