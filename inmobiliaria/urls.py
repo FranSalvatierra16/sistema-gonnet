@@ -486,6 +486,11 @@ urlpatterns = [
         name='agregar_cuota_contrato',
     ),
     path(
+        'contratos/<int:contrato_id>/cuotas/proporcional/',
+        views.agregar_proporcional_previo_contrato,
+        name='agregar_proporcional_previo_contrato',
+    ),
+    path(
         'contratos/<int:contrato_id>/cuotas/eliminar-ultima/',
         views.eliminar_ultima_cuota_contrato,
         name='eliminar_ultima_cuota_contrato',

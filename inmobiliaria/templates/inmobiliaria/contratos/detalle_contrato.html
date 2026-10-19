@@ -321,6 +321,9 @@
             <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalAgregarCuota" title="Agregar un mes al plan con fecha elegida">
                 <i class="fas fa-plus"></i> Agregar cuota
             </button>
+            <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalProporcionalPrevio" title="Días anteriores al inicio, por ejemplo octubre de un contrato que empieza en noviembre">
+                <i class="fas fa-calendar-day"></i> Proporcional anterior
+            </button>
             {% endif %}
             {% if puede_eliminar_ultima_cuota %}
             <form method="post" action="{% url 'inmobiliaria:eliminar_ultima_cuota_contrato' contrato.id %}" class="d-inline"
@@ -437,7 +440,12 @@
                         {% for cuota in cuotas %}
                         <tr class="{% if cuota.estado == 'pagada' %}table-success{% elif cuota.estado == 'vencida' %}table-danger{% elif cuota.tiene_adelanto_abonado %}table-info{% elif cuota.fecha_vencimiento < today %}table-warning{% endif %}{% if cuota.monto_base == 0 and cuota.estado != 'pagada' and cuota.estado != 'pagada_con_mora' %} table-secondary{% endif %}">
                             <td>
+                                {% if cuota.es_proporcional %}
+                                <strong>Proporcional</strong>
+                                <div class="small text-muted">Días anteriores al inicio</div>
+                                {% else %}
                                 <strong>{{ cuota.numero_cuota }}/{{ contrato.duracion_meses }}</strong>
+                                {% endif %}
                                 {% if cuota.monto_base == 0 and cuota.estado != 'pagada' and cuota.estado != 'pagada_con_mora' %}
                                 <span class="badge bg-secondary ms-1" title="Definí el importe en la columna Cobro mensual">Sin precio</span>
                                 {% endif %}
@@ -574,7 +582,18 @@
                                     </div>
                                     {% endif %}
                                     {% endif %}
-                                    {% if user.nivel == 5 and cuotas|length > 1 %}
+                                    {% if cuota.es_proporcional and cuota.estado != 'pagada' and cuota.estado != 'pagada_con_mora' %}
+                                    <div class="mt-1">
+                                        <form method="post" class="d-inline"
+                                              action="{% url 'inmobiliaria:agregar_proporcional_previo_contrato' contrato.id %}"
+                                              onsubmit="return confirm('¿Quitar este proporcional? El plan de meses no cambia.');">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="accion" value="quitar">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Quitar proporcional</button>
+                                        </form>
+                                    </div>
+                                    {% endif %}
+                                    {% if user.nivel == 5 and cuotas|length > 1 and not cuota.es_proporcional %}
                                     <div class="mt-1">
                                         <form method="post" class="d-inline"
                                               action="{% url 'inmobiliaria:eliminar_cuota_contrato_super_admin' contrato.id cuota.id %}"
@@ -819,6 +838,74 @@
     </div>
 </div>
 {{ cuotas_agregar_list|json_script:"cuotas-agregar-data" }}
+<div class="modal fade" id="modalProporcionalPrevio" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'inmobiliaria:agregar_proporcional_previo_contrato' contrato.id %}" id="formProporcionalPrevio">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Proporcional de días anteriores</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">
+                        Para un contrato que empieza en {{ contrato.fecha_inicio|date:"d/m/Y" }} y hay que cobrar
+                        días del mes anterior (por ejemplo octubre). No alarga los {{ contrato.duracion_meses }} meses.
+                        Después usá <strong>Cobrar</strong> en esa fila y liquidalo al propietario.
+                    </p>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label small mb-0" for="prop_fecha_desde">Desde</label>
+                            <input type="date" class="form-control form-control-sm" name="fecha_desde" id="prop_fecha_desde" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-0" for="prop_fecha_hasta">Hasta</label>
+                            <input type="date" class="form-control form-control-sm" name="fecha_hasta" id="prop_fecha_hasta" required>
+                        </div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label small mb-0" for="prop_monto">Importe</label>
+                        <input type="text" class="form-control form-control-sm input-monto-ar" name="monto" id="prop_monto" inputmode="decimal" required placeholder="0">
+                        <div class="form-text">Sugerido: precio mensual / 30 × días. Podés corregirlo.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning btn-sm">Cargar proporcional</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    var precio = parseFloat('{{ contrato.precio_mensual|default:"0" }}') || 0;
+    var inicio = '{{ contrato.fecha_inicio|date:"Y-m-d" }}';
+    var desde = document.getElementById('prop_fecha_desde');
+    var hasta = document.getElementById('prop_fecha_hasta');
+    var monto = document.getElementById('prop_monto');
+    if (!desde || !hasta || !monto) return;
+    if (inicio) {
+        var fin = new Date(inicio + 'T12:00:00');
+        fin.setDate(fin.getDate() - 1);
+        var iso = fin.toISOString().slice(0, 10);
+        hasta.value = iso;
+    }
+    function sugerir() {
+        if (!desde.value || !hasta.value || precio <= 0) return;
+        var a = new Date(desde.value + 'T12:00:00');
+        var b = new Date(hasta.value + 'T12:00:00');
+        if (isNaN(a.getTime()) || isNaN(b.getTime()) || a > b) return;
+        var dias = Math.round((b - a) / 86400000) + 1;
+        if (dias < 1) dias = 1;
+        var valor = Math.round((precio / 30) * dias * 100) / 100;
+        if (window.formatMontoAR) monto.value = window.formatMontoAR(valor);
+        else monto.value = String(valor);
+    }
+    desde.addEventListener('change', sugerir);
+    hasta.addEventListener('change', sugerir);
+})();
+</script>
 {% endif %}
 
 <script>

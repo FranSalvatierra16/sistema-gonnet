@@ -19130,33 +19130,33 @@ def buscar_propiedades(request):
             fecha_disponible_desde = cobertura_inicio
             fecha_disponible_hasta = cobertura_fin
 
+            # La activación puede ser un bloque largo (ej. mayo–abril) con un contrato
+            # de estudiantes en el medio. El cartel tiene que ser el tramo libre que
+            # contiene la búsqueda: lo que terminó antes empuja el «desde»; lo que
+            # empieza después de la búsqueda corta el «hasta». Un contrato anterior
+            # no debe cortar el fin (eso mostraba 02/08–01/10 en vez del verano).
+            cortes_desde = []
             max_fin_ant = max_fin_anterior_por_prop.get(propiedad.id)
             if max_fin_ant:
-                fecha_disponible_desde = max(fecha_disponible_desde, max_fin_ant)
-
+                cortes_desde.append(max_fin_ant)
+            cortes_hasta = []
             min_inicio_post = min_inicio_posterior_por_prop.get(propiedad.id)
             if min_inicio_post:
-                fecha_disponible_hasta = min(fecha_disponible_hasta, min_inicio_post)
-
-            contratos_prop = contratos_por_prop.get(propiedad.id, [])
-            candidatos_contrato = [
-                c
-                for c in contratos_prop
-                if c.fecha_inicio <= fecha_disponible_hasta
-                and c.fecha_fin > fecha_disponible_desde
-            ]
-            # Contrato ya en curso al inicio: la ficha queda libre desde su fin;
-            # contrato que empieza después: corta el «hasta».
-            previos = [c for c in candidatos_contrato if c.fecha_inicio <= fecha_disponible_desde]
-            if previos:
-                fecha_disponible_desde = max(
-                    fecha_disponible_desde, max(c.fecha_fin for c in previos)
-                )
-            posteriores = [c for c in candidatos_contrato if c.fecha_inicio > fecha_disponible_desde]
-            if posteriores:
-                fecha_disponible_hasta = min(
-                    fecha_disponible_hasta, min(c.fecha_inicio for c in posteriores)
-                )
+                cortes_hasta.append(min_inicio_post)
+            for c in contratos_por_prop.get(propiedad.id, []):
+                if c.fecha_fin and c.fecha_fin <= fecha_inicio:
+                    cortes_desde.append(c.fecha_fin)
+                elif c.fecha_inicio and c.fecha_inicio >= fecha_fin:
+                    cortes_hasta.append(c.fecha_inicio)
+            if cortes_desde:
+                fecha_disponible_desde = max(fecha_disponible_desde, max(cortes_desde))
+            if cortes_hasta:
+                fecha_disponible_hasta = min(fecha_disponible_hasta, min(cortes_hasta))
+            if (
+                fecha_disponible_desde > fecha_inicio
+                or fecha_disponible_hasta < fecha_fin
+            ):
+                continue
 
             propiedad.disponibilidad_inicio = fecha_disponible_desde
             propiedad.disponibilidad_fin = fecha_disponible_hasta
@@ -20510,6 +20510,10 @@ def detalle_contrato(request, contrato_id):
     montos_plan = _montos_cuotas_por_trimestre(contrato)
     for c in cuotas_list:
         c.recibos_cobro = recibos_por_cuota.get(int(c.id), [])
+        if getattr(c, 'es_proporcional', False) or int(c.numero_cuota or 0) < 1:
+            c.monto_plan = Decimal(str(c.monto_base or 0)).quantize(Decimal('0.01'))
+            c.desfasada_del_plan = False
+            continue
         idx = int(c.numero_cuota) - 1
         plan = montos_plan[idx] if 0 <= idx < len(montos_plan) else Decimal(str(contrato.precio_mensual or 0))
         plan = Decimal(str(plan or 0)).quantize(Decimal('0.01'))
@@ -20793,6 +20797,116 @@ def _reacomodar_plan_cuotas_tras_eliminar(contrato, numero_cuota_eliminada, cuot
 
 @login_required
 @require_POST
+def agregar_proporcional_previo_contrato(request, contrato_id):
+    """
+    Cuota aparte por los días anteriores al inicio (ej. octubre de un 24 meses
+    que empieza en noviembre). No alarga el plan ni cambia la fecha de fin.
+    Después se cobra y se liquida al propietario como cualquier cuota.
+    """
+    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+    if contrato.estado not in ('activo', 'reservado'):
+        messages.error(request, 'Solo podés cargar un proporcional en contratos activos o reservados.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    if (request.POST.get('accion') or '').strip() == 'quitar':
+        prop = contrato.cuotas.filter(es_proporcional=True).first()
+        if not prop:
+            messages.info(request, 'Este contrato no tiene un proporcional anterior.')
+        elif prop.estado in ('pagada', 'pagada_con_mora'):
+            messages.error(request, 'El proporcional ya está cobrado. No se puede quitar.')
+        else:
+            prop.delete()
+            messages.success(request, 'Se quitó el proporcional. El plan de meses no cambió.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    def _parse_fecha(nombre):
+        raw = (request.POST.get(nombre) or '').strip()
+        try:
+            return datetime.strptime(raw, '%Y-%m-%d').date()
+        except ValueError:
+            return None
+
+    desde = _parse_fecha('fecha_desde')
+    hasta = _parse_fecha('fecha_hasta')
+    if not desde or not hasta:
+        messages.error(request, 'Indicá desde y hasta de los días a cobrar.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    if desde > hasta:
+        messages.error(request, 'La fecha desde no puede ser posterior a la fecha hasta.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    if contrato.fecha_inicio and hasta >= contrato.fecha_inicio:
+        messages.error(
+            request,
+            f'El proporcional tiene que terminar antes del inicio del contrato '
+            f'({contrato.fecha_inicio.strftime("%d/%m/%Y")}). '
+            f'Los meses del plan se cobran con las cuotas de noviembre en adelante.',
+        )
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    try:
+        monto = parse_decimal_monto((request.POST.get('monto') or '').strip())
+    except (ValueError, InvalidOperation, TypeError):
+        monto = None
+    if monto is None or monto <= 0:
+        messages.error(request, 'El importe del proporcional tiene que ser mayor a cero.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+    monto = Decimal(str(monto)).quantize(Decimal('0.01'))
+
+    existente = contrato.cuotas.filter(es_proporcional=True).order_by('numero_cuota').first()
+    if existente and existente.estado in ('pagada', 'pagada_con_mora'):
+        messages.error(
+            request,
+            'El proporcional anterior ya está cobrado. Si hay que corregirlo, anulá ese cobro primero.',
+        )
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    hoy = timezone.localdate()
+    estado_cuota = 'vencida' if hasta < hoy else 'pendiente'
+    if existente:
+        existente.fecha_vencimiento = hasta
+        existente.monto_base = monto
+        existente.monto_total = monto
+        existente.recargo_mora = Decimal('0')
+        existente.descuento = Decimal('0')
+        existente.estado = estado_cuota
+        existente.save(update_fields=[
+            'fecha_vencimiento', 'monto_base', 'monto_total',
+            'recargo_mora', 'descuento', 'estado',
+        ])
+        messages.success(
+            request,
+            f'Proporcional actualizado: {desde.strftime("%d/%m/%Y")} al {hasta.strftime("%d/%m/%Y")} '
+            f'por ${format_monto_argentino(monto)}. Cobralo con el botón Cobrar de esa fila '
+            f'y después liquidalo al propietario.',
+        )
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    if contrato.cuotas.filter(numero_cuota=0).exists():
+        messages.error(request, 'Ya hay una cuota 0 en este contrato. No se pudo crear el proporcional.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    CuotaMensual.objects.create(
+        contrato=contrato,
+        numero_cuota=0,
+        es_proporcional=True,
+        fecha_vencimiento=hasta,
+        monto_base=monto,
+        monto_total=monto,
+        estado=estado_cuota,
+        movimiento=None,
+        fecha_pago=None,
+    )
+    messages.success(
+        request,
+        f'Proporcional cargado: {desde.strftime("%d/%m/%Y")} al {hasta.strftime("%d/%m/%Y")} '
+        f'por ${format_monto_argentino(monto)}. No alarga los {contrato.duracion_meses} meses. '
+        f'Cobralo con el botón Cobrar de esa fila y después liquidalo al propietario.',
+    )
+    return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+
+@login_required
+@require_POST
 @transaction.atomic
 def agregar_cuota_contrato(request, contrato_id):
     contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
@@ -20917,9 +21031,9 @@ def eliminar_ultima_cuota_contrato(request, contrato_id):
         messages.error(request, 'Solo podés eliminar cuotas en contratos activos o reservados.')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
-    cuotas_qs = contrato.cuotas.order_by('-numero_cuota')
+    cuotas_qs = contrato.cuotas.filter(es_proporcional=False).order_by('-numero_cuota')
     ultima = cuotas_qs.first()
-    total = contrato.cuotas.count()
+    total = cuotas_qs.count()
 
     if not ultima:
         messages.error(request, 'El contrato no tiene cuotas para eliminar.')
@@ -20994,6 +21108,11 @@ def eliminar_cuota_contrato_super_admin(request, contrato_id, cuota_id):
             request,
             f'No se puede eliminar la cuota {cuota.numero_cuota} porque consta como pagada.',
         )
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
+    if getattr(cuota, 'es_proporcional', False) or int(cuota.numero_cuota or 0) < 1:
+        cuota.delete()
+        messages.success(request, 'Se quitó el proporcional. El plan de meses no cambió.')
         return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
 
     mov = cuota.movimiento
@@ -21320,6 +21439,8 @@ def recalcular_cuotas_montos_desde_contrato(request, contrato_id):
     montos = _montos_cuotas_por_trimestre(contrato)
     actualizadas = 0
     for cuota in contrato.cuotas.exclude(estado__in=['pagada', 'pagada_con_mora']).order_by('numero_cuota'):
+        if getattr(cuota, 'es_proporcional', False) or int(cuota.numero_cuota or 0) < 1:
+            continue
         idx = cuota.numero_cuota - 1
         if idx < len(montos):
             cuota.monto_base = montos[idx]
@@ -21358,6 +21479,8 @@ def activar_precios_trimestres_contrato(request, contrato_id):
     montos = _montos_cuotas_por_trimestre(contrato)
     n = 0
     for cuota in contrato.cuotas.exclude(estado__in=['pagada', 'pagada_con_mora']).order_by('numero_cuota'):
+        if getattr(cuota, 'es_proporcional', False) or int(cuota.numero_cuota or 0) < 1:
+            continue
         idx = cuota.numero_cuota - 1
         if idx < len(montos):
             cuota.monto_base = montos[idx]
@@ -21424,6 +21547,8 @@ def actualizar_precios_bloques_contrato(request, contrato_id):
     montos = _montos_cuotas_por_trimestre(contrato)
     actualizadas = 0
     for cuota in contrato.cuotas.exclude(estado__in=['pagada', 'pagada_con_mora']).order_by('numero_cuota'):
+        if getattr(cuota, 'es_proporcional', False) or int(cuota.numero_cuota or 0) < 1:
+            continue
         idx = cuota.numero_cuota - 1
         if idx < len(montos):
             cuota.monto_base = montos[idx]
@@ -21521,6 +21646,7 @@ def crear_operacion_contrato(request, contrato_id):
         {
             'id': c.id,
             'numero_cuota': c.numero_cuota,
+            'es_proporcional': bool(getattr(c, 'es_proporcional', False)),
             'mes': c.fecha_vencimiento.strftime('%m/%Y') if c.fecha_vencimiento else '',
             'fecha_vencimiento': c.fecha_vencimiento.strftime('%d/%m/%Y') if c.fecha_vencimiento else '',
             'monto_total': float(c.monto_total or 0),
@@ -23532,6 +23658,7 @@ def _cuotas_selector_operacion_cfg(contrato):
             {
                 'id': c.id,
                 'numero_cuota': c.numero_cuota,
+                'es_proporcional': bool(getattr(c, 'es_proporcional', False)),
                 'mes': c.fecha_vencimiento.strftime('%m/%Y') if c.fecha_vencimiento else '',
                 'fecha_vencimiento': c.fecha_vencimiento.strftime('%d/%m/%Y') if c.fecha_vencimiento else '',
                 'monto_nominal': float(c.monto_total or 0),
@@ -24260,6 +24387,7 @@ def crear_pago_cuota_operacion(request, cuota_id):
         {
             'id': c.id,
             'numero_cuota': c.numero_cuota,
+            'es_proporcional': bool(getattr(c, 'es_proporcional', False)),
             'mes': c.fecha_vencimiento.strftime('%m/%Y') if c.fecha_vencimiento else '',
             'fecha_vencimiento': c.fecha_vencimiento.strftime('%d/%m/%Y') if c.fecha_vencimiento else '',
             'monto_total': float(c.monto_total or 0),
@@ -32241,7 +32369,9 @@ def _operaciones_gastos_pendientes_data(
             occ_d, occ_h = _periodo_ocupacion_cuota_mensual(cuota)
             fi_s = occ_d.strftime('%Y-%m-%d') if occ_d else (fv.strftime('%Y-%m-%d') if fv else '')
             fh_s = occ_h.strftime('%Y-%m-%d') if occ_h else fi_s
-            if parcial and cuota.estado in ('pagada', 'pagada_con_mora'):
+            if getattr(cuota, 'es_proporcional', False):
+                suf = ' (proporcional de días anteriores al inicio)'
+            elif parcial and cuota.estado in ('pagada', 'pagada_con_mora'):
                 suf = ' (saldo: ya se liquidó un pago a cuenta)'
             elif parcial:
                 suf = ' (cobro parcial registrado)'
@@ -32251,7 +32381,7 @@ def _operaciones_gastos_pendientes_data(
                 suf = ''
             es_primera = False
             comisiones = {}
-            tipo_fila = 'Cuota mensual'
+            tipo_fila = 'Proporcional' if getattr(cuota, 'es_proporcional', False) else 'Cuota mensual'
             fila = {
                 'tipo': 'contrato_cuota',
                 'tipo_display': tipo_fila,
@@ -32266,7 +32396,13 @@ def _operaciones_gastos_pendientes_data(
                 'propiedad_id': propiedad.id,
                 'propiedad_label': prop_label,
                 'descripcion': (
-                    f'Contrato #{contrato.id} — Cuota {cuota.numero_cuota}/{contrato.duracion_meses} — {nombre_inq}{suf}'
+                    f'Contrato #{contrato.id} — '
+                    + (
+                        'Proporcional días anteriores'
+                        if getattr(cuota, 'es_proporcional', False)
+                        else f'Cuota {cuota.numero_cuota}/{contrato.duracion_meses}'
+                    )
+                    + f' — {nombre_inq}{suf}'
                 ),
                 'fecha_inicio': fi_s,
                 'fecha_fin': fh_s,

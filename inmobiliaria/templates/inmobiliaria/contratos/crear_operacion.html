@@ -71,7 +71,7 @@
                             <p><strong>Propiedad:</strong> {{ contrato.propiedad.direccion }}{% if contrato.propiedad.piso or contrato.propiedad.departamento %} — {% if contrato.propiedad.piso %}Piso {{ contrato.propiedad.piso }}{% endif %}{% if contrato.propiedad.piso and contrato.propiedad.departamento %} · {% endif %}{% if contrato.propiedad.departamento %}Dpto {{ contrato.propiedad.departamento }}{% endif %}{% endif %}</p>
                             {% if modo_pago_cuota_especifica %}
                             <div class="alert {% if modo_cobro_extra_cuota_pagada %}alert-info{% else %}alert-light border{% endif %} mb-2">
-                                <p class="mb-2"><strong>Cuota:</strong> {{ cuota_pago.numero_cuota }} de {{ contrato.duracion_meses }} ·
+                                <p class="mb-2"><strong>{% if cuota_pago.es_proporcional %}Proporcional{% else %}Cuota: {{ cuota_pago.numero_cuota }} de {{ contrato.duracion_meses }}{% endif %}</strong> ·
                                     <strong>Vencimiento:</strong> {{ cuota_pago.fecha_vencimiento|date:"d/m/Y" }}
                                     {% if modo_cobro_extra_cuota_pagada %}<span class="badge bg-success ms-1">Alquiler pagado</span>{% endif %}
                                 </p>
@@ -79,7 +79,7 @@
                                 {% include 'inmobiliaria/contratos/_bloque_tipo_cobro_mes.html' with cuota_ref=cuota_pago %}
                                 {% endif %}
                                 <p class="mb-0 small text-muted">
-                                    El recibo queda vinculado a la <strong>cuota {{ cuota_pago.numero_cuota }}</strong> de este mes.
+                                    El recibo queda vinculado a {% if cuota_pago.es_proporcional %}este <strong>proporcional</strong>{% else %}la <strong>cuota {{ cuota_pago.numero_cuota }}</strong> de este mes{% endif %}.
                                     {% if modo_cobro_extra_cuota_pagada %}
                                     Agregá los conceptos que quieras (servicios, expensas, etc.). <strong>No uses 1000 ni 29</strong> porque el alquiler ya está pagado.
                                     {% elif modo_solo_servicios %}
@@ -711,6 +711,7 @@ function etiquetaCuotaDesdeCfg(cuotaId) {
         : (Array.isArray(window.cuotasPendientesCfg) ? window.cuotasPendientesCfg : []);
     const it = arr.find(function(q) { return Number(q.id) === qid; });
     if (!it) return '';
+    if (it.es_proporcional) return `Proporcional (${it.mes})`;
     return `Cuota ${it.numero_cuota} (${it.mes})`;
 }
 
@@ -935,7 +936,7 @@ function renderOpcionesCuotasObjetivo(selectedId) {
             suf = ` · a pagar ${prefijoMonedaCuotaContrato()}${formatoMontoReciboAR(saldo)}`;
         }
         opciones.push(
-            `<option value="${q.id}"${dis}${sel}>Cuota ${q.numero_cuota} · ${q.mes} · vence ${q.fecha_vencimiento}${suf}</option>`
+            `<option value="${q.id}"${dis}${sel}>${q.es_proporcional ? 'Proporcional' : ('Cuota ' + q.numero_cuota)} · ${q.mes} · vence ${q.fecha_vencimiento}${suf}</option>`
         );
     });
     select.innerHTML = opciones.join('');

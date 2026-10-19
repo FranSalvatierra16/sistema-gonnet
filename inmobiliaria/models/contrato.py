@@ -332,7 +332,11 @@ class ContratoInquilino(models.Model):
 # Cuotas mensuales individuales
 class CuotaMensual(models.Model):
     contrato = models.ForeignKey(ContratoAlquiler, on_delete=models.CASCADE, related_name='cuotas')
-    numero_cuota = models.PositiveIntegerField()  # 1, 2, 3... hasta 24
+    numero_cuota = models.PositiveIntegerField()  # 1, 2, 3... hasta 24. 0 = proporcional previo.
+    es_proporcional = models.BooleanField(
+        default=False,
+        help_text='Días anteriores al inicio del plan (ej. octubre de un 24 meses que empieza en noviembre). No cuenta como mes del contrato.',
+    )
     
     # Fechas
     fecha_vencimiento = models.DateField()
