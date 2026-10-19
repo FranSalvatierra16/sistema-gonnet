@@ -167,7 +167,9 @@ def _modalidad_ocupacion_mes(prop, anio: int, mes: int) -> str | None:
     return None
 
 
-_ESTADOS_LIQUIDACION_ALQUILERES_PROPIOS = ('oficina', 'pagada', 'cerrada', 'procesada')
+_ESTADOS_LIQUIDACION_ALQUILERES_PROPIOS = (
+    'pendiente', 'oficina', 'pagada', 'cerrada', 'procesada',
+)
 
 
 def _modalidad_desde_liquidacion(liq) -> str | None:
@@ -227,8 +229,8 @@ def _acumular_liquidacion_en_tarifas(tarifas: dict, liq) -> None:
 
 def mapa_ingresos_liquidaciones_por_modalidad(propiedad_ids, anio: int, mes: int, sucursal=None):
     """
-    {propiedad_id: {por_dia, invierno, meses_24}} solo con liquidaciones
-    confirmadas del mes. Keys con monto 0 quedan en None.
+    {propiedad_id: {por_dia, invierno, meses_24}} con liquidaciones
+    pendientes o confirmadas del mes. Keys con monto 0 quedan en None.
     """
     # Propiedad.id es CharField: no castear a int.
     ids = [str(x) for x in propiedad_ids if x is not None and str(x).strip() != '']
@@ -528,6 +530,50 @@ def _repartir_por_pesos(monto, pesos: dict) -> dict:
     return columnas
 
 
+def _participacion_cartera(sucursal, propiedad_ids):
+    """
+    Porcentaje de la cartera compartida (Mis propiedades).
+    50 → el depto suma la mitad del ingreso y de los gastos.
+    Sin dato o 100 → no escala.
+    """
+    from inmobiliaria.cartera_sucursal import qs_cartera_sucursal
+
+    out = {}
+    if not sucursal or not propiedad_ids:
+        return out
+    filas = (
+        qs_cartera_sucursal(sucursal, sincronizar=False)
+        .filter(propiedad_id__in=propiedad_ids)
+        .values_list('propiedad_id', 'porcentaje')
+    )
+    for pid, pct in filas:
+        try:
+            p = Decimal(str(pct if pct is not None else 100))
+        except Exception:
+            p = Decimal('100')
+        if p <= 0 or p > 100:
+            p = Decimal('100')
+        out[pid] = p
+    return out
+
+
+def _aplicar_participacion(calc, pct: Decimal):
+    """Escala bruto, gastos y neto al porcentaje de la cartera."""
+    if pct == Decimal('100'):
+        return calc
+    factor = pct / Decimal('100')
+    calc['bruto'] = _q(calc['bruto'] * factor)
+    calc['gastos'] = _q(calc['gastos'] * factor)
+    calc['gastos_reciclables'] = _q(calc['gastos_reciclables'] * factor)
+    neto = _q(calc['bruto'] - calc['gastos'])
+    calc['neto_periodo'] = neto
+    calc['neto'] = neto
+    calc['negativo'] = neto < 0
+    calc['entra_en_total'] = neto > Decimal('0.009')
+    calc['monto_a_total'] = neto if calc['entra_en_total'] else Decimal('0')
+    return calc
+
+
 def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     """
     Arma el reporte mensual de todos los deptos de la cartera de oficina.
@@ -558,6 +604,7 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
     tarifas_por_prop = mapa_ingresos_liquidaciones_por_modalidad(
         [p.id for p in props], anio, mes, sucursal=sucursal
     )
+    participacion = _participacion_cartera(sucursal, [p.id for p in props])
     total_tarifa_dia = Decimal('0')
     total_tarifa_invierno = Decimal('0')
     total_tarifa_24 = Decimal('0')
@@ -600,6 +647,9 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
             disponibles_para_agregar.append({'id': prop.id, 'label': label})
             continue
 
+        pct = participacion.get(prop.id, Decimal('100'))
+        _aplicar_participacion(calc, pct)
+
         total_bruto += calc['bruto']
         total_gastos += calc['gastos']
         total_gastos_reciclables += calc['gastos_reciclables']
@@ -629,6 +679,7 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
             'nro': len(filas) + 1,
             'propiedad': prop,
             'propiedad_label': label,
+            'participacion': pct if pct != Decimal('100') else None,
             'apellido_propietario': apellido_prop,
             'periodo': periodo_label,
             'bruto': calc['bruto'],

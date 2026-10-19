@@ -117,6 +117,9 @@
                             <td class="text-center">{{ f.nro }}</td>
                             <td>
                                 {{ f.propiedad_label }}
+                                {% if f.participacion %}
+                                <span class="badge bg-secondary">{{ f.participacion|floatformat:"-2" }}%</span>
+                                {% endif %}
                             </td>
                             <td class="text-nowrap">{{ f.apellido_propietario|default:"—" }}</td>
                             <td class="text-nowrap">{{ f.periodo }}</td>

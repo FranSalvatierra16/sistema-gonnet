@@ -392,8 +392,10 @@ def _descripcion_liquidacion_oficina_libro(liq):
     return f'{ref} — Alquiler a pagar'
 
 
-# Estados de liquidación que acreditan alquiler en el libro del depto.
-_ESTADOS_LIQUIDACION_LIBRO = ('oficina', 'pagada', 'cerrada', 'procesada')
+# Estados que acreditan alquiler en el libro del depto.
+# Pendiente entra: se liquida al propietario antes de confirmar o pagar
+# (ej. liquidaciones 698 y 1207 de agosto).
+_ESTADOS_LIQUIDACION_LIBRO = ('pendiente', 'oficina', 'pagada', 'cerrada', 'procesada')
 
 
 def monto_libro_liquidacion(liq) -> Decimal:
@@ -446,10 +448,10 @@ def _filas_liquidaciones_confirmadas_libro(
     dr_hasta=None,
 ):
     """
-    Liquidaciones confirmadas (oficina / pagada / cerrada / procesada):
-    se acreditan en el libro del depto en el mes de su período (fecha_desde),
-    con el monto del propietario — no el total cobrado al locatario.
-    Sin liquidación confirmada, la operación/contrato no aparece.
+    Liquidaciones pendientes o confirmadas (pendiente / oficina / pagada /
+    cerrada / procesada): se acreditan en el libro del depto en el mes de su
+    período, con el monto del propietario — no el total cobrado al locatario.
+    Una parte de un pago dividido usa las fechas de esa parte.
     """
     from datetime import time as time_cls
 

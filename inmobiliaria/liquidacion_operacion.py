@@ -360,19 +360,17 @@ def _parse_fecha_parte_liq(valor):
         return None
 
 
-def _fecha_hasta_parte_creada_liquidacion(liq):
-    """Fecha hasta de la parte liquidada en esta liquidación (división o campos de la liq.)."""
-    for op in liq.operaciones_incluidas or []:
+def _parte_creada_division(liq):
+    """Dict de la parte que esta liquidación paga, si el pago está dividido."""
+    for op in getattr(liq, 'operaciones_incluidas', None) or []:
         if not isinstance(op, dict) or (op.get('tipo') or '').lower() != 'division':
             continue
         partes = op.get('operaciones') or []
         parte_n = op.get('parte_creada')
-        elegida = None
         for p in partes:
             if isinstance(p, dict) and p.get('creada_en_esta_liquidacion'):
-                elegida = p
-                break
-        if elegida is None and parte_n is not None:
+                return p
+        if parte_n is not None:
             try:
                 n = int(parte_n)
             except (TypeError, ValueError):
@@ -380,10 +378,23 @@ def _fecha_hasta_parte_creada_liquidacion(liq):
             if n is not None:
                 for p in partes:
                     if isinstance(p, dict) and int(p.get('numero') or 0) == n:
-                        elegida = p
-                        break
-        if elegida:
-            return _parse_fecha_parte_liq(elegida.get('fecha_hasta'))
+                        return p
+    return None
+
+
+def fecha_desde_parte_creada_liquidacion(liq):
+    """Inicio del tramo que se paga en esta liquidación (mes en que cuenta)."""
+    parte = _parte_creada_division(liq)
+    if not parte:
+        return None
+    return _parse_fecha_parte_liq(parte.get('fecha_desde'))
+
+
+def _fecha_hasta_parte_creada_liquidacion(liq):
+    """Fecha hasta de la parte liquidada en esta liquidación (división o campos de la liq.)."""
+    parte = _parte_creada_division(liq)
+    if parte:
+        return _parse_fecha_parte_liq(parte.get('fecha_hasta'))
     return getattr(liq, 'fecha_hasta', None)
 
 

@@ -29784,7 +29784,13 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                         cuota_ids_periodo.append(int(o.get('id')))
                     except (TypeError, ValueError):
                         pass
-                if cuota_ids_periodo and (not fd_liq or not fh_liq or fd_liq == fh_liq):
+                # Si el pago está dividido, las fechas de la parte mandan
+                # (no las pisa el período de la cuota).
+                if (
+                    cuota_ids_periodo
+                    and not dividir_operacion
+                    and (not fd_liq or not fh_liq or fd_liq == fh_liq)
+                ):
                     occ_d, occ_h = _periodo_fechas_desde_cuotas(
                         CuotaMensual.objects.filter(id__in=cuota_ids_periodo).select_related('contrato')
                     )
@@ -32785,9 +32791,19 @@ def _periodo_liquidado_display(liquidacion):
 
 def fecha_periodo_libro_liquidacion(liquidacion):
     """
-    Fecha que define el mes de la liquidación en el libro / reporte de deptos:
-    inicio del período de locación de las cuotas (como en el listado), no el vencimiento.
+    Fecha que define el mes de la liquidación en el libro / reporte de deptos.
+    Si el pago al propietario está dividido, usa el desde de esa parte
+    (seña ahora, saldo en enero, resto en febrero). Si no, el inicio del
+    período de locación de las cuotas, no el vencimiento.
     """
+    try:
+        from inmobiliaria.liquidacion_operacion import fecha_desde_parte_creada_liquidacion
+
+        parte = fecha_desde_parte_creada_liquidacion(liquidacion)
+        if parte:
+            return parte
+    except Exception:
+        pass
     try:
         cuotas = _cuotas_resueltas_liquidacion(liquidacion)
         if cuotas:
