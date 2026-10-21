@@ -1487,6 +1487,11 @@ def _normalizar_lineas_fichaje_caratula(lineas, contrato):
 
     vend = _vendedor_fichaje_contrato_caratula(contrato)
     if not vend:
+        if lineas is not None:
+            lineas[:] = [
+                ln for ln in lineas
+                if ln.get('rol') not in (ROL_COMISION_FICHAJE, 'fichaje')
+            ]
         return
     nombre = _nombre_productor_papel(vend)
     for ln in lineas or []:
@@ -3011,6 +3016,15 @@ def _resolver_fichaje_contrato_caratula(contrato):
 
     pct = None
     vend = vend_fichaje
+    # Sin fichador en la ficha no se usa una comisión vieja: si no, sigue
+    # figurando alguien (ej. Gerónimo) aunque el campo esté vacío.
+    if not vend_fichaje:
+        return {
+            'pct': None,
+            'vend': None,
+            'tipo_fichaje': tipo_fichaje,
+            'cat': cat,
+        }
     if vend_fichaje:
         vend_fresh = (
             Vendedor.objects.filter(pk=vend_fichaje.pk).first() if vend_fichaje.pk else vend_fichaje
@@ -3023,7 +3037,7 @@ def _resolver_fichaje_contrato_caratula(contrato):
         pct_db, vend_db = _pct_fichaje_desde_db_contrato(contrato, vend_fichaje)
         if pct_db and pct_db > 0:
             pct = pct_db
-            if vend_db:
+            if not vend and vend_db:
                 vend = vend_db
 
     return {

@@ -634,15 +634,11 @@ class PropiedadForm(forms.ModelForm):
                 qs_vend = Vendedor.objects.filter(
                     sucursal=self.user.sucursal, is_active=True
                 ).order_by('apellido', 'nombre')
-            # Mantener el fichador actual aunque esté inactivo, si es de la misma sucursal.
+            # Mostrar el fichador ya cargado aunque esté inactivo o sea de otra sucursal,
+            # para poder verlo y sacarlo. Si no está en la lista, el campo parece vacío
+            # y la operación igual le cobra el fichaje.
             if self.instance.pk and self.instance.fichado_por_id:
-                actual = self.instance.fichado_por
-                if (
-                    actual
-                    and self.user
-                    and actual.sucursal_id == getattr(self.user, 'sucursal_id', None)
-                ):
-                    qs_vend = (qs_vend | Vendedor.objects.filter(pk=actual.pk)).distinct()
+                qs_vend = (qs_vend | Vendedor.objects.filter(pk=self.instance.fichado_por_id)).distinct()
             self.fields['fichado_por'].queryset = qs_vend
 
         # Para propiedades existentes, mostrar el vendedor actual seleccionado
@@ -805,7 +801,7 @@ class PropiedadForm(forms.ModelForm):
                 and self.instance.fichado_por_id != fichado_por_seleccionado.pk
             ):
                 propiedad.fecha_fichado = timezone.now()
-        elif not pk_inicial:
+        else:
             propiedad.fichado_por = None
             propiedad.fecha_fichado = None
 
