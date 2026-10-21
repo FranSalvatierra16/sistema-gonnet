@@ -118,7 +118,7 @@ def _estado_display_reserva(reserva):
 def administracion_listado_operaciones(request):
     """
     Listado de todas las operaciones de la sucursal con filtro por fechas y tipo.
-    Cuenta cuántas operaciones se registraron en el período (fecha de alta).
+    Por día: el período es la estadía (entrada/salida). El resto: fecha de alta.
     """
     if not _puede_administracion_operaciones(request.user):
         return HttpResponseForbidden()
@@ -184,11 +184,12 @@ def administracion_listado_operaciones(request):
     )
 
     if not periodo_completo:
+        # Por día: la estadía tiene que pisar el rango (no alcanza con que se haya cargado ahí).
         if dr_desde:
-            reservas_qs = reservas_qs.filter(fecha_creacion__date__gte=dr_desde)
+            reservas_qs = reservas_qs.filter(fecha_fin__gte=dr_desde)
             contratos_qs = contratos_qs.filter(fecha_creacion__date__gte=dr_desde)
         if dr_hasta:
-            reservas_qs = reservas_qs.filter(fecha_creacion__date__lte=dr_hasta)
+            reservas_qs = reservas_qs.filter(fecha_inicio__lte=dr_hasta)
             contratos_qs = contratos_qs.filter(fecha_creacion__date__lte=dr_hasta)
 
     if q:
