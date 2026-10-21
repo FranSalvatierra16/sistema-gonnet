@@ -6,7 +6,7 @@ Con ancho_hoja='1' el bloque se arma al ancho de la hoja (no al de la pantalla):
 impresa queda del tamaño del CSS de impresión en vez de achicarse según el monitor.
 {% endcomment %}
 <style>
-@page { size: A4 {{ orientacion|default:'portrait' }}; margin: {% if sin_zoom %}6mm{% else %}7mm{% endif %}; }
+@page { size: {{ papel|default:'A4' }} {{ orientacion|default:'portrait' }}; margin: {% if sin_zoom %}6mm{% else %}7mm{% endif %}; }
 @media print {
     html, body { margin: 0 !important; padding: 0 !important; }
     body > nav, body > .navbar, body > footer { display: none !important; }
