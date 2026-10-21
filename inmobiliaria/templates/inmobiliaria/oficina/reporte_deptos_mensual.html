@@ -236,10 +236,31 @@
 <style>
 @media print {
     .no-print { display: none !important; }
-    .reporte-deptos-oficina { margin: 0 !important; padding: 0 !important; }
+    .reporte-deptos-oficina { margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: none !important; }
     .reporte-deptos-oficina .card { border: none !important; box-shadow: none !important; }
-    .reporte-deptos-oficina table { font-size: 10pt !important; }
+    .reporte-deptos-oficina .card-header { font-size: 16pt !important; padding: 4pt 0 8pt !important; background: transparent !important; }
+    .reporte-deptos-oficina .card-footer { font-size: 12pt !important; }
+    .reporte-deptos-oficina table {
+        font-size: 13pt !important;
+        width: 100% !important;
+        table-layout: fixed;
+    }
+    .reporte-deptos-oficina th,
+    .reporte-deptos-oficina td {
+        font-size: 13pt !important;
+        padding: 4pt 4pt !important;
+        white-space: normal !important;
+    }
+    .reporte-deptos-oficina th:nth-child(1),
+    .reporte-deptos-oficina td:nth-child(1) { width: 4%; }
+    .reporte-deptos-oficina th:nth-child(2),
+    .reporte-deptos-oficina td:nth-child(2) { width: 18%; }
+    .reporte-deptos-oficina th:nth-child(3),
+    .reporte-deptos-oficina td:nth-child(3) { width: 14%; }
+    .reporte-deptos-oficina th:nth-child(4),
+    .reporte-deptos-oficina td:nth-child(4) { width: 12%; }
+    .reporte-deptos-oficina tfoot td { font-size: 13.5pt !important; font-weight: 700 !important; }
 }
 </style>
-{% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.reporte-deptos-oficina' %}
+{% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.reporte-deptos-oficina' orientacion='landscape' sin_zoom='1' %}
 {% endblock %}
