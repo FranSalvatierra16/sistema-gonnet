@@ -286,6 +286,23 @@ class LiquidacionPropietario(models.Model):
         """Si el saldo es negativo, genera gasto pendiente para descontar en la próxima liquidación."""
         return sync_gasto_saldo_negativo_liquidacion(self)
 
+    def monto_ya_pagado(self):
+        """Suma de los pagos registrados. Una pagada de antes, sin filas, cuenta como saldada."""
+        if not self.pk:
+            return Decimal('0')
+        agg = self.pagos.aggregate(t=Sum('monto'))['t']
+        if agg:
+            return Decimal(str(agg)).quantize(Decimal('0.01'))
+        if self.estado == 'pagada':
+            return Decimal(str(self.monto_a_pagar or 0)).quantize(Decimal('0.01'))
+        return Decimal('0')
+
+    def saldo_pendiente_pago(self):
+        saldo = Decimal(str(self.monto_a_pagar or 0)) - self.monto_ya_pagado()
+        if saldo < 0:
+            saldo = Decimal('0')
+        return saldo.quantize(Decimal('0.01'))
+
     def __str__(self):
         return f"Liquidación {self.id} - {self.propietario} - {self.propiedad} - ${self.monto_a_pagar}"
 
@@ -293,6 +310,33 @@ class LiquidacionPropietario(models.Model):
         verbose_name = "Liquidación Propietario"
         verbose_name_plural = "Liquidaciones Propietarios"
         ordering = ['-fecha_creacion']
+
+
+class PagoLiquidacion(models.Model):
+    """Un pago (total o parcial) de una liquidación, con su egreso de caja."""
+
+    liquidacion = models.ForeignKey(
+        LiquidacionPropietario,
+        on_delete=models.CASCADE,
+        related_name='pagos',
+    )
+    movimiento_caja = models.ForeignKey(
+        MovimientoCaja,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pagos_liquidacion',
+    )
+    monto = models.DecimalField(max_digits=12, decimal_places=2)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Pago de liquidación'
+        verbose_name_plural = 'Pagos de liquidación'
+        ordering = ['fecha', 'id']
+
+    def __str__(self):
+        return f'Pago {self.monto} de liquidación {self.liquidacion_id}'
 
 
 class GastoPropietario(models.Model):

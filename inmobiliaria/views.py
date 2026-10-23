@@ -34005,7 +34005,7 @@ def detalle_liquidacion(request, liquidacion_id):
         LiquidacionPropietario.objects.select_related(
             'propietario', 'propiedad', 'reserva', 'reserva__propiedad',
             'contrato', 'movimiento_caja', 'movimiento_caja__caja'
-        ).prefetch_related('gastos'),
+        ).prefetch_related('gastos', 'pagos__movimiento_caja__caja'),
         id=liquidacion_id,
         sucursal=request.user.sucursal
     )
@@ -34430,10 +34430,16 @@ def eliminar_liquidacion(request, liquidacion_id):
 
     from inmobiliaria.models.liquidacion import eliminar_gastos_pendientes_liquidacion_origen
 
-    mov = liquidacion.movimiento_caja
+    movs = []
+    if liquidacion.movimiento_caja_id:
+        movs.append(liquidacion.movimiento_caja)
+    for pago in liquidacion.pagos.select_related('movimiento_caja'):
+        if pago.movimiento_caja_id and all(m.id != pago.movimiento_caja_id for m in movs):
+            movs.append(pago.movimiento_caja)
     liquidacion.movimiento_caja = None
     liquidacion.save(update_fields=['movimiento_caja'])
-    if mov:
+    liquidacion.pagos.all().delete()
+    for mov in movs:
         _eliminar_movimiento_y_anexos(mov, eliminado_por=request.user)
 
     lid = liquidacion.id
@@ -35438,17 +35444,17 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
         if liq.estado not in ('pendiente', 'cerrada'):
             raise ValueError(
                 f'La liquidación #{liq.id} está en estado «{liq.get_estado_display()}» '
-                f'y no se puede pagar en lote.'
+                f'y no se puede pagar.'
             )
-        if liq.movimiento_caja_id:
-            raise ValueError(f'La liquidación #{liq.id} ya tiene un movimiento de caja.')
+        if liq.saldo_pendiente_pago() <= Decimal('0.01'):
+            raise ValueError(f'La liquidación #{liq.id} no tiene saldo pendiente.')
 
     for liq in liquidaciones:
         _cerrar_liquidacion_para_pago(liq)
         liq.refresh_from_db()
 
     total_a_pagar = sum(
-        (Decimal(str(liq.monto_a_pagar or 0)) for liq in liquidaciones),
+        (liq.saldo_pendiente_pago() for liq in liquidaciones),
         Decimal('0'),
     ).quantize(Decimal('0.01'))
     usd_aparte = sum(
@@ -35464,10 +35470,20 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
     medios = _medios_pago_liquidacion_desde_post(request)
     if total_a_pagar <= Decimal('0.01'):
         total_a_pagar = Decimal('0')
-    if medios['total_pago'] != total_a_pagar:
+    es_parcial = (
+        len(liquidaciones) == 1
+        and medios['total_pago'] + Decimal('0.02') < total_a_pagar
+    )
+    if total_a_pagar > Decimal('0.01') and medios['total_pago'] <= Decimal('0.01'):
+        raise ValueError('Ingresá el importe a pagar.')
+    if medios['total_pago'] > total_a_pagar + Decimal('0.02'):
         raise ValueError(
-            f'El total del pago (${medios["total_pago"]}) no coincide con el monto a pagar '
-            f'(${total_a_pagar}).'
+            f'El pago (${medios["total_pago"]}) supera el saldo pendiente (${total_a_pagar}).'
+        )
+    if not es_parcial and abs(medios['total_pago'] - total_a_pagar) > Decimal('0.02'):
+        raise ValueError(
+            f'El total del pago (${medios["total_pago"]}) no coincide con el saldo pendiente '
+            f'(${total_a_pagar}). Podés pagar una parte desde el detalle de una sola liquidación.'
         )
 
     cotizacion_dolar = medios['cotizacion_dolar']
@@ -35483,7 +35499,7 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
     monto_cheque = medios['monto_cheque']
     monto_tarjeta = medios['monto_tarjeta']
     monto_deposito = medios['monto_deposito']
-    monto_dolares = total_a_pagar if es_usd else usd_aparte
+    monto_dolares = medios['total_pago'] if es_usd else (Decimal('0') if es_parcial else usd_aparte)
     destino_deposito = medios.get('destino_deposito')
     fecha_transferencia = medios.get('fecha_transferencia')
     tarjeta_numero = medios.get('tarjeta_numero') or ''
@@ -35506,9 +35522,14 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
     ids_txt = ', '.join(f'#{liq.id}' for liq in liquidaciones)
     if len(liquidaciones) == 1:
         liq0 = liquidaciones[0]
-        concepto = (
-            f'Liquidación Propietario - {propietario} - {liq0.propiedad.direccion}'
-        )
+        if es_parcial:
+            concepto = (
+                f'Pago parcial liquidación #{liq0.id} - {propietario} - {liq0.propiedad.direccion}'
+            )
+        else:
+            concepto = (
+                f'Liquidación Propietario - {propietario} - {liq0.propiedad.direccion}'
+            )
         propiedad = liq0.propiedad
         fecha_desde = liq0.fecha_desde
         fecha_hasta = liq0.fecha_hasta
@@ -35558,16 +35579,25 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
     if cheques_detalle and monto_cheque > 0:
         _guardar_cheques_movimiento(movimiento, cheques_detalle)
 
+    from inmobiliaria.models.liquidacion import PagoLiquidacion
+
     ahora = timezone.now()
     for liq in liquidaciones:
+        monto_este = medios['total_pago'] if len(liquidaciones) == 1 else liq.saldo_pendiente_pago()
+        PagoLiquidacion.objects.create(
+            liquidacion=liq,
+            movimiento_caja=movimiento,
+            monto=monto_este,
+        )
         liq.movimiento_caja = movimiento
         if cotizacion_dolar is not None and liq.cotizacion_dolar != cotizacion_dolar:
             liq.cotizacion_dolar = cotizacion_dolar
-        liq.estado = 'pagada'
+        if not es_parcial:
+            liq.estado = 'pagada'
         liq.fecha_procesamiento = ahora
         liq.save()
 
-    return movimiento, total_a_pagar, es_usd
+    return movimiento, medios['total_pago'], es_usd, es_parcial
 
 
 @login_required
@@ -35585,16 +35615,25 @@ def procesar_liquidacion(request, liquidacion_id):
     )
 
     try:
-        mov, total, es_usd = _pagar_liquidaciones_en_caja(request, [liquidacion])
+        mov, total, es_usd, es_parcial = _pagar_liquidaciones_en_caja(request, [liquidacion])
         simbolo = 'U$S ' if es_usd else '$'
         extra_usd = ''
         if not es_usd and Decimal(str(mov.monto_dolares or 0)) > 0:
             extra_usd = f' y U$S {mov.monto_dolares}'
-        messages.success(
-            request,
-            f'Liquidación procesada correctamente. Se descontó {simbolo}{total}{extra_usd} de la caja '
-            f'(imputado a oficina).',
-        )
+        liquidacion.refresh_from_db()
+        if es_parcial:
+            messages.success(
+                request,
+                f'Se pagó {simbolo}{total}{extra_usd}. '
+                f'Queda pendiente {simbolo}{liquidacion.saldo_pendiente_pago()} '
+                f'en esta liquidación para pagarlo después.',
+            )
+        else:
+            messages.success(
+                request,
+                f'Liquidación procesada correctamente. Se descontó {simbolo}{total}{extra_usd} de la caja '
+                f'(imputado a oficina).',
+            )
         return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion.id)
     except ValueError as e:
         messages.error(request, str(e))
@@ -35672,7 +35711,7 @@ def pagar_lote_liquidaciones(request):
                     .select_related('propietario', 'propiedad')
                     .order_by('id')
                 )
-                _, total, es_usd = _pagar_liquidaciones_en_caja(request, liqs_locked)
+                _, total, es_usd, _parcial = _pagar_liquidaciones_en_caja(request, liqs_locked)
             simbolo = 'U$S ' if es_usd else '$'
             messages.success(
                 request,

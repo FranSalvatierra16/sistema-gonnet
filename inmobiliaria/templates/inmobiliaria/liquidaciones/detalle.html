@@ -525,7 +525,7 @@
             {% endif %}
 
             <!-- Pago de Liquidación -->
-            {% if liquidacion.estado == 'cerrada' %}
+            {% if liquidacion.estado == 'cerrada' and liquidacion.saldo_pendiente_pago > 0 %}
             <div class="row">
                 <div class="col-12">
                     <div class="card shadow">
@@ -546,17 +546,39 @@
                                     <i class="fas fa-check-circle me-2"></i>Marcar Pagado
                                 </button>
                             </form>
-                            <form method="POST" action="{% url 'inmobiliaria:procesar_liquidacion' liquidacion.id %}">
+                            <form method="POST" action="{% url 'inmobiliaria:procesar_liquidacion' liquidacion.id %}" id="form-pagar-liquidacion">
                                 {% csrf_token %}
                                 <div class="alert alert-warning">
-                                    <strong>Monto a Pagar:</strong> $<span id="monto-a-pagar">{{ liquidacion.monto_a_pagar|floatformat:2 }}</span>
+                                    <strong>Monto de la liquidación:</strong> {{ liquidacion.monto_a_pagar|format_importe_moneda:liquidacion.moneda }}
+                                    {% if liquidacion.monto_ya_pagado > 0 %}
+                                    <div class="mt-1">
+                                        <strong>Ya pagado:</strong> {{ liquidacion.monto_ya_pagado|format_importe_moneda:liquidacion.moneda }}
+                                    </div>
+                                    {% endif %}
+                                    <div class="mt-1">
+                                        <strong>Saldo pendiente:</strong>
+                                        <span id="monto-a-pagar" data-saldo="{{ liquidacion.saldo_pendiente_pago }}">{{ liquidacion.saldo_pendiente_pago|format_importe_moneda:liquidacion.moneda }}</span>
+                                    </div>
+                                    <div class="small mt-1">Podés pagar el saldo completo o una parte. El resto queda en esta liquidación para pagarlo después.</div>
                                     {% if liq_usd and liq_usd.saldo_favor > 0 %}
                                     <div class="mt-1">
                                         <strong>Además en dólares:</strong> {{ liq_usd.saldo_favor|format_importe_moneda:'USD' }}
-                                        <span class="small text-muted">(sale de caja en U$S en el mismo egreso; abajo cargá solo los pesos)</span>
+                                        <span class="small text-muted">(salen de caja en U$S cuando pagás el saldo completo en pesos; en un pago parcial no)</span>
                                     </div>
                                     {% endif %}
                                 </div>
+                                {% if liquidacion.pagos.all %}
+                                <ul class="small mb-3">
+                                    {% for pago in liquidacion.pagos.all %}
+                                    <li>
+                                        {{ pago.fecha|date:"d/m/Y" }} — {{ pago.monto|format_importe_moneda:liquidacion.moneda }}
+                                        {% if pago.movimiento_caja_id and pago.movimiento_caja.caja_id %}
+                                        · <a href="{% url 'inmobiliaria:detalle_caja' pago.movimiento_caja.caja.numero %}">Caja #{{ pago.movimiento_caja.caja.numero }}</a>
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                {% endif %}
                                 <div class="row mb-3">
                                     <div class="col-md-3">
                                         <label class="form-label">Efectivo</label>
@@ -602,7 +624,7 @@
                                     </div>
                                 </div>
                                 <button type="submit" class="btn btn-success btn-lg">
-                                    <i class="fas fa-check-circle me-2"></i>Pagar Liquidación y Descontar de Caja (Oficina)
+                                    <i class="fas fa-check-circle me-2"></i>Registrar pago y descontar de caja
                                 </button>
                                 <p class="small text-muted mt-2 mb-0">
                                     El egreso sale de la caja y se imputa a <strong>oficina</strong> (la plata sale de la inmobiliaria).
@@ -793,6 +815,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     calcularTotal();
+
+    const formPagar = document.getElementById('form-pagar-liquidacion');
+    const saldoEl = document.getElementById('monto-a-pagar');
+    if (formPagar && saldoEl) {
+        formPagar.addEventListener('submit', function (e) {
+            const saldo = parseMontoCampo(saldoEl.getAttribute('data-saldo'));
+            let total = 0;
+            montos.forEach(function (id) {
+                const input = document.getElementById(id);
+                if (input) total += parseMontoCampo(input.value);
+            });
+            if (total <= 0) {
+                e.preventDefault();
+                alert('Ingresá el importe a pagar ahora.');
+                return;
+            }
+            if (total > saldo + 0.02) {
+                e.preventDefault();
+                alert('El pago supera el saldo pendiente.');
+                return;
+            }
+            if (total + 0.02 < saldo) {
+                if (!confirm('Vas a pagar una parte. El resto queda pendiente en esta liquidación.')) {
+                    e.preventDefault();
+                }
+            }
+        });
+    }
 
     // Agregar gasto
     document.getElementById('formAgregarGasto').addEventListener('submit', function(e) {
