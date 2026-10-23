@@ -139,7 +139,7 @@
                     <p class="h5 mb-1">U$S {{ balance_usd|default:0|format_price }}</p>
                     <p class="small text-muted mb-0">{{ total_filtrados }} movimiento(s) en el listado</p>
                     {% if filtrando_concepto %}
-                    <p class="small text-muted mb-0 mt-2">Este saldo es ingresos − egresos del concepto, no la suma de la columna. En Gastos bancarios el cierre resta este mismo neto.</p>
+                    <p class="small text-muted mb-0 mt-2">Este saldo es ingresos − egresos del concepto, no la suma de la columna. En Gastos bancarios el cierre usa este mismo saldo, por el día en que se cargó.</p>
                     {% endif %}
                 </div>
             </div>

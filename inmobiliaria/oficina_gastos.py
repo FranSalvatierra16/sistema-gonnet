@@ -134,6 +134,23 @@ FONDO_OSCAR_SIGNOS = {
 }
 
 
+def _fecha_dia_carga_movimiento(movimiento):
+    """Día en que se cargó el movimiento en la caja, no la fecha de transferencia."""
+    f = getattr(movimiento, 'fecha', None) if movimiento else None
+    if not f:
+        return None
+    if getattr(f, 'tzinfo', None) is not None:
+        f = timezone.localtime(f)
+    return f.date() if hasattr(f, 'date') else f
+
+
+def _categoria_es_gastos_bancarios(categoria):
+    if not categoria or _norm_nombre_cat(getattr(categoria, 'nombre', '')) != 'gastos bancarios':
+        return False
+    parent = getattr(categoria, 'parent', None)
+    return bool(parent and _norm_nombre_cat(parent.nombre) == 'ingresos')
+
+
 def _norm_nombre_cat(nombre):
     t = (nombre or '').strip().lower()
     t = ''.join(
@@ -524,9 +541,12 @@ def vincular_movimiento_concepto_a_gasto_oficina(
         # No reubicar categorías ajenas (evita arrastrar otros gastos a Veraz).
         # Solo alinear fecha si ya está en la categoría correcta del mapa.
         if existente.categoria_id == categoria.id:
-            ft = getattr(movimiento, 'fecha_transferencia', None)
-            if ft and existente.fecha != ft:
-                existente.fecha = ft
+            if _categoria_es_gastos_bancarios(categoria):
+                dia = _fecha_dia_carga_movimiento(movimiento)
+            else:
+                dia = getattr(movimiento, 'fecha_transferencia', None) or _fecha_dia_carga_movimiento(movimiento)
+            if dia and existente.fecha != dia:
+                existente.fecha = dia
                 existente.save(update_fields=['fecha'])
         return existente
 
@@ -565,11 +585,12 @@ def vincular_movimiento_concepto_a_gasto_oficina(
         monto_base=monto_base,
         signo_por_tipo_movimiento=True,
     )
-    # Alinear fecha al día bancario si existe (cierre del mes correcto).
-    ft = getattr(movimiento, 'fecha_transferencia', None)
-    if gasto and ft and gasto.fecha != ft:
-        gasto.fecha = ft
-        gasto.save(update_fields=['fecha'])
+    # Gastos bancarios se imputan al día de carga. El resto, a la fecha bancaria.
+    if gasto and not _categoria_es_gastos_bancarios(categoria):
+        ft = getattr(movimiento, 'fecha_transferencia', None)
+        if ft and gasto.fecha != ft:
+            gasto.fecha = ft
+            gasto.save(update_fields=['fecha'])
     return gasto
 
 
@@ -911,19 +932,26 @@ def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
         if cid == '130':
             q_cid = q_cid | Q(concepto__icontains='veraz')
 
-        qs = (
-            MovimientoCaja.objects.filter(
-                sucursal=sucursal,
-                fecha_eliminacion__isnull=True,
+        qs = MovimientoCaja.objects.filter(
+            sucursal=sucursal,
+            fecha_eliminacion__isnull=True,
+        )
+        if cid == '22':
+            # Gastos bancarios: el mes es el día en que se cargó, no la transferencia.
+            qs = qs.filter(
+                q_cid,
+                fecha__date__gte=fecha_desde,
+                fecha__date__lte=fecha_hasta,
             )
-            .annotate(fecha_cierre=Coalesce('fecha_transferencia', TruncDate('fecha')))
-            .filter(
+        else:
+            qs = qs.annotate(
+                fecha_cierre=Coalesce('fecha_transferencia', TruncDate('fecha'))
+            ).filter(
                 q_cid,
                 fecha_cierre__gte=fecha_desde,
                 fecha_cierre__lte=fecha_hasta,
             )
-            .distinct()
-        )
+        qs = qs.distinct()
 
         movs_marcados_oficina = set()
         if cid in CONCEPTOS_CAJA_SIN_VINCULO_INVERSO:
@@ -977,6 +1005,44 @@ def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
     return netos
 
 
+def realinear_fecha_gastos_bancarios_al_dia_de_carga(sucursal, fecha_desde, fecha_hasta):
+    """Pasa Ingresos › Gastos bancarios al día de carga del movimiento."""
+    from django.db.models import Q
+
+    if not sucursal or not fecha_desde or not fecha_hasta:
+        return 0
+    cat = resolver_categoria_oficina_por_ruta(sucursal, 'Ingresos', 'Gastos bancarios')
+    if not cat:
+        return 0
+    qs = (
+        GastoOficina.objects.filter(sucursal=sucursal, categoria=cat)
+        .filter(
+            Q(fecha__gte=fecha_desde, fecha__lte=fecha_hasta)
+            | Q(
+                movimiento_caja__fecha__date__gte=fecha_desde,
+                movimiento_caja__fecha__date__lte=fecha_hasta,
+            )
+            | Q(
+                gasto_relacionado__movimiento_caja__fecha__date__gte=fecha_desde,
+                gasto_relacionado__movimiento_caja__fecha__date__lte=fecha_hasta,
+            )
+        )
+        .select_related('movimiento_caja', 'gasto_relacionado__movimiento_caja')
+    )
+    n = 0
+    for g in qs.iterator(chunk_size=200):
+        mov = g.movimiento_caja
+        if mov is None and getattr(g, 'gasto_relacionado_id', None):
+            mov = getattr(g.gasto_relacionado, 'movimiento_caja', None)
+        dia = _fecha_dia_carga_movimiento(mov)
+        if not dia or g.fecha == dia:
+            continue
+        g.fecha = dia
+        g.save(update_fields=['fecha'])
+        n += 1
+    return n
+
+
 def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha_hasta):
     """
     Backfill: movimientos de caja del período con conceptos mapeados (ej. veraz/130)
@@ -992,6 +1058,10 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
     if not MAPA_CONCEPTOS_CAJA_A_OFICINA and not MAPA_NOMBRE_CONCEPTO_A_OFICINA:
         return 0
 
+    try:
+        realinear_fecha_gastos_bancarios_al_dia_de_carga(sucursal, fecha_desde, fecha_hasta)
+    except Exception:
+        pass
     try:
         _reubicar_gastos_bancarios_mal_categorizados(sucursal, fecha_desde, fecha_hasta)
     except Exception:
@@ -2282,12 +2352,11 @@ def registrar_gasto_oficina_desde_movimiento(
         total = abs(total)
     elif categoria_gasto_es_ingreso(categoria):
         total = -abs(total)
-    fecha = timezone.localdate()
-    if movimiento.fecha:
-        fecha = timezone.localtime(movimiento.fecha).date()
-    ft = getattr(movimiento, 'fecha_transferencia', None)
-    if ft:
-        fecha = ft
+    fecha = _fecha_dia_carga_movimiento(movimiento) or timezone.localdate()
+    if not _categoria_es_gastos_bancarios(categoria):
+        ft = getattr(movimiento, 'fecha_transferencia', None)
+        if ft:
+            fecha = ft
     if categoria_gasto_es_sueldo(categoria):
         fecha = fecha_imputacion_sueldo(fecha) or fecha
 
