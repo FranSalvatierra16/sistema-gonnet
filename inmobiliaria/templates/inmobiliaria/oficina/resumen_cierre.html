@@ -302,9 +302,15 @@
 .resumen-tabla .resumen-monto { min-width: 6.5rem; white-space: nowrap; }
 .resumen-bloque-titulo { font-size: 0.78rem; letter-spacing: 0.02em; }
 .resumen-subtotal { font-size: 0.78rem; background: #f8f9fa; }
-.resumen-total-grande { font-size: 0.85rem; }
+.resumen-total-grande {
+    font-size: 0.85rem;
+    background: #ffe66d !important;
+    color: #1a1a1a;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
 .resumen-saldo-amarillo {
-    background: #ffe66d;
+    background: #ffe66d !important;
     color: #1a1a1a;
     font-weight: 700;
     -webkit-print-color-adjust: exact;
@@ -331,9 +337,21 @@
     .resumen-tabla td { padding: 4pt 6pt !important; font-size: 15pt !important; }
     .resumen-bloque { margin-bottom: 12pt !important; }
     .resumen-bloque-titulo, .resumen-subtotal { font-size: 15pt !important; }
-    .resumen-total-grande { font-size: 17pt !important; padding: 7pt 4pt !important; }
+    .resumen-total-grande {
+        font-size: 17pt !important;
+        padding: 7pt 4pt !important;
+        background: #ffe66d !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
     .resumen-resumen-general { font-size: 15pt !important; }
-    .resumen-saldo-amarillo { font-size: 16pt !important; padding: 6pt 8pt !important; }
+    .resumen-saldo-amarillo {
+        font-size: 16pt !important;
+        padding: 6pt 8pt !important;
+        background: #ffe66d !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
 }
 </style>
 {% include 'inmobiliaria/oficina/_imprimir_una_pagina.html' with selector='.resumen-cierre-sheet' orientacion='portrait' sin_zoom='1' %}
