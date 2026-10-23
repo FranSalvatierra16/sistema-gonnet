@@ -18175,10 +18175,10 @@ def reportes_caja(request):
     if fecha_hasta < fecha_desde:
         fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
 
-    # 'carga' = día en que se cargó; 'bancaria' = fecha de transferencia (criterio del cierre).
+    # 'carga' = día en que se cargó en la caja; 'bancaria' = fecha de transferencia (criterio del cierre).
     tipo_fecha = (request.GET.get('tipo_fecha') or '').strip().lower()
     if tipo_fecha not in ('carga', 'bancaria'):
-        tipo_fecha = 'bancaria'
+        tipo_fecha = 'carga'
 
     tipo_mov = (request.GET.get('tipo_mov') or '').strip().upper()
     if tipo_mov not in ('', 'IN', 'EG'):
@@ -33274,6 +33274,26 @@ def _precio_dia_alquiler_liquidacion(liquidacion, monto_propietario=None):
     return (monto / Decimal(str(dias))).quantize(Decimal('0.01'))
 
 
+_OBS_COBRO_INTERNA_RE = re.compile(
+    r'^(?:'
+    r'cobrado al inquilino\b.*'
+    r'|recibo mov\.?\s*#\d+'
+    r'|cobro a cuenta\b.*'
+    r'|a reintegrar\b.*'
+    r'|observacioncobroinquilino\s*#\d+.*'
+    r'|mov\s*#\d+'
+    r')$',
+    re.I,
+)
+
+
+def _quitar_marcadores_observacion_cobro(texto):
+    """Saca del detalle impreso los datos internos del cobro al inquilino."""
+    partes = [p.strip() for p in re.split(r'\s*·\s*', texto or '') if p.strip()]
+    limpias = [p for p in partes if not _OBS_COBRO_INTERNA_RE.match(p)]
+    return ' · '.join(limpias).strip()
+
+
 def _observaciones_visibles_gasto(gasto):
     """Observaciones para pantalla, sin marcadores técnicos internos."""
     obs = (gasto.observaciones or '').strip()
@@ -33290,7 +33310,7 @@ def _observaciones_visibles_gasto(gasto):
             mov_id = int(m_mov.group(1))
             continue
         lineas.append(l)
-    texto = ' '.join(lineas).strip()
+    texto = _quitar_marcadores_observacion_cobro(' '.join(lineas).strip())
     if texto:
         return texto
     if mov_id:
