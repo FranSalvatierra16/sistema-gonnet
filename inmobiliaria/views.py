@@ -17637,15 +17637,9 @@ def _importe_concepto_filtrado_movimiento(movimiento, criterio, conceptos_catalo
     nombre_a_id = _mapa_nombre_concepto_catalogo(conceptos_catalogo)
     ids_digit = {cid for cid in ids_buscados if cid.isdigit()}
 
-    # Con id de catálogo: solo líneas de ese id (no match por nombre «Gastos bancarios» en texto).
-    nombre_para_lineas = '' if ids_digit else nombre_buscado
-    sub = _importe_lineas_concepto_en_movimiento(
-        movimiento, ids_buscados, nombre_para_lineas, id_nombre_map
-    )
-    if sub != 0:
-        return sub
-
     # Filtro por id de catálogo (22, 130, …): misma regla que el cierre de oficina.
+    # El importe es el de esa línea (valor absoluto), no el total del recibo ni un
+    # importe con signo que después el reporte deja en cero.
     if ids_digit:
         from inmobiliaria.oficina_gastos import (
             _importe_solo_lineas_concepto_id,
@@ -18137,6 +18131,22 @@ def _filas_gastos_liquidacion_para_reporte_caja(
     return filas
 
 
+def _fecha_visible_reporte_caja(movimiento, tipo_fecha):
+    """Día que se muestra y por el que se filtra: bancaria (cierre) o día de carga."""
+    from datetime import datetime
+
+    if tipo_fecha == 'bancaria':
+        ft = getattr(movimiento, 'fecha_transferencia', None)
+        if ft:
+            return ft
+    f = getattr(movimiento, 'fecha', None)
+    if isinstance(f, datetime):
+        if timezone.is_aware(f):
+            return timezone.localtime(f)
+        return f
+    return f
+
+
 @login_required
 def reportes_caja(request):
     """
@@ -18258,9 +18268,12 @@ def reportes_caja(request):
         qs = qs.annotate(
             fecha_reporte=Coalesce('fecha_transferencia', TruncDate('fecha'))
         ).filter(fecha_reporte__gte=fecha_desde, fecha_reporte__lte=fecha_hasta)
+        qs = qs.select_related('caja', 'empleado', 'propiedad').order_by(
+            '-fecha_reporte', '-fecha', '-id'
+        )
     else:
         qs = qs.filter(fecha__date__gte=fecha_desde, fecha__date__lte=fecha_hasta)
-    qs = qs.select_related('caja', 'empleado', 'propiedad').order_by('-fecha', '-id')
+        qs = qs.select_related('caja', 'empleado', 'propiedad').order_by('-fecha', '-id')
 
     if tipo_mov == 'IN':
         qs = qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO)
@@ -18327,6 +18340,7 @@ def reportes_caja(request):
             _m.concepto_display = _concepto_display_reporte_caja(_m, lookup_nombre_concepto)
         _m.propiedad_display = _propiedad_display_reporte_caja(_m)
         _m.descripcion_display = (getattr(_m, 'listado_detalle_observacion', None) or '').strip() or '—'
+        _m.fecha_listado = _fecha_visible_reporte_caja(_m, tipo_fecha)
         if filtrando_concepto:
             imp_concepto = _importe_concepto_filtrado_movimiento(
                 _m, criterio_concepto, conceptos_catalogo
@@ -18343,7 +18357,16 @@ def reportes_caja(request):
         setattr(_m, 'es_concepto_liquidacion', False)
 
     # Conceptos cargados solo en liquidación (sin movimiento de caja), p. ej. comisión gestión cobranzas.
-    if filtrando_concepto:
+    # Gastos bancarios (22) y el resto del mapa de caja ya entran por el movimiento;
+    # sumar liquidaciones por el texto «Gastos bancarios» inflaba el saldo frente al cierre.
+    ids_crit = {
+        str(x).strip()
+        for x in ((criterio_concepto or {}).get('ids') or set())
+        if str(x).strip()
+    }
+    from inmobiliaria.oficina_gastos import MAPA_CONCEPTOS_CAJA_A_OFICINA
+    concepto_solo_caja = bool(ids_crit) and ids_crit <= (set(MAPA_CONCEPTOS_CAJA_A_OFICINA) - {'19'})
+    if filtrando_concepto and not concepto_solo_caja:
         try:
             extras_liq = _filas_gastos_liquidacion_para_reporte_caja(
                 sucursal=sucursal,
@@ -18359,10 +18382,12 @@ def reportes_caja(request):
             logger.exception('reportes_caja: error al sumar conceptos de liquidación')
             extras_liq = []
         if extras_liq:
+            for _ex in extras_liq:
+                _ex.fecha_listado = _fecha_visible_reporte_caja(_ex, tipo_fecha)
             movimientos_lista.extend(extras_liq)
 
             def _clave_orden_reporte(m):
-                f = getattr(m, 'fecha', None)
+                f = _fecha_visible_reporte_caja(m, tipo_fecha)
                 if f is None:
                     return (0, '')
                 try:
@@ -18378,6 +18403,14 @@ def reportes_caja(request):
             )
             if len(movimientos_lista) > 2000:
                 movimientos_lista = movimientos_lista[:2000]
+
+    if filtrando_concepto:
+        # Sin importe de la línea buscada no suma (ni en la lista ni en el saldo).
+        movimientos_lista = [
+            m for m in movimientos_lista
+            if Decimal(str(getattr(m, 'reporte_monto_total', 0) or 0)) != 0
+            or Decimal(str(getattr(m, 'reporte_monto_dolares', 0) or 0)) != 0
+        ]
 
     def totales_por_tipo(queryset, tipo_code):
         sub = queryset.filter(tipo=tipo_code)

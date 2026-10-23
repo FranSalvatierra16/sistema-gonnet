@@ -138,6 +138,9 @@
                     <p class="h4 mb-1">${{ balance|format_price }} <span class="fs-6 text-muted">ARS</span></p>
                     <p class="h5 mb-1">U$S {{ balance_usd|default:0|format_price }}</p>
                     <p class="small text-muted mb-0">{{ total_filtrados }} movimiento(s) en el listado</p>
+                    {% if filtrando_concepto %}
+                    <p class="small text-muted mb-0 mt-2">Este saldo es ingresos − egresos del concepto, no la suma de la columna. En Gastos bancarios el cierre resta este mismo neto.</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -209,9 +212,13 @@
                         {% for m in movimientos %}
                         <tr class="{% if m.tipo == 'EG' %}table-danger{% endif %}">
                             <td>
+                                {% if tipo_fecha != 'carga' %}
+                                {{ m.fecha_listado|default:m.fecha_transferencia|default:m.fecha|date:"d/m/Y" }}
+                                {% if m.fecha_transferencia and m.fecha|date:"Ymd" != m.fecha_transferencia|date:"Ymd" %}
+                                <br><small class="text-muted" title="Día en que se cargó en la caja">Cargado {{ m.fecha|date:"d/m/Y H:i" }}</small>
+                                {% endif %}
+                                {% else %}
                                 {{ m.fecha|date:"d/m/Y H:i" }}
-                                {% if m.fecha_transferencia and m.fecha_transferencia|date:"Ymd" != m.fecha|date:"Ymd" %}
-                                <br><small class="text-muted" title="Fecha bancaria (la que usa el cierre)"><i class="fas fa-university"></i> {{ m.fecha_transferencia|date:"d/m/Y" }}</small>
                                 {% endif %}
                             </td>
                             <td>{% if m.caja %}#{{ m.caja.numero }}{% else %}—{% endif %}</td>
@@ -225,7 +232,7 @@
                                 {% if filtrando_concepto %}
                                     {% with usd=m.reporte_monto_dolares|default_if_none:0 ars=m.reporte_monto_total|default_if_none:0 %}
                                     {% if ars %}
-                                    <strong>${{ ars|format_price }}</strong>{% if usd %}<br>{% endif %}
+                                    <strong>{% if m.tipo == 'EG' %}−{% endif %}${{ ars|format_price }}</strong>{% if usd %}<br>{% endif %}
                                     {% endif %}
                                     {% if usd %}
                                     <strong class="text-primary">U$S {{ usd|format_price }}</strong>
