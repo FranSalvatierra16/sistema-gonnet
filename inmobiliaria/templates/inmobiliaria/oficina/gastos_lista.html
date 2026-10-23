@@ -41,6 +41,13 @@
             Gastos normales: <strong>${{ total_normales|format_price }}</strong>
             · <i class="fas fa-recycle me-1"></i>Gastos reciclables: <strong>${{ total_reciclables|format_price }}</strong>
         </span>
+        {% if mostrar_corte_bancarios %}
+        <br>
+        <span class="small">
+            <strong>Concepto 22:</strong> ${{ total_concepto_22|format_price }}
+            · <strong>Cargado directo en Ingresos › Gastos bancarios:</strong> ${{ total_cargado_directo|format_price }}
+        </span>
+        {% endif %}
     </div>
 
     <div class="card shadow-sm mb-3">

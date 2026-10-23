@@ -771,11 +771,19 @@ def oficina_gastos(request):
 
     # Preferir subcategoría concreta; si no, toda la categoría raíz (+ hijos).
     filtro_cat_aplicado = False
+    mostrar_corte_bancarios = False
     if subcategoria_id.isdigit():
         sub = CategoriaGastoOficina.objects.filter(
             sucursal=sucursal, id=int(subcategoria_id), eliminada=False
-        ).first()
+        ).select_related('parent').first()
         if sub and sub.parent_id is not None:
+            from inmobiliaria.oficina_gastos import _norm_nombre_cat
+
+            mostrar_corte_bancarios = (
+                _norm_nombre_cat(sub.nombre) == 'gastos bancarios'
+                and sub.parent_id
+                and _norm_nombre_cat(sub.parent.nombre) == 'ingresos'
+            )
             qs = qs.filter(categoria_id=sub.id)
             filtro_cat_aplicado = True
             # Mantener la raíz seleccionada en el form si no vino.
@@ -823,6 +831,15 @@ def oficina_gastos(request):
 
     for g in gastos:
         g.es_concepto_22 = gasto_oficina_es_concepto_22(g)
+    total_concepto_22 = Decimal('0')
+    total_cargado_directo = Decimal('0')
+    if mostrar_corte_bancarios:
+        for g in qs:
+            monto = Decimal(str(g.monto or 0))
+            if gasto_oficina_es_concepto_22(g):
+                total_concepto_22 += monto
+            else:
+                total_cargado_directo += monto
     totales_por_categoria = _totales_gastos_por_raiz(qs)
 
     raices_filtro = list(
@@ -856,6 +873,9 @@ def oficina_gastos(request):
             'total': total,
             'total_normales': total_normales,
             'total_reciclables': total_reciclables,
+            'mostrar_corte_bancarios': mostrar_corte_bancarios,
+            'total_concepto_22': total_concepto_22,
+            'total_cargado_directo': total_cargado_directo,
             'reciclable_filtro': reciclable_filtro,
             'totales_por_categoria': sorted(totales_por_categoria.items()),
             'fecha_desde': fecha_desde_s,
