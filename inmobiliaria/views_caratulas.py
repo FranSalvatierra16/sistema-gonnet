@@ -3880,7 +3880,8 @@ def lista_caratulas(request):
     periodo_completo = request.GET.get('todo') == '1'
 
     hay_busqueda_previa = bool(q) or bool(operacion) or bool(propiedad_id)
-    if periodo_completo:
+    if periodo_completo or hay_busqueda_previa:
+        # Buscar, N° operación o una propiedad: no limitar por Desde/Hasta.
         fecha_desde = ''
         fecha_hasta = ''
     elif raw_desde == '' and raw_hasta == '' and not hay_busqueda_previa:
@@ -3957,7 +3958,7 @@ def lista_caratulas(request):
         reservas = reservas.filter(id=operacion_num) if operacion_num is not None else reservas.none()
 
     hay_busqueda = bool(q) or bool(operacion) or bool(propiedad_id)
-    # El botón Todo ignora fechas. Cliente + Desde/Hasta se aplican juntos.
+    # El botón Todo, Buscar y N° operación ignoran Desde/Hasta.
     # Sin búsqueda y sin fechas, el listado queda en hoy.
     omitir_filtro_fechas = periodo_completo or (hay_busqueda and not fecha_desde and not fecha_hasta)
 
