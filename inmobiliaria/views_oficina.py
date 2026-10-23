@@ -1309,6 +1309,7 @@ def oficina_liquidacion_productores(request):
         guardar_columnas_cuadro,
         guardar_flag_no_suma_basico,
         guardar_diferencias_sueldo_mes,
+        guardar_no_pagar_mes,
         guardar_sueldos_basicos_mes,
         guardar_total_gral,
         opciones_columnas_vendedores,
@@ -1412,6 +1413,20 @@ def oficina_liquidacion_productores(request):
                 f'TOTAL GRAL volvió al listado automático desde {mes:02d}/{anio} en adelante. '
                 'Los meses anteriores no cambian.',
             )
+        elif accion == 'no_pagar':
+            activo = request.POST.get('activo') == '1'
+            v = guardar_no_pagar_mes(sucursal, request.POST.get('vid'), activo, anio, mes)
+            if v:
+                nombre = f'{(v.nombre or "").strip()} {(v.apellido or "").strip()}'.strip()
+                messages.success(
+                    request,
+                    f'{nombre}: en {mes:02d}/{anio} '
+                    + (
+                        'no se le paga. El detalle queda y el total de la columna es 0.'
+                        if activo else
+                        'vuelve a sumar en el total.'
+                    ),
+                )
         elif accion == 'flag_no_suma':
             activo = request.POST.get('activo') == '1'
             v = guardar_flag_no_suma_basico(sucursal, request.POST.get('vid'), activo, anio, mes)
@@ -1438,7 +1453,7 @@ def oficina_liquidacion_productores(request):
                 f'Se guardó la diferencia de sueldo de {difs} productor{"es" if difs != 1 else ""} '
                 f'para {mes:02d}/{anio}. Suma al básico de ese mes.',
             )
-        elif accion not in ('columnas', 'columnas_todos', 'total_gral', 'total_gral_todos', 'flag_no_suma') and not cambiados:
+        elif accion not in ('columnas', 'columnas_todos', 'total_gral', 'total_gral_todos', 'flag_no_suma', 'no_pagar') and not cambiados:
             messages.info(request, 'No hubo cambios en los básicos ni en la diferencia de sueldo.')
         return redirect(
             f"{reverse('inmobiliaria:oficina_liquidacion_productores')}?mes={mes}&anio={anio}"

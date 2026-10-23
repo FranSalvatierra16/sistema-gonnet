@@ -159,7 +159,20 @@
                     <tr class="fila-cols">
                         <th class="celda-label">Concepto</th>
                         {% for col in liquidacion.columnas %}
-                        <th{% if col.basico_no_suma %} class="col-supera-basico" title="Las comisiones superan el básico"{% endif %}>{{ col.label }}{% if col.externo %}<small class="col-sucursal"> ({{ col.sucursal_nombre }})</small>{% elif col.vid and not cierre %}<input type="checkbox" class="chk-no-suma no-print" data-vid="{{ col.vid }}" {% if col.no_suma_si_superan %}checked{% endif %} title="Si las comisiones superan el básico, no sumar el básico (desde este mes en adelante)">{% endif %}</th>
+                        <th{% if col.basico_no_suma %} class="col-supera-basico" title="Las comisiones superan el básico"{% endif %}>
+                            {{ col.label }}{% if col.externo %}<small class="col-sucursal"> ({{ col.sucursal_nombre }})</small>{% endif %}
+                            {% if col.vid and not cierre and not col.externo %}
+                            <input type="checkbox" class="chk-no-suma no-print" data-vid="{{ col.vid }}" {% if col.no_suma_si_superan %}checked{% endif %} title="Si las comisiones superan el básico, no sumar el básico (desde este mes en adelante)">
+                            {% endif %}
+                            {% if col.vid and not cierre %}
+                            <label class="chk-no-pagar-lbl no-print" title="Este mes no se le paga. El detalle queda y el total de la columna pasa a 0.">
+                                <input type="checkbox" class="chk-no-pagar" data-vid="{{ col.vid }}" {% if col.no_pagar %}checked{% endif %}>
+                                No pagar
+                            </label>
+                            {% elif col.no_pagar %}
+                            <small class="nota-no-paga">no se paga</small>
+                            {% endif %}
+                        </th>
                         {% endfor %}
                     </tr>
                 </thead>
@@ -225,7 +238,16 @@
                             {% endfor %}
                         {% else %}
                             {% for c in fila.celdas %}
-                            <td class="celda-num">{% if c is not None %}${{ c|format_price }}{% endif %}</td>
+                            <td class="celda-num">
+                                {% if c is not None %}${{ c|format_price }}{% endif %}
+                                {% if fila.tipo == 'total-final' %}
+                                    {% for col in liquidacion.columnas %}
+                                        {% if forloop.counter0 == forloop.parentloop.counter0 and col.no_pagar %}
+                                        <small class="nota-no-paga">no se paga</small>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            </td>
                             {% endfor %}
                         {% endif %}
                     </tr>
@@ -296,6 +318,14 @@
         <input type="hidden" name="mes" value="{{ mes }}">
         <input type="hidden" name="anio" value="{{ anio }}">
         <input type="hidden" name="accion" value="flag_no_suma">
+        <input type="hidden" name="vid" value="">
+        <input type="hidden" name="activo" value="">
+    </form>
+    <form id="form-no-pagar" method="post" action="{% url 'inmobiliaria:oficina_liquidacion_productores' %}" class="d-none">
+        {% csrf_token %}
+        <input type="hidden" name="mes" value="{{ mes }}">
+        <input type="hidden" name="anio" value="{{ anio }}">
+        <input type="hidden" name="accion" value="no_pagar">
         <input type="hidden" name="vid" value="">
         <input type="hidden" name="activo" value="">
     </form>
@@ -484,6 +514,16 @@
 .basico-simbolo { flex: 0 0 auto; }
 .basico-edit .input-basico { flex: 0 1 auto; width: auto; min-width: 3ch; field-sizing: content; }
 .chk-no-suma { margin-left: 0.35em; vertical-align: middle; cursor: pointer; }
+.chk-no-pagar-lbl {
+    display: block;
+    font-weight: 500;
+    font-size: 0.68em;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-top: 0.15em;
+    cursor: pointer;
+}
+.nota-no-paga { display: block; font-size: 0.7em; color: #b02a37; font-weight: 600; }
 .tabla-honorarios .fila-cols th.col-supera-basico,
 .tabla-honorarios td.basico-superado {
     background: #ffe5d0;
@@ -677,18 +717,27 @@
         });
     }
 
+    function enviarFlag(form, chk) {
+        if (!form) return;
+        form.querySelector('[name="vid"]').value = chk.dataset.vid;
+        form.querySelector('[name="activo"]').value = chk.checked ? '1' : '0';
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+        } else {
+            form.dispatchEvent(new Event('submit'));
+            form.submit();
+        }
+    }
     var formFlag = document.getElementById('form-flag-no-suma');
     document.querySelectorAll('.chk-no-suma').forEach(function (chk) {
         chk.addEventListener('change', function () {
-            if (!formFlag) return;
-            formFlag.querySelector('[name="vid"]').value = chk.dataset.vid;
-            formFlag.querySelector('[name="activo"]').value = chk.checked ? '1' : '0';
-            if (typeof formFlag.requestSubmit === 'function') {
-                formFlag.requestSubmit();
-            } else {
-                formFlag.dispatchEvent(new Event('submit'));
-                formFlag.submit();
-            }
+            enviarFlag(formFlag, chk);
+        });
+    });
+    var formNoPagar = document.getElementById('form-no-pagar');
+    document.querySelectorAll('.chk-no-pagar').forEach(function (chk) {
+        chk.addEventListener('change', function () {
+            enviarFlag(formNoPagar, chk);
         });
     });
 })();

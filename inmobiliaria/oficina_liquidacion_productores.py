@@ -147,7 +147,9 @@ def pago_columna_productor(
     """
     - Sin el tilde: comisiones de esta sucursal + básico y diferencia (solo en su sucursal).
     - Con el tilde y las comisiones de las dos oficinas >= básico + diferencia: solo comisiones de acá.
-    - Con el tilde y no llegan: cobra básico + diferencia en su sucursal. La otra no le paga.
+    - Con el tilde y no llegan: cobra básico + diferencia en su sucursal.
+      En la otra sucursal se pagan las comisiones de esa planilla.
+      Para dejar el total en 0 hay que marcar «No pagar».
     """
     basico = _d(basico)
     diferencia = _d(diferencia)
@@ -161,7 +163,7 @@ def pago_columna_productor(
         return columna, False, True
     if es_casa:
         return piso, True, False
-    return _d(0), False, False
+    return columna, False, True
 
 
 def diferencias_sueldo_mes(vendedor_ids, anio, mes):
@@ -206,6 +208,44 @@ def guardar_diferencias_sueldo_mes(sucursal, anio, mes, post_data):
         )
         cambiados += 1
     return cambiados
+
+
+def productores_no_pagar_mes(vendedor_ids, anio, mes):
+    """IDs marcados «No pagar» en ese mes: el detalle queda y el total es 0."""
+    ids = list(vendedor_ids)
+    if not ids:
+        return set()
+    return set(
+        AjusteLiquidacionProductorMes.objects.filter(
+            vendedor_id__in=ids, anio=anio, mes=mes, no_pagar=True,
+        ).values_list('vendedor_id', flat=True)
+    )
+
+
+def guardar_no_pagar_mes(sucursal, vendedor_id, activo, anio, mes):
+    """Marca o saca «No pagar» solo para ese mes. Devuelve el vendedor o None."""
+    try:
+        vid = int(vendedor_id)
+    except (TypeError, ValueError):
+        return None
+    otra = _sucursal_par(sucursal)
+    sucursales = [sucursal.id]
+    if otra:
+        sucursales.append(otra.id)
+    v = Vendedor.objects.filter(id=vid, sucursal_id__in=sucursales).first()
+    if not v:
+        return None
+    activo = bool(activo)
+    ajuste, _creado = AjusteLiquidacionProductorMes.objects.get_or_create(
+        vendedor=v,
+        anio=anio,
+        mes=mes,
+        defaults={'diferencia_sueldo': Decimal('0'), 'no_pagar': activo},
+    )
+    if not _creado and ajuste.no_pagar != activo:
+        ajuste.no_pagar = activo
+        ajuste.save(update_fields=['no_pagar'])
+    return v
 
 
 def _grupos_misma_persona(sucursal):
@@ -1075,6 +1115,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         mes,
     )
     diferencias = diferencias_sueldo_mes(ids_grupo or [v.id for v in locales], anio, mes)
+    no_pagar_ids = productores_no_pagar_mes([v.id for v in vendedores], anio, mes)
     desglose = comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta)
     otra = _sucursal_par(sucursal)
     desglose_otra = (
@@ -1105,6 +1146,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
             'basico': None if externo else basicos.get(v.id, _d(0)),
             'diferencia': None if externo else diferencias.get(v.id, _d(0)),
             'no_suma_si_superan': False if externo else flags.get(v.id, False),
+            'no_pagar': v.id in no_pagar_ids,
         })
     n = len(columnas)
 
@@ -1259,6 +1301,9 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         vend = col.get('vendedor')
         vid = col.get('vid')
         if not vid or not vend:
+            continue
+        if col.get('no_pagar'):
+            tot_final[i] = _d(0)
             continue
         grupo = grupos.get(vid, [vend])
         ids = [p.id for p in grupo if p]

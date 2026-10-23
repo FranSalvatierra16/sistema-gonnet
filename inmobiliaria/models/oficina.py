@@ -504,6 +504,10 @@ class AjusteLiquidacionProductorMes(models.Model):
     anio = models.PositiveSmallIntegerField()
     mes = models.PositiveSmallIntegerField()
     diferencia_sueldo = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0'))
+    no_pagar = models.BooleanField(
+        default=False,
+        help_text='Este mes no se le paga: el detalle se ve y el total de la columna queda en 0.',
+    )
 
     class Meta:
         verbose_name = 'Diferencia de sueldo del mes'
