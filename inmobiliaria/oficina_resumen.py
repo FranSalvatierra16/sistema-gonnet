@@ -744,6 +744,10 @@ def construir_resumen_cierre(sucursal, anio, mes):
             cat_sg = resolver_categoria_oficina_por_ruta(sucursal, *ruta_sg) if ruta_sg else None
             if cat_sg:
                 cats_siempre_gasto.add(cat_sg.id)
+        cat_bancarios = resolver_categoria_oficina_por_ruta(
+            sucursal, 'Ingresos', 'Gastos bancarios'
+        )
+        cat_bancarios_id = cat_bancarios.id if cat_bancarios else None
 
         netos_mapa = _neto_gastos_oficina_desde_caja_mapeada(
             sucursal, fecha_desde, fecha_hasta
@@ -770,8 +774,13 @@ def construir_resumen_cierre(sucursal, anio, mes):
                 cid = g.categoria_id
                 monto_manual = Decimal(str(g.monto or 0))
                 raiz_g = getattr(g.categoria, 'parent', None)
-                if cid in cats_siempre_gasto:
-                    # Pago IIBB suma; Ingresos › Gastos bancarios resta (el bloque Ingresos lo descuenta).
+                if cid == cat_bancarios_id:
+                    # Ingresos › Gastos bancarios: egreso +, ingreso −.
+                    # No se pisa con el concepto 22: esos ya están en el neto de caja
+                    # o, si el movimiento se excluyó, este gasto es el que cuenta.
+                    pass
+                elif cid in cats_siempre_gasto:
+                    # Pago IIBB: siempre suma como gasto.
                     monto_manual = abs(monto_manual)
                 elif raiz_g and _norm_of(raiz_g.nombre) == 'ingresos':
                     # En Ingresos el bloque resta el neto: la carga manual siempre suma como ingreso.
@@ -903,8 +912,9 @@ def construir_resumen_cierre(sucursal, anio, mes):
                 monto_hon = _monto_honorarios_etiqueta(honorarios_map, hijo.nombre)
                 monto = monto_hon
                 if _norm_ing(hijo.nombre) == 'gastos bancarios':
-                    # Siempre resta del total de ingresos (comisiones, impuestos, cargas a mano).
-                    monto = -abs(Decimal(str(monto_gasto or 0)))
+                    # Concepto 22 (egreso − ingreso) más la categoría de oficina.
+                    # El neto positivo es costo y resta; si los ingresos superan, suma.
+                    monto = -Decimal(str(monto_gasto or 0))
                 elif hijo.id in cats_mapeadas_ids:
                     # Ingresos − egresos (ej. líneas de caja que restan).
                     monto -= monto_gasto
