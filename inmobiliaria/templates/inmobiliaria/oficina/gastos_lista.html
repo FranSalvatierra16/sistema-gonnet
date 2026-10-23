@@ -125,6 +125,7 @@
                         <td class="small">{{ g.categoria.nombre_ruta }}</td>
                         <td>
                             {{ g.descripcion }}
+                            {% if g.es_concepto_22 %}<span class="badge bg-primary ms-1">Cargado con concepto 22</span>{% endif %}
                             {% if g.reciclable %}<span class="badge bg-success ms-1"><i class="fas fa-recycle me-1"></i>Reciclable</span>{% endif %}
                             {% if g.porcentaje is not None %}
                             <br><span class="badge bg-secondary">{{ g.porcentaje }}% del total{% if g.monto_total %} (${{ g.monto_total|abs|format_price }}){% endif %}</span>

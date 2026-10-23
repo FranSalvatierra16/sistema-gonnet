@@ -819,6 +819,10 @@ def oficina_gastos(request):
     total_reciclables = qs.filter(reciclable=True).aggregate(t=Sum('monto'))['t'] or Decimal('0')
     total_normales = total - total_reciclables
     gastos = list(qs.order_by('-fecha', '-id')[:500])
+    from inmobiliaria.oficina_gastos import gasto_oficina_es_concepto_22
+
+    for g in gastos:
+        g.es_concepto_22 = gasto_oficina_es_concepto_22(g)
     totales_por_categoria = _totales_gastos_por_raiz(qs)
 
     raices_filtro = list(

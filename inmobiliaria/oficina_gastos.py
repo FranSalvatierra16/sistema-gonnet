@@ -812,6 +812,17 @@ def _importe_solo_lineas_concepto_id(movimiento, concepto_id):
     return total.quantize(Decimal('0.01'))
 
 
+def gasto_oficina_es_concepto_22(gasto):
+    """True si el gasto salió de un movimiento de caja cargado con el concepto 22."""
+    mov = getattr(gasto, 'movimiento_caja', None)
+    if mov is None and getattr(gasto, 'gasto_relacionado_id', None):
+        rel = getattr(gasto, 'gasto_relacionado', None)
+        mov = getattr(rel, 'movimiento_caja', None) if rel else None
+    if not mov:
+        return False
+    return _movimiento_es_concepto_id_estricto(mov, '22')
+
+
 def _movimiento_es_concepto_id_estricto(movimiento, concepto_id):
     """
     True si el movimiento corresponde al id de catálogo.
