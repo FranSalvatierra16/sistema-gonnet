@@ -286,16 +286,14 @@
                                     </div>
                                     <div class="card-body" id="bloque_division_operaciones" style="display:none;">
                                         <p class="small text-muted mb-2">
-                                            Podés pagarle al propietario en dos o tres veces. Completá el monto de la parte que liquidás ahora
-                                            (por ejemplo la seña) y dejá las otras en 0. Las fechas de cada parte son el mes en que ese pago
-                                            cuenta: seña ahora, saldo en enero, el resto en febrero. No hace falta cubrir el total de una sola vez.
+                                            Cada parte con monto se guarda sola, como una liquidación distinta. Si cargás 3 partes con monto, se crean 3 liquidaciones. Las que dejes en 0 no se crean. Las fechas de cada parte son el período de esa liquidación.
                                         </p>
                                         <div id="division_partes_lista" class="d-flex flex-column gap-2"></div>
                                         <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
                                             <button type="button" class="btn btn-sm btn-outline-primary" id="btn_agregar_parte_division">
                                                 <i class="fas fa-plus me-1"></i>Agregar parte
                                             </button>
-                                            <small id="division_resumen" class="text-muted">Suma de partes ≤ monto al propietario. Esta liquidación usa la 1ª parte con monto.</small>
+                                            <small id="division_resumen" class="text-muted">Cada parte con monto se crea como una liquidación distinta.</small>
                                         </div>
                                     </div>
                                 </div>
@@ -1952,13 +1950,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const tope = parseNumeroEsAR(montoPropietario.value);
         const partes = leerPartesDivision();
         const suma = partes.reduce(function(acc, p) { return acc + (p.monto > 0 ? p.monto : 0); }, 0);
-        const primera = partes.find(function(p) { return p.monto > 0; });
-        const esta = primera ? primera.monto : 0;
+        const conMonto = partes.filter(function(p) { return p.monto > 0; }).length;
         const pendientePlan = Math.max(0, tope - suma);
-        const ok = suma <= tope + 0.009 && esta > 0;
+        const ok = suma <= tope + 0.009 && conMonto > 0;
         resumenDivision.textContent =
-            'Esta liq.: ' + formatearNumero(esta.toFixed(2)) +
-            ' | Partes con monto: ' + formatearNumero(suma.toFixed(2)) +
+            'Se van a crear ' + conMonto + (conMonto === 1 ? ' liquidación' : ' liquidaciones') +
+            ' | Suma: ' + formatearNumero(suma.toFixed(2)) +
             ' | Al propietario: ' + formatearNumero(tope.toFixed(2)) +
             ' | Sin asignar: ' + formatearNumero(pendientePlan.toFixed(2));
         resumenDivision.className = ok ? 'text-success' : 'text-danger';
@@ -1976,7 +1973,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const desde = fd ? fd.value : '';
                     const hasta = fh ? fh.value : '';
                     const prop = parseNumeroEsAR(montoPropietario.value);
-                    // Parte 1 = esta liquidación; parte 2 pendiente arranca en el "hasta" de la 1.
+                    // Cada parte con monto se guarda como una liquidación distinta.
                     agregarParteDivision({
                         desde: desde,
                         hasta: hasta,
@@ -1990,7 +1987,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 actualizarResumenDivision();
             } else if (resumenDivision) {
-                resumenDivision.textContent = 'Suma de partes ≤ monto al propietario. Esta liquidación usa la 1ª parte con monto.';
+                resumenDivision.textContent = 'Cada parte con monto se crea como una liquidación distinta.';
                 resumenDivision.className = 'text-muted';
             }
         });
