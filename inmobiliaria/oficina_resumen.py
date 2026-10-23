@@ -698,6 +698,7 @@ def construir_resumen_cierre(sucursal, anio, mes):
             CONCEPTOS_MANUAL_SIEMPRE_GASTO,
             MAPA_CONCEPTOS_CAJA_A_OFICINA,
             MAPA_NOMBRE_CONCEPTO_A_OFICINA,
+            _fecha_dia_carga_movimiento,
             _neto_gastos_oficina_desde_caja_mapeada,
             _norm_nombre_cat as _norm_of,
             _reubicar_gastos_bancarios_mal_categorizados,
@@ -765,7 +766,11 @@ def construir_resumen_cierre(sucursal, anio, mes):
                     fecha__lte=fecha_hasta,
                 )
                 .exclude(observaciones__icontains='Vinculado automáticamente')
-                .select_related('movimiento_caja', 'categoria__parent')
+                .select_related(
+                    'movimiento_caja',
+                    'gasto_relacionado__movimiento_caja',
+                    'categoria__parent',
+                )
             ):
                 if g.movimiento_caja_id and movimiento_cuenta_en_neto_caja_mapeada(
                     g.movimiento_caja
@@ -775,10 +780,19 @@ def construir_resumen_cierre(sucursal, anio, mes):
                 monto_manual = Decimal(str(g.monto or 0))
                 raiz_g = getattr(g.categoria, 'parent', None)
                 if cid == cat_bancarios_id:
-                    # Ingresos › Gastos bancarios: egreso +, ingreso −.
-                    # No se pisa con el concepto 22: esos ya están en el neto de caja
-                    # o, si el movimiento se excluyó, este gasto es el que cuenta.
-                    pass
+                    # Solo el día de carga del movimiento. La fecha del gasto puede
+                    # ser la de la transferencia y no debe meter el mes.
+                    mov_b = g.movimiento_caja
+                    if mov_b is None and getattr(g, 'gasto_relacionado_id', None):
+                        mov_b = getattr(g.gasto_relacionado, 'movimiento_caja', None)
+                    if mov_b is not None:
+                        dia_b = _fecha_dia_carga_movimiento(mov_b)
+                        if (
+                            not dia_b
+                            or dia_b < fecha_desde
+                            or dia_b > fecha_hasta
+                        ):
+                            continue
                 elif cid in cats_siempre_gasto:
                     # Pago IIBB: siempre suma como gasto.
                     monto_manual = abs(monto_manual)

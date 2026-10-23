@@ -1029,8 +1029,9 @@ def realinear_fecha_gastos_bancarios_al_dia_de_carga(sucursal, fecha_desde, fech
         )
         .select_related('movimiento_caja', 'gasto_relacionado__movimiento_caja')
     )
+    # list(), no iterator(): guardar con el cursor abierto en Postgres corta el update.
     n = 0
-    for g in qs.iterator(chunk_size=200):
+    for g in list(qs):
         mov = g.movimiento_caja
         if mov is None and getattr(g, 'gasto_relacionado_id', None):
             mov = getattr(g.gasto_relacionado, 'movimiento_caja', None)
@@ -1061,7 +1062,10 @@ def sincronizar_gastos_oficina_desde_conceptos_caja(sucursal, fecha_desde, fecha
     try:
         realinear_fecha_gastos_bancarios_al_dia_de_carga(sucursal, fecha_desde, fecha_hasta)
     except Exception:
-        pass
+        logger.exception(
+            'sincronizar: falló pasar gastos bancarios al día de carga (sucursal_id=%s)',
+            getattr(sucursal, 'pk', None),
+        )
     try:
         _reubicar_gastos_bancarios_mal_categorizados(sucursal, fecha_desde, fecha_hasta)
     except Exception:
