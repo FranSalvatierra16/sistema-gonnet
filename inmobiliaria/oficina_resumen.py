@@ -926,9 +926,8 @@ def construir_resumen_cierre(sucursal, anio, mes):
                 monto_hon = _monto_honorarios_etiqueta(honorarios_map, hijo.nombre)
                 monto = monto_hon
                 if _norm_ing(hijo.nombre) == 'gastos bancarios':
-                    # Concepto 22 (egreso − ingreso) más la categoría de oficina.
-                    # El neto positivo es costo y resta; si los ingresos superan, suma.
-                    monto = -Decimal(str(monto_gasto or 0))
+                    # Mismo signo que el listado de oficina: ingreso en negativo.
+                    monto = Decimal(str(monto_gasto or 0))
                 elif hijo.id in cats_mapeadas_ids:
                     # Ingresos − egresos (ej. líneas de caja que restan).
                     monto -= monto_gasto
