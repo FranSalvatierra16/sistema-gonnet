@@ -760,7 +760,9 @@ def oficina_gastos(request):
 
     qs = GastoOficina.objects.filter(sucursal=sucursal).select_related(
         'categoria', 'categoria__parent', 'usuario_creacion', 'vendedor',
-        'movimiento_caja', 'gasto_relacionado',
+        'movimiento_caja', 'movimiento_caja__caja',
+        'gasto_relacionado', 'gasto_relacionado__movimiento_caja',
+        'gasto_relacionado__movimiento_caja__caja',
     )
     if dr_desde:
         qs = qs.filter(fecha__gte=dr_desde)
