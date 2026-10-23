@@ -823,23 +823,36 @@ def oficina_gastos(request):
     elif reciclable_filtro == 'no':
         qs = qs.filter(reciclable=False)
 
-    total = qs.aggregate(t=Sum('monto'))['t'] or Decimal('0')
-    total_reciclables = qs.filter(reciclable=True).aggregate(t=Sum('monto'))['t'] or Decimal('0')
-    total_normales = total - total_reciclables
-    gastos = list(qs.order_by('-fecha', '-id')[:500])
+    origen_filtro = (request.GET.get('origen') or '').strip()
+    if origen_filtro not in ('22', 'directo'):
+        origen_filtro = ''
     from inmobiliaria.oficina_gastos import gasto_oficina_es_concepto_22
 
-    for g in gastos:
-        g.es_concepto_22 = gasto_oficina_es_concepto_22(g)
     total_concepto_22 = Decimal('0')
     total_cargado_directo = Decimal('0')
+    ids_concepto_22 = []
     if mostrar_corte_bancarios:
         for g in qs:
             monto = Decimal(str(g.monto or 0))
             if gasto_oficina_es_concepto_22(g):
                 total_concepto_22 += monto
+                ids_concepto_22.append(g.id)
             else:
                 total_cargado_directo += monto
+        if origen_filtro == '22':
+            qs = qs.filter(id__in=ids_concepto_22 or [0])
+        elif origen_filtro == 'directo':
+            if ids_concepto_22:
+                qs = qs.exclude(id__in=ids_concepto_22)
+    else:
+        origen_filtro = ''
+
+    total = qs.aggregate(t=Sum('monto'))['t'] or Decimal('0')
+    total_reciclables = qs.filter(reciclable=True).aggregate(t=Sum('monto'))['t'] or Decimal('0')
+    total_normales = total - total_reciclables
+    gastos = list(qs.order_by('-fecha', '-id')[:500])
+    for g in gastos:
+        g.es_concepto_22 = g.id in ids_concepto_22 if mostrar_corte_bancarios else gasto_oficina_es_concepto_22(g)
     totales_por_categoria = _totales_gastos_por_raiz(qs)
 
     raices_filtro = list(
@@ -874,6 +887,7 @@ def oficina_gastos(request):
             'total_normales': total_normales,
             'total_reciclables': total_reciclables,
             'mostrar_corte_bancarios': mostrar_corte_bancarios,
+            'origen_filtro': origen_filtro,
             'total_concepto_22': total_concepto_22,
             'total_cargado_directo': total_cargado_directo,
             'reciclable_filtro': reciclable_filtro,

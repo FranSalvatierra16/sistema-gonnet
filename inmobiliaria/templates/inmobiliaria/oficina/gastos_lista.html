@@ -96,6 +96,16 @@
                     <input type="text" name="q" class="form-control form-control-sm" value="{{ q }}"
                            placeholder="Veraz, viáticos…">
                 </div>
+                {% if mostrar_corte_bancarios %}
+                <div class="col-6 col-md-3">
+                    <label class="form-label small mb-0">Origen</label>
+                    <select name="origen" class="form-select form-select-sm">
+                        <option value="" {% if not origen_filtro %}selected{% endif %}>Todo junto</option>
+                        <option value="22" {% if origen_filtro == '22' %}selected{% endif %}>Concepto 22</option>
+                        <option value="directo" {% if origen_filtro == 'directo' %}selected{% endif %}>Cargado directo</option>
+                    </select>
+                </div>
+                {% endif %}
                 <div class="col-6 col-md-2">
                     <label class="form-label small mb-0">Reciclable</label>
                     <select name="reciclable" class="form-select form-select-sm">
