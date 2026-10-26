@@ -338,7 +338,18 @@ INQUILINO_MARCONI_ID = 160
 
 
 def es_reserva_marconi(reserva):
-    return bool(reserva) and getattr(reserva, 'cliente_id', None) == INQUILINO_MARCONI_ID
+    """Inquilino Marconi: el id histórico 160 o el nombre/apellido."""
+    if not reserva:
+        return False
+    if getattr(reserva, 'cliente_id', None) == INQUILINO_MARCONI_ID:
+        return True
+    cliente = getattr(reserva, 'cliente', None)
+    if cliente is None:
+        return False
+    blob = (
+        f"{getattr(cliente, 'nombre', '') or ''} {getattr(cliente, 'apellido', '') or ''}"
+    ).lower()
+    return 'marconi' in blob
 
 
 def pct_comision_marconi_vendedor(vendedor, reserva):
@@ -701,11 +712,14 @@ def _crear_linea_operacion_por_dia(
 def recalcular_comisiones_marconi_vendedor(vendedor):
     """
     Alinea % y monto de las comisiones «por día» del productor en operaciones de Marconi.
-    No toca comisiones pagadas, de meses marcados como pagados ni de carátulas confirmadas.
+    También actualiza las de carátula confirmada. No toca las pagadas ni las de un mes
+    ya marcado como pagado.
     Devuelve (actualizadas, omitidas).
     """
     if not vendedor:
         return 0, 0
+    from django.db.models import Q
+
     pct_marconi = getattr(vendedor, 'comision_marconi', None)
     pct = pct_marconi if pct_marconi is not None else pct_comision_normal_alquiler_dia(vendedor)
     meses_pagados = set(
@@ -715,20 +729,20 @@ def recalcular_comisiones_marconi_vendedor(vendedor):
         ComisionVendedor.objects.filter(
             vendedor=vendedor,
             rol_comision=ROL_COMISION_OP_DIA,
-            reserva__cliente_id=INQUILINO_MARCONI_ID,
+        )
+        .filter(
+            Q(reserva__cliente_id=INQUILINO_MARCONI_ID)
+            | Q(reserva__cliente__apellido__icontains='marconi')
+            | Q(reserva__cliente__nombre__icontains='marconi')
         )
         .exclude(estado='cancelada')
-        .select_related('reserva', 'reserva__sucursal')
+        .select_related('reserva', 'reserva__sucursal', 'reserva__cliente')
     )
     actualizadas = 0
     omitidas = 0
     for c in qs:
         fo = c.fecha_operacion
-        if (
-            c.estado == 'pagada'
-            or (fo and (fo.year, fo.month) in meses_pagados)
-            or (getattr(c.reserva, 'estado_confirmacion_caratula', None) or '') == 'confirmada'
-        ):
+        if c.estado == 'pagada' or (fo and (fo.year, fo.month) in meses_pagados):
             omitidas += 1
             continue
         if pct is None or pct <= 0:
