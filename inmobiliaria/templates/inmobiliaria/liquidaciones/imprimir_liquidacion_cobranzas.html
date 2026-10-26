@@ -117,6 +117,7 @@
         {% if volver_url %}
         <a href="{{ volver_url }}">&larr; Volver al detalle</a>
         {% endif %}
+        <a href="{% url 'inmobiliaria:lista_liquidaciones' %}">&larr; Volver al listado de liquidaciones</a>
         {% if info_operacion_liquidacion.url_caratula %}
         <a href="{{ info_operacion_liquidacion.url_caratula }}">Ver carátula</a>
         {% endif %}
