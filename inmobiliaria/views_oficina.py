@@ -1539,7 +1539,10 @@ def oficina_reporte_deptos_mensual(request):
     if not sucursal:
         return HttpResponseForbidden('Tu usuario no tiene sucursal asignada.')
 
-    from inmobiliaria.oficina_reporte_deptos import construir_reporte_mensual_deptos_oficina
+    from inmobiliaria.oficina_reporte_deptos import (
+        completar_gastos_reciclables_reporte,
+        construir_reporte_mensual_deptos_oficina,
+    )
     from inmobiliaria.models import ReporteDeptosOficinaPreferencia
 
     today = timezone.localdate()
@@ -1627,6 +1630,7 @@ def oficina_reporte_deptos_mensual(request):
 
     if cierre_mes:
         reporte = reporte_deptos_desde_cierre(cierre_mes)
+        completar_gastos_reciclables_reporte(reporte, sucursal, anio, mes)
     else:
         try:
             reporte = construir_reporte_mensual_deptos_oficina(sucursal, anio, mes)

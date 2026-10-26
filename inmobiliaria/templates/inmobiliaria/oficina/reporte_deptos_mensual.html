@@ -14,6 +14,7 @@
             <p class="text-muted small mb-0">
                 Ingresos y gastos del libro por depto.
                 Neto = ingreso − gastos del mes (no se arrastra a otros meses).
+                Reciclados es la parte de esos gastos marcada como reciclable.
                 Los saldos negativos (entre paréntesis) <strong>no suman</strong> al total.
                 Día / Invierno / 24 meses = ingreso total del mes (sin descontar gastos) según el tipo de alquiler.
                 {% if reporte.fecha_inicio_conteo %}
@@ -129,6 +130,7 @@
                             <th>Período</th>
                             <th class="text-end">Ing. bruto</th>
                             <th class="text-end">Gastos</th>
+                            <th class="text-end">Reciclados</th>
                             <th class="text-end">Ing. neto</th>
                             <th class="text-end text-nowrap">Día</th>
                             <th class="text-end text-nowrap">Invierno</th>
@@ -150,6 +152,7 @@
                             <td class="text-nowrap">{{ f.periodo }}</td>
                             <td class="text-end text-nowrap">${{ f.bruto|format_price }}</td>
                             <td class="text-end text-nowrap">${{ f.gastos|format_price }}</td>
+                            <td class="text-end text-nowrap">${{ f.gastos_reciclables|format_price }}</td>
                             <td class="text-end text-nowrap fw-semibold">
                                 {% if f.negativo %}
                                 <span class="text-danger">(${{ f.neto_abs|format_price }})</span>
@@ -187,7 +190,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="11" class="text-center text-muted py-4">
+                            <td colspan="12" class="text-center text-muted py-4">
                                 No hay movimientos de departamentos de oficina en este mes.
                                 {% if reporte.disponibles_para_agregar %}
                                 Podés agregar uno con el selector de arriba.
@@ -202,6 +205,7 @@
                             <td colspan="4" class="text-end">TOTAL</td>
                             <td class="text-end">${{ reporte.total_bruto|format_price }}</td>
                             <td class="text-end">${{ reporte.total_gastos|format_price }}</td>
+                            <td class="text-end">${{ reporte.total_gastos_reciclables|format_price }}</td>
                             <td class="text-end" style="background:#fff3cd">
                                 ${{ reporte.total_neto|format_price }}
                             </td>

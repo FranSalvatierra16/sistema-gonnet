@@ -274,6 +274,39 @@ def mapa_ingresos_liquidaciones_por_modalidad(propiedad_ids, anio: int, mes: int
     return resultado
 
 
+def completar_gastos_reciclables_reporte(reporte, sucursal, anio: int, mes: int):
+    """
+    Meses cerrados antes de esta columna no la tienen en la foto.
+    Completa cada fila con los reciclados del libro, sin tocar el resto del cierre.
+    """
+    filas = reporte.get('filas') or []
+    if not filas:
+        reporte['total_gastos_reciclables'] = _q(reporte.get('total_gastos_reciclables'))
+        return reporte
+    if all('gastos_reciclables' in f for f in filas):
+        if reporte.get('total_gastos_reciclables') is None:
+            reporte['total_gastos_reciclables'] = _q(
+                sum((_q(f.get('gastos_reciclables')) for f in filas), Decimal('0'))
+            )
+        return reporte
+    vivo = construir_reporte_mensual_deptos_oficina(sucursal, int(anio), int(mes))
+    por_id = {}
+    for f in vivo.get('filas') or []:
+        prop = f.get('propiedad')
+        pid = getattr(prop, 'id', None) or f.get('propiedad_id')
+        if pid is not None:
+            por_id[pid] = _q(f.get('gastos_reciclables'))
+    total = Decimal('0')
+    for f in filas:
+        prop = f.get('propiedad')
+        pid = getattr(prop, 'id', None) or f.get('propiedad_id')
+        val = por_id.get(pid, Decimal('0'))
+        f['gastos_reciclables'] = val
+        total += val
+    reporte['total_gastos_reciclables'] = _q(total)
+    return reporte
+
+
 def totales_alquileres_propios_para_fondo_oscar(sucursal, anio: int, mes: int) -> dict:
     """
     Totales para Fondo Oscar desde el reporte mensual de departamentos:
@@ -684,6 +717,7 @@ def construir_reporte_mensual_deptos_oficina(sucursal, anio: int, mes: int):
             'periodo': periodo_label,
             'bruto': calc['bruto'],
             'gastos': calc['gastos'],
+            'gastos_reciclables': calc['gastos_reciclables'],
             'neto': calc['neto'],
             'neto_abs': _q(abs(calc['neto'])),
             'neto_periodo': calc['neto_periodo'],
