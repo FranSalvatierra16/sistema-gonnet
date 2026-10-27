@@ -764,6 +764,116 @@ def recalcular_comisiones_marconi_vendedor(vendedor):
     return actualizadas, omitidas
 
 
+def _campo_ficha_desde_linea_comision(comision):
+    """Mapea una línea de historial → campo de la ficha del vendedor (o None)."""
+    rol = (getattr(comision, 'rol_comision', None) or '').strip().lower()
+    concepto = (getattr(comision, 'concepto_operacion', None) or '').lower()
+    if rol == ROL_COMISION_OP_DIA:
+        reserva = getattr(comision, 'reserva', None)
+        if es_reserva_marconi(reserva) or 'marconi' in concepto:
+            return 'comision_marconi'
+        return 'comision'
+    if rol == ROL_COMISION_OP_INVIERNO:
+        if 'oficina' in concepto:
+            return 'comision_invierno_propiedad_oficina'
+        return 'comision_invierno'
+    if rol == ROL_COMISION_OP_24:
+        if 'oficina' in concepto:
+            return 'comision_alquiler_24_meses_propiedad_oficina'
+        return 'comision_alquiler_24_meses'
+    if rol == ROL_COMISION_VENTA:
+        return 'comision_venta'
+    if rol == ROL_COMISION_FICHAJE:
+        es_segundo = 'segundo' in concepto
+        if '24' in concepto or 'meses' in concepto:
+            return (
+                'comision_segundo_fichaje_24_meses'
+                if es_segundo
+                else 'comision_primer_fichaje_24_meses'
+            )
+        if 'invierno' in concepto:
+            return (
+                'comision_segundo_fichaje_invierno'
+                if es_segundo
+                else 'comision_primer_fichaje_invierno'
+            )
+        return 'comision_segundo_fichaje' if es_segundo else 'comision_primer_fichaje'
+    return None
+
+
+def sugerir_porcentajes_comision_desde_historial(vendedor):
+    """
+    % más usados en el historial de comisiones del productor, por campo de ficha.
+    No escribe nada; sirve para rellenar lo que quedó vacío.
+    """
+    if not vendedor or not getattr(vendedor, 'pk', None):
+        return {}
+    from collections import Counter
+
+    qs = (
+        ComisionVendedor.objects.filter(vendedor_id=vendedor.pk)
+        .exclude(estado='cancelada')
+        .exclude(rol_comision=ROL_COMISION_REVERSION)
+        .select_related('reserva', 'reserva__cliente')
+        .only(
+            'rol_comision',
+            'concepto_operacion',
+            'porcentaje_comision',
+            'reserva_id',
+            'reserva__cliente_id',
+            'reserva__cliente__nombre',
+            'reserva__cliente__apellido',
+        )
+    )
+    contadores = {}
+    for c in qs.iterator(chunk_size=500):
+        pct = getattr(c, 'porcentaje_comision', None)
+        if pct is None:
+            continue
+        try:
+            pct = Decimal(str(pct))
+        except Exception:
+            continue
+        if pct <= 0:
+            continue
+        campo = _campo_ficha_desde_linea_comision(c)
+        if not campo:
+            continue
+        contadores.setdefault(campo, Counter())[pct.quantize(Decimal('0.01'))] += 1
+    sugeridos = {}
+    for campo, counter in contadores.items():
+        if not counter:
+            continue
+        # Más frecuente; si empate, el más reciente no lo tenemos acá → el mayor count.
+        pct, _n = counter.most_common(1)[0]
+        sugeridos[campo] = pct
+    return sugeridos
+
+
+def restaurar_porcentajes_comision_desde_historial(vendedor, *, solo_vacios=True):
+    """
+    Rellena en la ficha del vendedor los % vacíos con lo más usado en su historial.
+    Devuelve dict campo→valor aplicados.
+    """
+    if not vendedor or not getattr(vendedor, 'pk', None):
+        return {}
+    sugeridos = sugerir_porcentajes_comision_desde_historial(vendedor)
+    if not sugeridos:
+        return {}
+    aplicados = {}
+    for campo, pct in sugeridos.items():
+        if not hasattr(vendedor, campo):
+            continue
+        actual = getattr(vendedor, campo, None)
+        if solo_vacios and actual is not None:
+            continue
+        setattr(vendedor, campo, pct)
+        aplicados[campo] = pct
+    if aplicados:
+        vendedor.save(update_fields=list(aplicados.keys()))
+    return aplicados
+
+
 def registrar_comisiones_honorarios_movimiento_reserva(reserva, movimiento_caja, honorarios_monto):
     """
     Registra sobre una base monetaria (honorarios del movimiento o precio de la reserva):

@@ -123,6 +123,33 @@
                                 Fichaje e invierno/24 meses del <strong>productor</strong> se calculan sobre <strong>honorarios</strong> (concepto 25).
                                 Si no cargás un % específico de fichaje invierno/24, se usa el fichaje por día.
                             </p>
+                            {% if sugeridos_comision_historial %}
+                            <div class="alert alert-warning mt-3 mb-0 py-2">
+                                <p class="mb-2 small">
+                                    Hay <strong>{{ sugeridos_comision_historial|length }}</strong> comisión(es) vacía(s)
+                                    que se pueden rellenar con el % más usado en el historial de este productor.
+                                    No pisa valores que ya estén cargados.
+                                </p>
+                                <ul class="small mb-2">
+                                    {% for campo, pct in sugeridos_comision_historial.items %}
+                                    <li><code>{{ campo }}</code> → {{ pct|floatformat:2 }}%</li>
+                                    {% endfor %}
+                                </ul>
+                                <form method="post" class="mb-0"
+                                      onsubmit="return confirm('¿Rellenar las comisiones vacías con estos porcentajes del historial?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="restaurar_comisiones_historial">
+                                    <button type="submit" class="btn btn-warning btn-sm">
+                                        <i class="fas fa-history me-1"></i>Rellenar vacías desde el historial
+                                    </button>
+                                </form>
+                            </div>
+                            {% elif comisiones_vacias %}
+                            <div class="alert alert-light border mt-3 mb-0 py-2 small text-muted">
+                                Hay campos de comisión vacíos, pero no hay historial suficiente para sugerir un %.
+                                Cargalos a mano con <strong>Editar</strong>.
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

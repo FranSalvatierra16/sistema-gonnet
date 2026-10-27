@@ -3034,12 +3034,45 @@ def vendedor_detalle(request, vendedor_id):
         return denegado
     qs = Vendedor.objects.select_related('sucursal').filter(sucursal=request.user.sucursal)
     vendedor = get_object_or_404(qs, pk=vendedor_id)
+
+    from inmobiliaria.forms import _CAMPOS_COMISION_PCT_VENDEDOR
+    from inmobiliaria.models.comision import (
+        restaurar_porcentajes_comision_desde_historial,
+        sugerir_porcentajes_comision_desde_historial,
+    )
+
+    if request.method == 'POST' and request.POST.get('action') == 'restaurar_comisiones_historial':
+        aplicados = restaurar_porcentajes_comision_desde_historial(vendedor, solo_vacios=True)
+        vendedor.refresh_from_db()
+        if aplicados:
+            lista = ', '.join(f'{k}={v}%' for k, v in sorted(aplicados.items()))
+            messages.success(
+                request,
+                f'Se rellenaron {len(aplicados)} comisión(es) vacía(s) desde el historial: {lista}.',
+            )
+        else:
+            messages.warning(
+                request,
+                'No había porcentajes en el historial para rellenar, '
+                'o la ficha ya tenía todos los campos cargados.',
+            )
+        return redirect('inmobiliaria:vendedor_detalle', vendedor_id=vendedor.id)
+
+    sugeridos = sugerir_porcentajes_comision_desde_historial(vendedor)
+    campos_vacios = [
+        c for c in _CAMPOS_COMISION_PCT_VENDEDOR
+        if hasattr(vendedor, c) and getattr(vendedor, c, None) is None
+    ]
+    sugeridos_para_vacios = {k: v for k, v in sugeridos.items() if k in campos_vacios}
+
     return render(
         request,
         'inmobiliaria/vendedores/detalle.html',
         {
             'vendedor': vendedor,
             'puede_editar_nivel_vendedor': usuario_puede_editar_nivel_vendedor(request.user),
+            'comisiones_vacias': campos_vacios,
+            'sugeridos_comision_historial': sugeridos_para_vacios,
         },
     )
 @login_required
