@@ -10,7 +10,9 @@
 
     var MONEY_ATTR_RE = /(monto|importe|precio|honorario|comision|cochera|fondo|saldo|ajuste|tarifa|alquiler|deposito|dolares|participacion|proporcional|sellado|ganancia|arqueo|senia|locacion|expensa|venta|valor|pago|cobro|asegurado|refuerzo|precio_mes)/i;
 
-    var EXCLUDE_ATTR_RE = /(carpeta|cuit|dni|telefono|celular|codigo_postal|vendedor_id|duracion_meses|duracion|ambientes|habitaciones|banos|prefijo_recibo|ultimo_numero|numero_recibo|numero_movimiento|numero_liquidacion|numero_cheque|numero_tarjeta|page\b|operacion\b|propiedad_id|cliente_id|inquilino_id|metros_cuadrados|porcentaje|nro_cheque|id_nuevo|concepto_id|idNuevoConcepto|mes_alquiler_texto)/i;
+    // «comision» / «comision_*» en fichas de vendedor son % (no plata). Montos de comisión
+    // en carátula/caja llevan class input-monto-ar y siguen formateándose.
+    var EXCLUDE_ATTR_RE = /(carpeta|cuit|dni|telefono|celular|codigo_postal|vendedor_id|duracion_meses|duracion|ambientes|habitaciones|banos|prefijo_recibo|ultimo_numero|numero_recibo|numero_movimiento|numero_liquidacion|numero_cheque|numero_tarjeta|page\b|operacion\b|propiedad_id|cliente_id|inquilino_id|metros_cuadrados|porcentaje|comision|nro_cheque|id_nuevo|concepto_id|idNuevoConcepto|mes_alquiler_texto)/i;
 
     function parseMontoAR(str) {
         if (str === null || str === undefined) return 0;

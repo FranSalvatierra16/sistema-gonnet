@@ -26,6 +26,49 @@ from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.db import models
 import os
 from django.utils import timezone
+# % de comisión: no localizar (coma) ni formatear como plata; type=number no acepta "1,50".
+_CAMPOS_COMISION_PCT_VENDEDOR = (
+    'comision',
+    'comision_primer_fichaje',
+    'comision_segundo_fichaje',
+    'comision_primer_fichaje_invierno',
+    'comision_segundo_fichaje_invierno',
+    'comision_primer_fichaje_24_meses',
+    'comision_segundo_fichaje_24_meses',
+    'comision_alquiler_24_meses',
+    'comision_invierno',
+    'comision_invierno_propiedad_oficina',
+    'comision_alquiler_24_meses_propiedad_oficina',
+    'comision_marconi',
+    'comision_venta',
+    'comision_fichaje_venta',
+)
+
+
+def _widget_pct_comision():
+    return forms.NumberInput(
+        attrs={
+            'class': 'form-control',
+            'step': '0.01',
+            'min': '0',
+            'max': '100',
+            'data-no-monto-ar': '1',
+            'inputmode': 'decimal',
+        }
+    )
+
+
+def _deslocalizar_campos_comision_pct(form):
+    """Evita value=\"1,50\" en type=number (el browser lo muestra vacío y al guardar se borra)."""
+    for name in _CAMPOS_COMISION_PCT_VENDEDOR:
+        field = form.fields.get(name)
+        if not field:
+            continue
+        field.localize = False
+        if hasattr(field, 'widget') and field.widget is not None:
+            field.widget.is_localized = False
+
+
 # Formulario de creación de Vendedor
 class VendedorUserCreationForm(forms.ModelForm):
     username = forms.CharField(max_length=150, help_text='Requerido. 150 caracteres o menos.')
@@ -52,40 +95,18 @@ class VendedorUserCreationForm(forms.ModelForm):
             'fecha_nacimiento', 'nivel', 'sucursal',
         ]
         widgets = {
-            'comision': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}),
-            'comision_primer_fichaje': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_segundo_fichaje': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_primer_fichaje_invierno': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_segundo_fichaje_invierno': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_primer_fichaje_24_meses': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_segundo_fichaje_24_meses': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_alquiler_24_meses': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_invierno': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_invierno_propiedad_oficina': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_alquiler_24_meses_propiedad_oficina': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_marconi': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100', 'data-no-monto-ar': '1'}
-            ),
+            'comision': _widget_pct_comision(),
+            'comision_primer_fichaje': _widget_pct_comision(),
+            'comision_segundo_fichaje': _widget_pct_comision(),
+            'comision_primer_fichaje_invierno': _widget_pct_comision(),
+            'comision_segundo_fichaje_invierno': _widget_pct_comision(),
+            'comision_primer_fichaje_24_meses': _widget_pct_comision(),
+            'comision_segundo_fichaje_24_meses': _widget_pct_comision(),
+            'comision_alquiler_24_meses': _widget_pct_comision(),
+            'comision_invierno': _widget_pct_comision(),
+            'comision_invierno_propiedad_oficina': _widget_pct_comision(),
+            'comision_alquiler_24_meses_propiedad_oficina': _widget_pct_comision(),
+            'comision_marconi': _widget_pct_comision(),
             'sueldo_basico': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}
             ),
@@ -107,6 +128,7 @@ class VendedorUserCreationForm(forms.ModelForm):
         self.puede_editar_nivel = kwargs.pop('puede_editar_nivel', False)
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        _deslocalizar_campos_comision_pct(self)
         self.fields['sucursal'].required = True
         # Solo la sucursal del usuario logueado (Colón / Corrientes no se mezclan).
         if self.user and getattr(self.user, 'sucursal_id', None):
@@ -165,40 +187,18 @@ class VendedorChangeForm(UserChangeForm):
         widgets = {
             'fecha_nacimiento': forms.DateInput(attrs={'type': 'date'}),
             'sucursal': forms.Select(attrs={'class': 'form-control form-select'}),
-            'comision': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}),
-            'comision_primer_fichaje': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_segundo_fichaje': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_primer_fichaje_invierno': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_segundo_fichaje_invierno': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_primer_fichaje_24_meses': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_segundo_fichaje_24_meses': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_alquiler_24_meses': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_invierno': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_invierno_propiedad_oficina': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_alquiler_24_meses_propiedad_oficina': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}
-            ),
-            'comision_marconi': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100', 'data-no-monto-ar': '1'}
-            ),
+            'comision': _widget_pct_comision(),
+            'comision_primer_fichaje': _widget_pct_comision(),
+            'comision_segundo_fichaje': _widget_pct_comision(),
+            'comision_primer_fichaje_invierno': _widget_pct_comision(),
+            'comision_segundo_fichaje_invierno': _widget_pct_comision(),
+            'comision_primer_fichaje_24_meses': _widget_pct_comision(),
+            'comision_segundo_fichaje_24_meses': _widget_pct_comision(),
+            'comision_alquiler_24_meses': _widget_pct_comision(),
+            'comision_invierno': _widget_pct_comision(),
+            'comision_invierno_propiedad_oficina': _widget_pct_comision(),
+            'comision_alquiler_24_meses_propiedad_oficina': _widget_pct_comision(),
+            'comision_marconi': _widget_pct_comision(),
             'sueldo_basico': forms.NumberInput(
                 attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}
             ),
@@ -211,6 +211,7 @@ class VendedorChangeForm(UserChangeForm):
         self.puede_editar_nivel = kwargs.pop('puede_editar_nivel', False)
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        _deslocalizar_campos_comision_pct(self)
         if 'sucursal' in self.fields:
             # No permitir cambiar de Colón a Corrientes (ni al revés).
             if self.user and getattr(self.user, 'sucursal_id', None):
