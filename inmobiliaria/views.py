@@ -3013,14 +3013,46 @@ def vendedores(request):
     denegado = _requiere_ver_vendedores(request)
     if denegado:
         return denegado
-    vendedores = Vendedor.objects.filter(sucursal=request.user.sucursal).order_by(
-        'apellido', 'nombre'
+    vendedores = list(
+        Vendedor.objects.filter(sucursal=request.user.sucursal).order_by(
+            'apellido', 'nombre'
+        )
     )
+    from inmobiliaria.models.comision import sugerir_porcentajes_comision_desde_historial
+
+    # Campos “de trabajo” típicos: si están todos vacíos pero hay historial, casi seguro
+    # se borraron al editar la ficha (bug de la coma en type=number).
+    campos_clave = (
+        'comision',
+        'comision_primer_fichaje',
+        'comision_segundo_fichaje',
+        'comision_invierno',
+        'comision_alquiler_24_meses',
+        'comision_primer_fichaje_24_meses',
+        'comision_primer_fichaje_invierno',
+    )
+    vendedores_comisiones_borradas = []
+    for v in vendedores:
+        vacios_clave = all(getattr(v, c, None) is None for c in campos_clave if hasattr(v, c))
+        if not vacios_clave:
+            continue
+        sugeridos = sugerir_porcentajes_comision_desde_historial(v)
+        if not sugeridos:
+            continue
+        vendedores_comisiones_borradas.append(
+            {
+                'vendedor': v,
+                'sugeridos': sugeridos,
+                'cantidad': len(sugeridos),
+            }
+        )
+
     return render(
         request,
         'inmobiliaria/vendedores/lista.html',
         {
             'vendedores': vendedores,
+            'vendedores_comisiones_borradas': vendedores_comisiones_borradas,
             'puede_editar_nivel_vendedor': usuario_puede_editar_nivel_vendedor(request.user),
             'puede_impersonar': usuario_puede_impersonar(request.user)
             and not request.session.get(SESSION_IMPERSONATOR_ID),

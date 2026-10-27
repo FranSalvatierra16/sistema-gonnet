@@ -49,6 +49,35 @@
         </div>
     </div>
 
+    {% if vendedores_comisiones_borradas %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning border-warning shadow-sm mb-0">
+                <h5 class="alert-heading mb-2">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Comisiones vacías con historial ({{ vendedores_comisiones_borradas|length }})
+                </h5>
+                <p class="mb-2 small">
+                    Estos productores tienen la ficha de % vacía, pero en el historial ya hay comisiones cargadas.
+                    Suele pasar si se editó y guardó la ficha cuando el formulario borraba los %.
+                    Entrá al detalle y usá <strong>Rellenar vacías desde el historial</strong>.
+                </p>
+                <ul class="mb-0">
+                    {% for item in vendedores_comisiones_borradas %}
+                    <li>
+                        <a href="{% url 'inmobiliaria:vendedor_detalle' item.vendedor.id %}">
+                            {{ item.vendedor.apellido }}, {{ item.vendedor.nombre }}
+                        </a>
+                        <span class="text-muted">({{ item.vendedor.username }})</span>
+                        — {{ item.cantidad }} % recuperable{{ item.cantidad|pluralize:"s" }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Results Section -->
     <div class="row">
         <div class="col-12">
