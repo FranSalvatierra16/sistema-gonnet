@@ -2397,9 +2397,10 @@ class ComisionVendedor(models.Model):
         verbose_name="Monto Total de la Operación"
     )
     porcentaje_comision = models.DecimalField(
-        max_digits=5, 
+        max_digits=10,
         decimal_places=2,
-        verbose_name="Porcentaje de Comisión (%)"
+        verbose_name="Porcentaje de Comisión (%)",
+        help_text='En ventas puede superar 100 si la comisión es mayor a los honorarios de oficina.',
     )
     monto_comision = models.DecimalField(
         max_digits=12, 

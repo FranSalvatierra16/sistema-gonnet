@@ -707,9 +707,17 @@ def _crear_comisiones_venta(op, partes_ars, monto_fichaje_ars=None):
     creadas = []
 
     def _pct_sobre_honorarios(monto):
-        if honorarios_base <= 0 or monto <= 0:
+        """% informativo = comisión / base × 100. Si no hay honorarios, usa el precio en ARS."""
+        if monto <= 0:
             return Decimal('0')
-        return ((monto / honorarios_base) * Decimal('100')).quantize(
+        base = honorarios_base
+        if base <= 0:
+            precio = Decimal(str(op.precio_usd or 0))
+            if cot > 0 and precio > 0:
+                base = (precio * cot).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if base <= 0:
+            return Decimal('0')
+        return ((monto / base) * Decimal('100')).quantize(
             Decimal('0.01'), rounding=ROUND_HALF_UP
         )
 
