@@ -110,6 +110,8 @@
                 El listado va en orden cronológico (primera operación cargada arriba, con hora).
                 La columna <strong>Alquiler</strong> es la entrada y la salida, para ubicar la operación sin abrirla.
                 Las filas en <span class="badge bg-success">verde</span> ya tienen liquidación al propietario.
+                En <strong>Estado</strong>, <em>Cobrada</em> es el cobro de la operación (no el pago al propietario).
+                La liquidación puede decir <span class="badge bg-warning text-dark">sin pagar</span> o <span class="badge bg-success">pagada</span>.
                 La columna <strong>Operación</strong> indica si la carátula está <span class="badge bg-warning text-dark">Pendiente</span> o <span class="badge bg-success">Confirmada</span> (botón en cada carátula).
             </p>
             {% if total_filas is not None %}
@@ -180,7 +182,12 @@
                         {{ f.estado }}
                         {% endif %}
                         {% if f.tiene_liquidacion %}
-                        <br><a href="{% url 'inmobiliaria:detalle_liquidacion' f.liquidacion_id %}" class="badge bg-success text-decoration-none" title="Ver liquidación">Liquidada #{{ f.liquidacion_id }}</a>
+                        <br>
+                        <a href="{% url 'inmobiliaria:detalle_liquidacion' f.liquidacion_id %}"
+                           class="badge text-decoration-none {% if f.liquidacion_pagada %}bg-success{% else %}bg-warning text-dark{% endif %}"
+                           title="{% if f.liquidacion_pagada %}Liquidación ya pagada al propietario{% else %}Liquidación creada; todavía no se pagó al propietario{% endif %}">
+                            Liq. #{{ f.liquidacion_id }} · {% if f.liquidacion_pagada %}pagada{% else %}sin pagar{% endif %}
+                        </a>
                         {% else %}
                         <br><span class="badge bg-light text-dark border">Liq. pendiente</span>
                         {% endif %}

@@ -4074,10 +4074,13 @@ def lista_caratulas(request):
             LiquidacionPropietario.objects.filter(reserva_id__in=reserva_ids)
             .exclude(estado='cancelada')
             .order_by('-id')
-            .values('reserva_id', 'id')
+            .values('reserva_id', 'id', 'estado')
         ):
             if row['reserva_id'] not in liq_por_reserva:
-                liq_por_reserva[row['reserva_id']] = row['id']
+                liq_por_reserva[row['reserva_id']] = {
+                    'id': row['id'],
+                    'estado': row['estado'],
+                }
 
     # Batch de liquidaciones por propiedad (evita 1 query por contrato).
     prop_ids_contratos = {c.propiedad_id for c in contratos_list if c.propiedad_id}
@@ -4115,12 +4118,24 @@ def lista_caratulas(request):
             dep = (p.departamento or '').strip() or '—'
             piso_dto = f'{pi} / {dep}'
         plinea, psub = _etiqueta_propiedad_lista(p)
-        liquidacion_id = liq_por_reserva.get(r.id)
+        liq_info = liq_por_reserva.get(r.id) or {}
+        liquidacion_id = liq_info.get('id')
+        liquidacion_estado = liq_info.get('estado')
         tiene_liquidacion = liquidacion_id is not None
         if liquidacion_filtro == 'pendiente' and tiene_liquidacion:
             continue
         if liquidacion_filtro == 'liquidada' and not tiene_liquidacion:
             continue
+        estado_codigo = 'eliminada' if r.eliminada else (r.estado or '').strip().lower()
+        if r.eliminada:
+            estado_txt = 'Eliminada'
+        elif estado_codigo == 'pagada':
+            # «Pagada» de la reserva = cobro de la operación, no pago al propietario.
+            estado_txt = 'Cobrada'
+        else:
+            estado_txt = (
+                r.get_estado_display() if hasattr(r, 'get_estado_display') else r.estado
+            )
         filas.append(
             {
                 'kind': 'reserva',
@@ -4143,16 +4158,14 @@ def lista_caratulas(request):
                 'ficha': p.id if p else '—',
                 'importe_locacion': r.precio_total or Decimal('0'),
                 'moneda': getattr(r, 'moneda', None) or 'ARS',
-                'estado': (
-                    'Eliminada'
-                    if r.eliminada
-                    else (r.get_estado_display() if hasattr(r, 'get_estado_display') else r.estado)
-                ),
-                'estado_codigo': 'eliminada' if r.eliminada else (r.estado or '').strip().lower(),
+                'estado': estado_txt,
+                'estado_codigo': estado_codigo,
                 'eliminada': bool(r.eliminada),
                 'carpeta': '—',
                 'tiene_liquidacion': tiene_liquidacion,
                 'liquidacion_id': liquidacion_id,
+                'liquidacion_estado': liquidacion_estado,
+                'liquidacion_pagada': liquidacion_estado == 'pagada',
                 'estado_operacion_caratula': getattr(r, 'estado_confirmacion_caratula', 'pendiente') or 'pendiente',
             }
         )
@@ -4168,6 +4181,12 @@ def lista_caratulas(request):
             piso_dto = f'{pi} / {dep}'
         clinea, csub = _etiqueta_propiedad_lista(p)
         liquidacion_id = _ultima_liquidacion_contrato_id(c)
+        liquidacion_estado = None
+        if liquidacion_id:
+            for liq in getattr(c, '_cache_liqs_propiedad', None) or []:
+                if getattr(liq, 'id', None) == liquidacion_id:
+                    liquidacion_estado = getattr(liq, 'estado', None)
+                    break
         tiene_liquidacion = _contrato_al_dia_liquidacion_cobros(c)
         if liquidacion_filtro == 'pendiente' and tiene_liquidacion:
             continue
@@ -4202,6 +4221,8 @@ def lista_caratulas(request):
                 'carpeta': carpeta_hist or '—',
                 'tiene_liquidacion': tiene_liquidacion,
                 'liquidacion_id': liquidacion_id,
+                'liquidacion_estado': liquidacion_estado,
+                'liquidacion_pagada': liquidacion_estado == 'pagada',
                 'estado_operacion_caratula': getattr(c, 'estado_confirmacion_caratula', 'pendiente') or 'pendiente',
             }
         )
