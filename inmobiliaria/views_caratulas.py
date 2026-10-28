@@ -1095,12 +1095,17 @@ def _procesar_productores_caratula(request, reserva=None, contrato=None):
 
             if es_reserva_marconi(reserva):
                 n_ok, n_sin = alinear_comisiones_marconi_reserva(reserva)
+                messages.info(
+                    request,
+                    'Operación Marconi: se quitó el fichaje de alquiler por día '
+                    'y se alinearon las comisiones de productores.',
+                )
                 if n_sin:
                     messages.warning(
                         request,
-                        'Operación Marconi: hay productores sin «Comisión Marconi (%)» '
-                        'en su ficha; esas líneas siguen con el % por día. Cargá el % Marconi '
-                        'en Productores y volvé a guardar.',
+                        'Hay productores sin «Comisión Marconi (%)» en su ficha; '
+                        'esas líneas usan el % por día como respaldo. Cargá el % Marconi '
+                        'en Productores para el valor definitivo.',
                     )
                 elif n_ok:
                     messages.info(

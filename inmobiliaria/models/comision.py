@@ -503,9 +503,18 @@ def _monto_base_fichaje_reserva(reserva, honorarios_hint=None):
 def _sincronizar_comisiones_fichaje_reserva(reserva):
     """
     Alinea líneas de fichaje al fichador actual de la propiedad.
+    En operaciones Marconi no aplica el fichaje de alquiler por día.
     Deja una sola línea activa por reserva (no una por cada cobro de caja).
     """
     if not reserva or caratula_honorarios_cerrados(reserva=reserva):
+        return
+    qs = ComisionVendedor.objects.filter(
+        reserva=reserva,
+        rol_comision=ROL_COMISION_FICHAJE,
+    ).exclude(estado='cancelada')
+    # Marconi: no corresponde fichaje de alquiler por día.
+    if es_reserva_marconi(reserva) or getattr(reserva, 'sin_fichaje', False):
+        _cancelar_o_borrar_comisiones_qs(qs)
         return
     prop = getattr(reserva, 'propiedad', None)
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer' if prop else 'primer'
@@ -519,16 +528,10 @@ def _sincronizar_comisiones_fichaje_reserva(reserva):
     if vend_fichaje:
         pct_fichaje = vend_fichaje.porcentaje_fichaje_efectivo(tipo_fichaje, tipo_op)
 
-    qs = ComisionVendedor.objects.filter(
-        reserva=reserva,
-        rol_comision=ROL_COMISION_FICHAJE,
-    ).exclude(estado='cancelada')
-
     activo = bool(
         vend_fichaje
         and pct_fichaje is not None
         and pct_fichaje > 0
-        and not getattr(reserva, 'sin_fichaje', False)
     )
     if not activo:
         _cancelar_o_borrar_comisiones_qs(qs)
@@ -585,6 +588,14 @@ def _crear_o_actualizar_linea_fichaje_reserva(
     Garantiza una única comisión de fichaje por reserva (upsert + limpia duplicados).
     """
     if not reserva:
+        return None
+    if es_reserva_marconi(reserva):
+        _cancelar_o_borrar_comisiones_qs(
+            ComisionVendedor.objects.filter(
+                reserva=reserva,
+                rol_comision=ROL_COMISION_FICHAJE,
+            ).exclude(estado='cancelada')
+        )
         return None
     _sincronizar_comisiones_fichaje_reserva(reserva)
     if getattr(reserva, 'sin_fichaje', False):
@@ -664,7 +675,8 @@ def _crear_linea_operacion_por_dia(
         participacion_pct,
         sucursal=getattr(reserva, 'sucursal', None),
     )
-    etiqueta = 'Marconi' if pct_marconi is not None else 'alquiler por día'
+    # En Marconi la etiqueta es siempre Marconi (aunque el % venga del fallback por día).
+    etiqueta = 'Marconi' if es_reserva_marconi(reserva) else 'alquiler por día'
     concepto_nuevo = (
         f'Op. {reserva.id} — comisión {etiqueta} '
         f'(part. {participacion_pct if participacion_pct is not None else 100}% del total)'
@@ -767,18 +779,40 @@ def _alinear_linea_marconi_comision(comision, vendedor, reserva, pct):
 def alinear_comisiones_marconi_reserva(reserva):
     """
     Fuerza % Marconi en las líneas «por día» de la reserva, aunque la carátula
-    esté confirmada (congelada). No toca pagadas.
+    esté confirmada (congelada). Quita el fichaje de alquiler por día.
+    No toca pagadas.
     Devuelve (actualizadas, sin_pct_marconi).
     """
     if not reserva or not es_reserva_marconi(reserva):
         return 0, 0
+    # Marconi no lleva fichaje de operación por día (también si la carátula está cerrada).
+    _cancelar_o_borrar_comisiones_qs(
+        ComisionVendedor.objects.filter(
+            reserva=reserva,
+            rol_comision=ROL_COMISION_FICHAJE,
+        ).exclude(estado='cancelada').exclude(estado='pagada')
+    )
     actualizadas = 0
     sin_pct = 0
     for vend in iter_productores_reserva(reserva):
         pct = pct_comision_marconi_vendedor(vend, reserva)
         if pct is None:
+            # Rellenar % Marconi vacío desde historial del productor (ops Marconi).
+            sugeridos = sugerir_porcentajes_comision_desde_historial(vend)
+            pct_sug = sugeridos.get('comision_marconi')
+            if pct_sug is not None and getattr(vend, 'comision_marconi', None) is None:
+                try:
+                    vend.comision_marconi = Decimal(str(pct_sug))
+                    vend.save(update_fields=['comision_marconi'])
+                    pct = Decimal(str(pct_sug))
+                except Exception:
+                    pct = None
+        if pct is None:
+            # Sin % Marconi: alinear etiqueta con el % por día (fallback documentado).
+            pct = pct_comision_normal_alquiler_dia(vend)
             sin_pct += 1
-            continue
+            if pct is None or pct <= 0:
+                continue
         qs = ComisionVendedor.objects.filter(
             reserva=reserva,
             vendedor=vend,
@@ -2577,9 +2611,10 @@ class ComisionVendedor(models.Model):
         concepto_l = (self.concepto_operacion or '').lower()
         pct_linea = self.porcentaje_comision
 
-        if 'honorarios' in concepto_l and 'fichaje' in concepto_l:
+        # Concepto con «fichaje» = fichaje, aunque el % de la ficha haya cambiado.
+        if 'fichaje' in concepto_l:
             tf = (getattr(prop, 'tipo_fichaje', None) or 'primer')
-            if tf == 'segundo':
+            if 'segundo' in concepto_l or tf == 'segundo':
                 return ('fichaje', 'segundo')
             return ('fichaje', 'primer')
 
@@ -2723,6 +2758,10 @@ class ComisionVendedor(models.Model):
             if 'venta' in concepto_l or 'operación venta' in obs_l or 'operacion venta' in obs_l:
                 return ('por_venta', 'fichaje_venta')
         if rol == ROL_COMISION_OP_DIA:
+            concepto_l = (self.concepto_operacion or '').lower()
+            res = getattr(self, 'reserva', None)
+            if 'marconi' in concepto_l or es_reserva_marconi(res):
+                return ('por_dia', 'marconi')
             return ('por_dia', None)
         if rol == ROL_COMISION_OP_INVIERNO:
             return ('por_invierno', None)
@@ -2811,6 +2850,8 @@ class ComisionVendedor(models.Model):
         # Línea de fichaje: badge «Por fichaje»; el filtro usa cat (día / 24 / invierno).
         if sub in ('primer', 'segundo'):
             return 'Por fichaje'
+        if sub == 'marconi':
+            return 'Marconi'
         return {
             'por_dia': 'Por día',
             'por_invierno': 'Por invierno',
@@ -2838,6 +2879,8 @@ class ComisionVendedor(models.Model):
             return 'bg-success'
         if sub in ('primer', 'segundo'):
             return 'bg-info text-dark'
+        if sub == 'marconi':
+            return 'bg-success'
         return {
             'por_dia': 'bg-primary',
             'por_invierno': 'bg-secondary',
