@@ -647,28 +647,17 @@ def _crear_linea_operacion_por_dia(
         participacion_pct,
         sucursal=getattr(reserva, 'sucursal', None),
     )
+    etiqueta = 'Marconi' if pct_marconi is not None else 'alquiler por día'
+    concepto_nuevo = (
+        f'Op. {reserva.id} — comisión {etiqueta} '
+        f'(part. {participacion_pct if participacion_pct is not None else 100}% del total)'
+    )
     existente = ComisionVendedor.objects.filter(
         vendedor=vendedor,
         reserva=reserva,
         rol_comision=ROL_COMISION_OP_DIA,
     ).exclude(estado='cancelada').first()
     if existente:
-        if _comision_acreditada(existente):
-            updates_acred = []
-            # No pisar fecha_operacion si ya tiene valor (editable en carátula).
-            if existente.fecha_operacion is None:
-                existente.fecha_operacion = _fecha_operacion_comision_reserva(
-                    reserva, movimiento_caja
-                )
-                updates_acred.append('fecha_operacion')
-            if movimiento_caja and not existente.movimiento_caja_id:
-                existente.movimiento_caja = movimiento_caja
-                updates_acred.append('movimiento_caja')
-            if updates_acred:
-                existente.save(update_fields=updates_acred)
-            if creadas is not None and existente not in creadas:
-                creadas.append(existente)
-            return
         updates = []
         # No pisar fecha_operacion si ya tiene valor (editable en carátula).
         if existente.fecha_operacion is None:
@@ -676,15 +665,23 @@ def _crear_linea_operacion_por_dia(
                 reserva, movimiento_caja
             )
             updates.append('fecha_operacion')
-        if existente.monto_total_operacion != base:
-            existente.monto_total_operacion = base
-            updates.append('monto_total_operacion')
-        if existente.monto_comision != nuevo_monto:
-            existente.monto_comision = nuevo_monto
-            updates.append('monto_comision')
-        if existente.porcentaje_comision != pct:
-            existente.porcentaje_comision = pct
-            updates.append('porcentaje_comision')
+        if movimiento_caja and not existente.movimiento_caja_id:
+            existente.movimiento_caja = movimiento_caja
+            updates.append('movimiento_caja')
+        # Pendiente y confirmada se alinean; pagada no se toca.
+        if _puede_actualizar_monto_comision(existente):
+            if existente.monto_total_operacion != base:
+                existente.monto_total_operacion = base
+                updates.append('monto_total_operacion')
+            if existente.monto_comision != nuevo_monto:
+                existente.monto_comision = nuevo_monto
+                updates.append('monto_comision')
+            if existente.porcentaje_comision != pct:
+                existente.porcentaje_comision = pct
+                updates.append('porcentaje_comision')
+            if (existente.concepto_operacion or '') != concepto_nuevo:
+                existente.concepto_operacion = concepto_nuevo[:200]
+                updates.append('concepto_operacion')
         if updates:
             existente.save(update_fields=updates)
         if creadas is not None and existente not in creadas:
@@ -696,14 +693,11 @@ def _crear_linea_operacion_por_dia(
         movimiento_caja=movimiento_caja,
         monto_base=base,
         porcentaje_comision=pct,
-        concepto=(
-            f'Op. {reserva.id} — comisión {"Marconi" if pct_marconi is not None else "alquiler por día"} '
-            f'(part. {participacion_pct if participacion_pct is not None else 100}% del total)'
-        ),
+        concepto=concepto_nuevo,
         rol_comision=ROL_COMISION_OP_DIA,
     )
     if c:
-        if c.monto_comision != nuevo_monto and not _comision_acreditada(c):
+        if c.monto_comision != nuevo_monto and _puede_actualizar_monto_comision(c):
             c.monto_comision = nuevo_monto
             c.save(update_fields=['monto_comision'])
         creadas.append(c)
@@ -2789,6 +2783,9 @@ class ComisionVendedor(models.Model):
                 return f'Comisión por {base} (24 meses)'
             return f'Comisión por {base} (por día)'
         if cat == 'por_dia':
+            concepto = (self.concepto_operacion or '').lower()
+            if 'marconi' in concepto:
+                return 'Comisión Marconi'
             return 'Comisión por día'
         if cat == 'por_invierno':
             return 'Comisión por invierno'
@@ -2922,7 +2919,7 @@ class ComisionVendedor(models.Model):
     ):
         """
         Crea una línea de comisión con base y % explícitos (p. ej. honorarios + rol fichaje).
-        No recalcula monto de líneas ya confirmadas/pagadas (evita pisar el mínimo aplicado).
+        Pendiente y confirmada se alinean; pagada no se toca.
         """
         if porcentaje_comision is None or porcentaje_comision <= 0:
             return None
@@ -2958,8 +2955,8 @@ class ComisionVendedor(models.Model):
                     reserva, movimiento_caja
                 )
                 updates.append('fecha_operacion')
-            # Confirmadas/pagadas: no tocar montos ni % (el piso $10.000 ya puede estar aplicado).
-            if _comision_acreditada(comision_existente):
+            # Pagada: no tocar montos ni %. Confirmada/pendiente se alinean a la carátula.
+            if not _puede_actualizar_monto_comision(comision_existente):
                 if updates:
                     comision_existente.save(update_fields=updates)
                 return comision_existente
@@ -2981,6 +2978,9 @@ class ComisionVendedor(models.Model):
             if comision_existente.porcentaje_comision != porcentaje_comision:
                 comision_existente.porcentaje_comision = porcentaje_comision
                 updates.append('porcentaje_comision')
+            if concepto and (comision_existente.concepto_operacion or '') != concepto[:200]:
+                comision_existente.concepto_operacion = concepto[:200]
+                updates.append('concepto_operacion')
             if updates:
                 comision_existente.save(update_fields=updates)
             return comision_existente

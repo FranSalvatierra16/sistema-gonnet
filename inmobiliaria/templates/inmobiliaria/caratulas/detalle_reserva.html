@@ -147,7 +147,7 @@
                                             {{ c.vendedor.apellido }}, {{ c.vendedor.nombre }}
                                             {% if c.porcentaje_comision %}
                                             <span class="text-muted">
-                                                ({{ c.porcentaje_comision|floatformat:2 }}%{% if c.rol_comision == 'operacion_dia' %} por día{% elif c.rol_comision == 'operacion_invierno' %} invierno{% elif c.rol_comision == 'operacion_24_meses' %} 24 meses{% elif c.rol_comision == 'fichaje' %} fichaje{% endif %}{% if c.participacion_operacion_caratula and c.rol_comision != 'fichaje' %} · {{ c.participacion_operacion_caratula|floatformat:2 }}% op.{% endif %})
+                                                ({{ c.porcentaje_comision|floatformat:2 }}%{% if c.rol_comision == 'operacion_dia' %}{% if 'marconi' in c.concepto_operacion|default:''|lower %} Marconi{% else %} por día{% endif %}{% elif c.rol_comision == 'operacion_invierno' %} invierno{% elif c.rol_comision == 'operacion_24_meses' %} 24 meses{% elif c.rol_comision == 'fichaje' %} fichaje{% endif %}{% if c.participacion_operacion_caratula and c.rol_comision != 'fichaje' %} · {{ c.participacion_operacion_caratula|floatformat:2 }}% op.{% endif %})
                                             </span>
                                             {% endif %}
                                             {% else %}—{% endif %}
