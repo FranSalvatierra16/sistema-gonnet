@@ -346,9 +346,17 @@ def es_reserva_marconi(reserva):
     cliente = getattr(reserva, 'cliente', None)
     if cliente is None:
         return False
-    blob = (
-        f"{getattr(cliente, 'nombre', '') or ''} {getattr(cliente, 'apellido', '') or ''}"
-    ).lower()
+    partes = [
+        getattr(cliente, 'nombre', '') or '',
+        getattr(cliente, 'apellido', '') or '',
+    ]
+    display = getattr(cliente, 'nombre_completo_display', None)
+    if callable(display):
+        try:
+            partes.append(display() or '')
+        except Exception:
+            pass
+    blob = ' '.join(partes).lower()
     return 'marconi' in blob
 
 
@@ -356,7 +364,16 @@ def pct_comision_marconi_vendedor(vendedor, reserva):
     """% Marconi del productor si la reserva es de Marconi y tiene el % cargado; si no, None."""
     if not vendedor or not es_reserva_marconi(reserva):
         return None
-    return getattr(vendedor, 'comision_marconi', None)
+    pct = getattr(vendedor, 'comision_marconi', None)
+    if pct is None:
+        return None
+    try:
+        pct = Decimal(str(pct))
+    except (TypeError, ValueError, ArithmeticError):
+        return None
+    if pct <= 0:
+        return None
+    return pct
 
 
 def pct_comision_normal_alquiler_dia(vendedor):
@@ -703,6 +720,76 @@ def _crear_linea_operacion_por_dia(
         creadas.append(c)
 
 
+def _alinear_linea_marconi_comision(comision, vendedor, reserva, pct):
+    """
+    Aplica % Marconi a una línea operacion_dia (pendiente/confirmada).
+    Devuelve True si guardó cambios. No toca pagadas.
+    """
+    if not comision or not _puede_actualizar_monto_comision(comision):
+        return False
+    if pct is None or pct <= 0:
+        return False
+    part = mapa_participacion_productores(reserva=reserva).get(
+        getattr(vendedor, 'id', None), Decimal('100')
+    )
+    base = Decimal(str(comision.monto_total_operacion or 0))
+    if base <= 0:
+        base = base_comision_con_participacion(
+            Decimal(str(getattr(reserva, 'precio_total', 0) or 0)), part
+        )
+    nuevo = (base * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))
+    nuevo = monto_comision_productor_con_minimo(
+        nuevo, part, sucursal=getattr(reserva, 'sucursal', None)
+    )
+    concepto_nuevo = (
+        f'Op. {reserva.id} — comisión Marconi '
+        f'(part. {part if part is not None else 100}% del total)'
+    )[:200]
+    updates = []
+    if comision.monto_total_operacion != base:
+        comision.monto_total_operacion = base
+        updates.append('monto_total_operacion')
+    if comision.porcentaje_comision != pct:
+        comision.porcentaje_comision = pct
+        updates.append('porcentaje_comision')
+    if comision.monto_comision != nuevo:
+        comision.monto_comision = nuevo
+        updates.append('monto_comision')
+    if (comision.concepto_operacion or '') != concepto_nuevo:
+        comision.concepto_operacion = concepto_nuevo
+        updates.append('concepto_operacion')
+    if not updates:
+        return False
+    comision.save(update_fields=updates)
+    return True
+
+
+def alinear_comisiones_marconi_reserva(reserva):
+    """
+    Fuerza % Marconi en las líneas «por día» de la reserva, aunque la carátula
+    esté confirmada (congelada). No toca pagadas.
+    Devuelve (actualizadas, sin_pct_marconi).
+    """
+    if not reserva or not es_reserva_marconi(reserva):
+        return 0, 0
+    actualizadas = 0
+    sin_pct = 0
+    for vend in iter_productores_reserva(reserva):
+        pct = pct_comision_marconi_vendedor(vend, reserva)
+        if pct is None:
+            sin_pct += 1
+            continue
+        qs = ComisionVendedor.objects.filter(
+            reserva=reserva,
+            vendedor=vend,
+            rol_comision=ROL_COMISION_OP_DIA,
+        ).exclude(estado='cancelada')
+        for c in qs:
+            if _alinear_linea_marconi_comision(c, vend, reserva, pct):
+                actualizadas += 1
+    return actualizadas, sin_pct
+
+
 def recalcular_comisiones_marconi_vendedor(vendedor):
     """
     Alinea % y monto de las comisiones «por día» del productor en operaciones de Marconi.
@@ -744,6 +831,10 @@ def recalcular_comisiones_marconi_vendedor(vendedor):
             actualizadas += 1
             continue
         reserva = c.reserva
+        if pct_marconi is not None:
+            if _alinear_linea_marconi_comision(c, vendedor, reserva, Decimal(str(pct))):
+                actualizadas += 1
+            continue
         part = mapa_participacion_productores(reserva=reserva).get(vendedor.id, Decimal('100'))
         base = Decimal(str(c.monto_total_operacion or 0))
         nuevo = (base * Decimal(str(pct)) / Decimal('100')).quantize(Decimal('0.01'))

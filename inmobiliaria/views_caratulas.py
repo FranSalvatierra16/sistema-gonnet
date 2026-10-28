@@ -1088,6 +1088,25 @@ def _procesar_productores_caratula(request, reserva=None, contrato=None):
             resincronizar_comisiones_productor_reserva(
                 reserva, _movimientos_operacion_reserva(reserva)
             )
+            from inmobiliaria.models.comision import (
+                alinear_comisiones_marconi_reserva,
+                es_reserva_marconi,
+            )
+
+            if es_reserva_marconi(reserva):
+                n_ok, n_sin = alinear_comisiones_marconi_reserva(reserva)
+                if n_sin:
+                    messages.warning(
+                        request,
+                        'Operación Marconi: hay productores sin «Comisión Marconi (%)» '
+                        'en su ficha; esas líneas siguen con el % por día. Cargá el % Marconi '
+                        'en Productores y volvé a guardar.',
+                    )
+                elif n_ok:
+                    messages.info(
+                        request,
+                        f'Se alinearon {n_ok} comisión(es) al % Marconi del productor.',
+                    )
         elif contrato:
             movimientos = []
             if contrato.propiedad_id:
@@ -4384,9 +4403,16 @@ def caratula_reserva(request, reserva_id):
 
     # Generar/actualizar comisiones aunque no haya movimientos vinculados en caja
     # (p. ej. operación marcada pagada sin cobro con "Operación {id}" en el concepto).
-    from inmobiliaria.models.comision import asegurar_comisiones_reserva
+    from inmobiliaria.models.comision import (
+        alinear_comisiones_marconi_reserva,
+        asegurar_comisiones_reserva,
+        es_reserva_marconi,
+    )
 
     asegurar_comisiones_reserva(reserva, movimientos_caja=movimientos)
+    # Carátula confirmada congela asegurar_*; Marconi igual debe alinear % del productor.
+    if es_reserva_marconi(reserva):
+        alinear_comisiones_marconi_reserva(reserva)
     comisiones = _comisiones_visibles_caratula_reserva(reserva)
 
     from inmobiliaria.models.comision import (
