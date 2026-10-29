@@ -503,18 +503,9 @@ def _monto_base_fichaje_reserva(reserva, honorarios_hint=None):
 def _sincronizar_comisiones_fichaje_reserva(reserva):
     """
     Alinea líneas de fichaje al fichador actual de la propiedad.
-    En operaciones Marconi no aplica el fichaje de alquiler por día.
     Deja una sola línea activa por reserva (no una por cada cobro de caja).
     """
     if not reserva or caratula_honorarios_cerrados(reserva=reserva):
-        return
-    qs = ComisionVendedor.objects.filter(
-        reserva=reserva,
-        rol_comision=ROL_COMISION_FICHAJE,
-    ).exclude(estado='cancelada')
-    # Marconi: no corresponde fichaje de alquiler por día.
-    if es_reserva_marconi(reserva) or getattr(reserva, 'sin_fichaje', False):
-        _cancelar_o_borrar_comisiones_qs(qs)
         return
     prop = getattr(reserva, 'propiedad', None)
     tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer' if prop else 'primer'
@@ -528,10 +519,16 @@ def _sincronizar_comisiones_fichaje_reserva(reserva):
     if vend_fichaje:
         pct_fichaje = vend_fichaje.porcentaje_fichaje_efectivo(tipo_fichaje, tipo_op)
 
+    qs = ComisionVendedor.objects.filter(
+        reserva=reserva,
+        rol_comision=ROL_COMISION_FICHAJE,
+    ).exclude(estado='cancelada')
+
     activo = bool(
         vend_fichaje
         and pct_fichaje is not None
         and pct_fichaje > 0
+        and not getattr(reserva, 'sin_fichaje', False)
     )
     if not activo:
         _cancelar_o_borrar_comisiones_qs(qs)
@@ -588,14 +585,6 @@ def _crear_o_actualizar_linea_fichaje_reserva(
     Garantiza una única comisión de fichaje por reserva (upsert + limpia duplicados).
     """
     if not reserva:
-        return None
-    if es_reserva_marconi(reserva):
-        _cancelar_o_borrar_comisiones_qs(
-            ComisionVendedor.objects.filter(
-                reserva=reserva,
-                rol_comision=ROL_COMISION_FICHAJE,
-            ).exclude(estado='cancelada')
-        )
         return None
     _sincronizar_comisiones_fichaje_reserva(reserva)
     if getattr(reserva, 'sin_fichaje', False):
@@ -776,22 +765,64 @@ def _alinear_linea_marconi_comision(comision, vendedor, reserva, pct):
     return True
 
 
+def _restaurar_fichaje_reserva_si_falta(reserva):
+    """
+    Si no hay línea de fichaje activa y la op no está marcada sin_fichaje,
+    la regenera (también con carátula confirmada).
+    """
+    if not reserva or getattr(reserva, 'sin_fichaje', False):
+        return None
+    if ComisionVendedor.objects.filter(
+        reserva=reserva,
+        rol_comision=ROL_COMISION_FICHAJE,
+    ).exclude(estado='cancelada').exists():
+        return None
+    prop = getattr(reserva, 'propiedad', None)
+    tipo_fichaje = getattr(prop, 'tipo_fichaje', None) or 'primer' if prop else 'primer'
+    vend_fichaje = vendedor_fichaje_desde_propiedad(
+        prop, sucursal=getattr(reserva, 'sucursal', None)
+    )
+    if not vend_fichaje:
+        return None
+    tipo_op = clasificar_tipo_operacion_reserva(reserva)
+    pct_fichaje = vend_fichaje.porcentaje_fichaje_efectivo(tipo_fichaje, tipo_op)
+    if pct_fichaje is None or pct_fichaje <= 0:
+        return None
+    base = _monto_base_fichaje_reserva(reserva)
+    if base <= 0:
+        return None
+    cat_lbl = _etiqueta_categoria_fichaje(tipo_op)
+    base_lbl = 'locación' if tipo_op == 'dia' else 'honorarios'
+    c = ComisionVendedor.crear_comision_linea(
+        vendedor=vend_fichaje,
+        reserva=reserva,
+        movimiento_caja=None,
+        monto_base=base,
+        porcentaje_comision=pct_fichaje,
+        concepto=(
+            f'Op. {reserva.id} — comisión fichaje ({tipo_fichaje}, {cat_lbl}) sobre {base_lbl}'
+        ),
+        rol_comision=ROL_COMISION_FICHAJE,
+    )
+    if (
+        c
+        and getattr(reserva, 'estado_confirmacion_caratula', None) == 'confirmada'
+        and getattr(c, 'estado', None) == 'pendiente'
+    ):
+        c.estado = 'confirmada'
+        c.save(update_fields=['estado'])
+    return c
+
+
 def alinear_comisiones_marconi_reserva(reserva):
     """
     Fuerza % Marconi en las líneas «por día» de la reserva, aunque la carátula
-    esté confirmada (congelada). Quita el fichaje de alquiler por día.
+    esté confirmada (congelada). El fichaje se mantiene / se restaura si faltaba.
     No toca pagadas.
     Devuelve (actualizadas, sin_pct_marconi).
     """
     if not reserva or not es_reserva_marconi(reserva):
         return 0, 0
-    # Marconi no lleva fichaje de operación por día (también si la carátula está cerrada).
-    _cancelar_o_borrar_comisiones_qs(
-        ComisionVendedor.objects.filter(
-            reserva=reserva,
-            rol_comision=ROL_COMISION_FICHAJE,
-        ).exclude(estado='cancelada').exclude(estado='pagada')
-    )
     actualizadas = 0
     sin_pct = 0
     for vend in iter_productores_reserva(reserva):
@@ -821,6 +852,8 @@ def alinear_comisiones_marconi_reserva(reserva):
         for c in qs:
             if _alinear_linea_marconi_comision(c, vend, reserva, pct):
                 actualizadas += 1
+    # Fichaje no se toca en Marconi; si se había borrado, se vuelve a crear.
+    _restaurar_fichaje_reserva_si_falta(reserva)
     return actualizadas, sin_pct
 
 
