@@ -36,6 +36,51 @@ def _parse_decimal(valor, default='0'):
             return Decimal(default)
 
 
+def _honorarios_ars_desde_usd_cot(honorarios_usd, cotizacion):
+    """honorarios_usd × cotización, redondeado a centavos."""
+    usd = Decimal(str(honorarios_usd or 0))
+    cot = Decimal(str(cotizacion or 0))
+    if usd <= 0 or cot <= 0:
+        return Decimal('0')
+    return (usd * cot).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+def _corregir_honorarios_ars_si_factor_mil(honorarios_ars, honorarios_usd, cotizacion):
+    """
+    Si ARS quedó ~1000× chico (p. ej. parsearon «2.500» como 2,5 → 2,5×1550=3875
+    en vez de 3.875.000), usa USD × cotización.
+    """
+    ars = Decimal(str(honorarios_ars or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    esperado = _honorarios_ars_desde_usd_cot(honorarios_usd, cotizacion)
+    if esperado <= 0 or ars <= 0:
+        return ars if ars > 0 else esperado
+    try:
+        ratio = float(esperado / ars)
+    except (ZeroDivisionError, InvalidOperation, TypeError, ValueError):
+        return ars
+    if 900 <= ratio <= 1100:
+        return esperado
+    return ars
+
+
+def _reparar_honorarios_ars_operacion(op, *, persistir=True):
+    """Corrige en memoria (y opcionalmente en BD) honorarios_ars mal parseados ×1000."""
+    if not op:
+        return False
+    actual = Decimal(str(op.honorarios_ars or 0)).quantize(
+        Decimal('0.01'), rounding=ROUND_HALF_UP
+    )
+    corregido = _corregir_honorarios_ars_si_factor_mil(
+        actual, op.honorarios_usd, op.cotizacion_dolar
+    )
+    if corregido == actual:
+        return False
+    op.honorarios_ars = corregido
+    if persistir and getattr(op, 'pk', None):
+        OperacionVenta.objects.filter(pk=op.pk).update(honorarios_ars=corregido)
+    return True
+
+
 def _puede_gestionar_ventas(user):
     if not user or not user.is_authenticated:
         return False
@@ -122,24 +167,30 @@ def operaciones_venta_lista(request):
             q |= Q(propiedad_id=int(raw_id)) | Q(pk=int(raw_id))
         qs = qs.filter(q).distinct()
 
-    confirmadas = qs.filter(estado='confirmada')
-    totales = confirmadas.aggregate(
-        total_usd=Sum('precio_usd'),
-        total_honorarios_usd=Sum('honorarios_usd'),
-        total_honorarios_ars=Sum('honorarios_ars'),
+    operaciones = list(qs[:200])
+    for op in operaciones:
+        _reparar_honorarios_ars_operacion(op, persistir=True)
+
+    confirmadas = [op for op in operaciones if op.estado == 'confirmada']
+    total_usd = sum((Decimal(str(op.precio_usd or 0)) for op in confirmadas), Decimal('0'))
+    total_honorarios_usd = sum(
+        (Decimal(str(op.honorarios_usd or 0)) for op in confirmadas), Decimal('0')
+    )
+    total_honorarios = sum(
+        (Decimal(str(op.honorarios_ars or 0)) for op in confirmadas), Decimal('0')
     )
 
     return render(
         request,
         'inmobiliaria/ventas/operaciones_lista.html',
         {
-            'operaciones': qs[:200],
+            'operaciones': operaciones,
             'busqueda': busqueda,
             'estado_sel': estado,
-            'total_usd': totales['total_usd'] or Decimal('0'),
-            'total_honorarios_usd': totales['total_honorarios_usd'] or Decimal('0'),
-            'total_honorarios': totales['total_honorarios_ars'] or Decimal('0'),
-            'cantidad': confirmadas.count(),
+            'total_usd': total_usd,
+            'total_honorarios_usd': total_honorarios_usd,
+            'total_honorarios': total_honorarios,
+            'cantidad': len(confirmadas),
         },
     )
 
@@ -176,7 +227,11 @@ def _form_data_desde_operacion(op):
         'precio_usd': _fmt_decimal_form(op.precio_usd),
         'cotizacion_dolar': _fmt_decimal_form(op.cotizacion_dolar),
         'honorarios_usd': _fmt_decimal_form(op.honorarios_usd),
-        'honorarios_ars': _fmt_decimal_form(op.honorarios_ars),
+        'honorarios_ars': _fmt_decimal_form(
+            _corregir_honorarios_ars_si_factor_mil(
+                op.honorarios_ars, op.honorarios_usd, op.cotizacion_dolar
+            )
+        ),
         'vendedor_ids': vend_ids,
         'fichado_por_id': str(op.fichado_por_id) if op.fichado_por_id else '',
         'comprador_nombre': op.comprador_nombre or '',
@@ -212,16 +267,16 @@ def _parsear_post_venta(request, form_data, vendedores, sucursal):
     cotizacion = _parse_decimal(form_data['cotizacion_dolar'])
     honorarios_usd = _parse_decimal(form_data.get('honorarios_usd'))
     honorarios_ars_raw = (form_data.get('honorarios_ars') or '').strip()
+    esperado_ars = _honorarios_ars_desde_usd_cot(honorarios_usd, cotizacion)
     if honorarios_ars_raw:
         honorarios_ars = _parse_decimal(honorarios_ars_raw).quantize(
             Decimal('0.01'), rounding=ROUND_HALF_UP
         )
-    elif cotizacion > 0 and honorarios_usd > 0:
-        honorarios_ars = (honorarios_usd * cotizacion).quantize(
-            Decimal('0.01'), rounding=ROUND_HALF_UP
+        honorarios_ars = _corregir_honorarios_ars_si_factor_mil(
+            honorarios_ars, honorarios_usd, cotizacion
         )
     else:
-        honorarios_ars = Decimal('0')
+        honorarios_ars = esperado_ars
 
     if precio_usd <= 0:
         errores.append('El precio en USD tiene que ser mayor a 0.')
@@ -560,6 +615,12 @@ def operaciones_venta_detalle(request, operacion_id):
         pk=operacion_id,
         sucursal=request.user.sucursal,
     )
+    if _reparar_honorarios_ars_operacion(op, persistir=True):
+        messages.info(
+            request,
+            f'Se corrigieron los honorarios oficina (ARS) a '
+            f'${op.honorarios_ars} (USD × cotización).',
+        )
     comisiones = ComisionVendedor.objects.filter(
         observaciones__contains=f'Operación venta #{op.pk}'
     ).select_related('vendedor').order_by('id')
