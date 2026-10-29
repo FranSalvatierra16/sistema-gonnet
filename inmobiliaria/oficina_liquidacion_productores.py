@@ -585,11 +585,32 @@ def _d(val):
     return Decimal(str(val or 0)).quantize(Decimal('0.01'))
 
 
-def _col_label_vendedor(v):
+def _col_label_vendedor(v, *, desambiguar=False):
     nom = (v.nombre or '').strip()
-    if nom:
-        return nom.split()[0].upper()
-    return ((v.apellido or '').strip().upper() or f'#{v.id}')
+    ap = (v.apellido or '').strip()
+    primer_nom = nom.split()[0].upper() if nom else ''
+    primer_ap = ap.split()[0].upper() if ap else ''
+    if desambiguar and primer_nom and primer_ap:
+        return f'{primer_nom} {primer_ap[0]}.'
+    if primer_nom:
+        return primer_nom
+    return primer_ap or f'#{v.id}'
+
+
+def _etiquetas_columnas_unicas(vendedores):
+    """Evita dos columnas «EZEQUIEL»: si chocan, usa nombre + inicial del apellido."""
+    labels = {}
+    por_label = defaultdict(list)
+    for v in vendedores:
+        lab = _col_label_vendedor(v)
+        por_label[lab].append(v)
+    for lab, grupo in por_label.items():
+        if len(grupo) == 1:
+            labels[grupo[0].id] = lab
+            continue
+        for v in grupo:
+            labels[v.id] = _col_label_vendedor(v, desambiguar=True)
+    return labels
 
 
 def _label_venta(op):
@@ -843,6 +864,29 @@ def vendedores_en_sueldos(sucursal):
     return out or _vendedores_activos_sucursal(sucursal)
 
 
+def _vendedores_locales_con_comision_mes(sucursal, anio, mes):
+    """Locales activos con comisión visible en el mes (aunque no estén en Sueldos)."""
+    if not sucursal or not anio or not mes:
+        return []
+    fecha_desde, fecha_hasta = _rango_mes(anio, mes)
+    desglose = comisiones_desglose_vendedores(sucursal, fecha_desde, fecha_hasta)
+    ids = {
+        vid for vid, row in desglose.items()
+        if _d((row or {}).get('total')) > 0
+    }
+    if not ids:
+        return []
+    return list(
+        Vendedor.objects.filter(
+            pk__in=ids,
+            sucursal=sucursal,
+            is_active=True,
+        )
+        .select_related('sucursal')
+        .order_by('apellido', 'nombre', 'id')
+    )
+
+
 def _q_columna_vigente(dia):
     return (
         (Q(vigente_desde__isnull=True) | Q(vigente_desde__lte=dia))
@@ -913,25 +957,43 @@ def vendedores_otra_sucursal(sucursal, locales):
     return out
 
 
-def _vendedores_columnas_disponibles(sucursal):
-    """(locales de Sueldos, de la otra sucursal) elegibles como columna."""
-    locales = vendedores_en_sueldos(sucursal)
+def _vendedores_columnas_disponibles(sucursal, anio=None, mes=None):
+    """(locales de Sueldos + con comisión del mes, de la otra sucursal) elegibles como columna."""
+    locales = list(vendedores_en_sueldos(sucursal))
+    vistos = {v.id for v in locales}
+    for v in _vendedores_locales_con_comision_mes(sucursal, anio, mes):
+        if v.id in vistos:
+            continue
+        if set(_norm_tokens_nombre(v.apellido) + _norm_tokens_nombre(v.nombre)) == {'oficina'}:
+            continue
+        locales.append(v)
+        vistos.add(v.id)
     externos = vendedores_otra_sucursal(sucursal, locales)
     return locales, externos
 
 
 def opciones_columnas_vendedores(sucursal, anio, mes):
     """Lista de vendedores de Sueldos (y de la otra sucursal) con el tilde de la planilla del mes."""
-    locales, externos = _vendedores_columnas_disponibles(sucursal)
+    locales, externos = _vendedores_columnas_disponibles(sucursal, anio, mes)
     hay_filtro = hay_columnas_elegidas(sucursal)
     guardados = ids_columnas_vendedores(sucursal, anio, mes) if hay_filtro else set()
+    ids_comision = {v.id for v in _vendedores_locales_con_comision_mes(sucursal, anio, mes)}
+    label_map = _etiquetas_columnas_unicas(locales + externos)
     opciones = []
     for v, es_externo in [(v, False) for v in locales] + [(v, True) for v in externos]:
+        checked = (
+            (v.id in guardados)
+            if hay_filtro
+            else (not es_externo)
+        )
+        # Local con comisión del mes: siempre visible aunque no esté en Sueldos / tilde viejo.
+        if not es_externo and v.id in ids_comision:
+            checked = True
         opciones.append({
             'id': v.id,
-            'label': _col_label_vendedor(v),
+            'label': label_map.get(v.id) or _col_label_vendedor(v),
             'nombre': f'{(v.apellido or "").strip()}, {(v.nombre or "").strip()}'.strip(', ') or str(v),
-            'checked': (v.id in guardados) if hay_filtro else not es_externo,
+            'checked': checked,
             'externo': es_externo,
             'sucursal_nombre': v.sucursal.nombre if es_externo and v.sucursal_id else '',
         })
@@ -940,15 +1002,25 @@ def opciones_columnas_vendedores(sucursal, anio, mes):
 
 def vendedores_para_columnas(sucursal, anio, mes):
     """Vendedores de la planilla del mes; los de la otra sucursal llevan ``externo=True``."""
-    locales, externos = _vendedores_columnas_disponibles(sucursal)
+    locales, externos = _vendedores_columnas_disponibles(sucursal, anio, mes)
     for v in locales:
         v.externo = False
     for v in externos:
         v.externo = True
+    ids_comision = {v.id for v in _vendedores_locales_con_comision_mes(sucursal, anio, mes)}
     if not hay_columnas_elegidas(sucursal):
         return locales
     guardados = ids_columnas_vendedores(sucursal, anio, mes)
-    return [v for v in locales + externos if v.id in guardados]
+    out = []
+    vistos = set()
+    for v in locales + externos:
+        if v.id in vistos:
+            continue
+        # Locales con comisión del mes entran aunque no estén en el tilde de Sueldos.
+        if v.id in guardados or (not v.externo and v.id in ids_comision):
+            out.append(v)
+            vistos.add(v.id)
+    return out
 
 
 def guardar_columnas_cuadro(sucursal, vendedor_ids, anio, mes):
@@ -1131,12 +1203,13 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         sucursal, fecha_desde, fecha_hasta
     )
 
+    label_map = _etiquetas_columnas_unicas(vendedores)
     columnas = [{'key': 'oficina', 'label': 'OFICINA', 'vid': None, 'es_oficina': True, 'basico': None}]
     for v in vendedores:
         externo = getattr(v, 'externo', False)
         columnas.append({
             'key': f'v{v.id}',
-            'label': _col_label_vendedor(v),
+            'label': label_map.get(v.id) or _col_label_vendedor(v),
             'vid': v.id,
             'es_oficina': False,
             'vendedor': v,
