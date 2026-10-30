@@ -5,20 +5,61 @@
 
 {% block title %}Liquidaciones pendientes{% endblock %}
 
+{% block extra_css %}
+<style>
+    @media print {
+        .navbar, .sidebar, footer, .no-print, .btn, form, .alert-danger {
+            display: none !important;
+        }
+        .container-fluid, .card, .card-body, .table-responsive {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        body {
+            background: #fff !important;
+            font-size: 11pt;
+        }
+        h1 { font-size: 16pt; margin-bottom: 0.5rem; }
+        .print-only { display: block !important; }
+        table { font-size: 10pt; }
+        .table-print-total { font-weight: 700; }
+        a { color: inherit !important; text-decoration: none !important; }
+    }
+    .print-only { display: none; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="mt-4">
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-        <h1 class="mb-0">⏳ Liquidaciones pendientes</h1>
-        <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-2"></i>Liquidaciones a propietarios
-        </a>
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 no-print">
+        <h1 class="mb-0"><i class="fas fa-hourglass-half me-2"></i>Liquidaciones pendientes</h1>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-dark" onclick="window.print()">
+                <i class="fas fa-print me-2"></i>Imprimir listado
+            </button>
+            <a href="{% url 'inmobiliaria:lista_liquidaciones' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Liquidaciones a propietarios
+            </a>
+        </div>
     </div>
-    <p class="text-muted">
+    <div class="print-only mb-2">
+        <h1 class="mb-1">Liquidaciones pendientes</h1>
+        <p class="mb-0 small text-muted">
+            Período {{ fecha_desde }} — {{ fecha_hasta }}
+            {% if q %} · Búsqueda: {{ q }}{% endif %}
+            {% if tipo_filtro %} · Tipo: {{ tipo_filtro }}{% endif %}
+        </p>
+    </div>
+    <p class="text-muted no-print">
         Operaciones (reservas, cuotas de contratos y pagos a favor) que todavía no figuran en ninguna liquidación,
-        cuyo período cae dentro de las fechas elegidas.
+        cuyo período cae dentro de las fechas elegidas. Al liquidarlas / pagarlas por caja dejan de aparecer acá.
     </p>
 
-    <div class="card shadow mb-3">
+    <div class="card shadow mb-3 no-print">
         <div class="card-body">
             <form method="GET" class="row g-3 align-items-end">
                 <div class="col-md-2">
@@ -56,23 +97,23 @@
     </div>
 
     {% if truncado %}
-    <div class="alert alert-warning">
+    <div class="alert alert-warning no-print">
         Hay más de {{ max_propiedades }} propiedades en el rango: se muestran las primeras. Achicá las fechas o buscá por depto.
     </div>
     {% endif %}
     {% if errores %}
-    <div class="alert alert-danger small">
+    <div class="alert alert-danger small no-print">
         No se pudieron calcular: {{ errores|join:"; " }}
     </div>
     {% endif %}
 
-    <div class="d-flex flex-wrap gap-2 mb-3">
+    <div class="d-flex flex-wrap gap-2 mb-3 no-print">
         <div class="alert alert-warning mb-0 py-2">
             <strong>{{ filas|length }}</strong> pendiente{{ filas|length|pluralize }} en <strong>{{ cantidad_propiedades }}</strong> propiedad{{ cantidad_propiedades|pluralize:"es" }}
         </div>
         {% for moneda, t in totales %}
         <div class="alert alert-info mb-0 py-2">
-            A propietarios ({{ moneda }}): <strong>{% if moneda == 'USD' %}U$S{% else %}${% endif %}{{ t.monto_propietario|format_price }}</strong>
+            Total importe liquidación ({{ moneda }}): <strong>{% if moneda == 'USD' %}U$S{% else %}${% endif %}{{ t.monto_propietario|format_price }}</strong>
             <span class="text-muted">({{ t.cantidad }})</span>
         </div>
         {% endfor %}
@@ -83,31 +124,29 @@
             <table class="table table-sm table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>Propiedad</th>
                         <th>Propietario</th>
-                        <th>Tipo</th>
-                        <th>Detalle</th>
+                        <th>Propiedad</th>
+                        <th>Operación</th>
                         <th>Período</th>
-                        <th class="text-end">Total</th>
-                        <th class="text-end">A propietario</th>
-                        <th></th>
+                        <th class="text-nowrap">N° de Liq</th>
+                        <th class="text-end">Importe liquidación</th>
+                        <th class="no-print"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for f in filas %}
                     <tr>
-                        <td>{{ f.propiedad_label }}</td>
                         <td>{{ f.propietario }}</td>
-                        <td>
-                            {{ f.tipo_display }}
-                            {% if f.anticipada %}<span class="badge bg-secondary">Sin cobrar</span>{% endif %}
-                            {% if f.parcial %}<span class="badge bg-warning text-dark">Parcial</span>{% endif %}
+                        <td>{{ f.propiedad_label }}</td>
+                        <td class="small">
+                            {{ f.descripcion }}
+                            {% if f.anticipada %}<span class="badge bg-secondary ms-1">Sin cobrar</span>{% endif %}
+                            {% if f.parcial %}<span class="badge bg-warning text-dark ms-1">Parcial</span>{% endif %}
                         </td>
-                        <td class="small">{{ f.descripcion }}</td>
                         <td class="text-nowrap">{{ f.fecha_inicio|date:"d/m/Y" }}{% if f.fecha_fin and f.fecha_fin != f.fecha_inicio %} – {{ f.fecha_fin|date:"d/m/Y" }}{% endif %}</td>
-                        <td class="text-end text-nowrap">{% if f.moneda == 'USD' %}U$S{% else %}${% endif %}{{ f.monto_total|format_price }}</td>
+                        <td class="text-nowrap">{{ f.n_liq }}</td>
                         <td class="text-end text-nowrap fw-semibold">{% if f.moneda == 'USD' %}U$S{% else %}${% endif %}{{ f.monto_propietario|format_price }}</td>
-                        <td class="text-end">
+                        <td class="text-end no-print">
                             <a href="{{ f.url_liquidar }}" class="btn btn-sm btn-success text-nowrap">
                                 <i class="fas fa-hand-holding-usd me-1"></i>Liquidar
                             </a>
@@ -115,10 +154,25 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="text-center text-muted py-4">No hay liquidaciones pendientes con esos filtros.</td>
+                        <td colspan="7" class="text-center text-muted py-4">No hay liquidaciones pendientes con esos filtros.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
+                {% if filas %}
+                <tfoot>
+                    {% for moneda, t in totales %}
+                    <tr class="table-light table-print-total">
+                        <td colspan="5" class="text-end fw-semibold">
+                            Total{% if totales|length > 1 %} ({{ moneda }}){% endif %}
+                        </td>
+                        <td class="text-end text-nowrap fw-bold">
+                            {% if moneda == 'USD' %}U$S{% else %}${% endif %}{{ t.monto_propietario|format_price }}
+                        </td>
+                        <td class="no-print"></td>
+                    </tr>
+                    {% endfor %}
+                </tfoot>
+                {% endif %}
             </table>
         </div>
     </div>

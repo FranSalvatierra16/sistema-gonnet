@@ -96,6 +96,31 @@ def _url_liquidar(op):
     return reverse('inmobiliaria:crear_liquidacion')
 
 
+def _n_liq_display(op):
+    """N° visible: liquidación parcial si hay, si no el de la operación/reserva/cuota."""
+    liq_id = op.get('liquidacion_id')
+    if liq_id:
+        try:
+            return f'#{int(liq_id)}'
+        except (TypeError, ValueError):
+            pass
+    tipo = (op.get('tipo') or '').strip().lower()
+    raw_id = op.get('id')
+    try:
+        oid = int(raw_id)
+    except (TypeError, ValueError):
+        return '—'
+    if tipo == 'reserva':
+        return f'Op. #{oid}'
+    if tipo.startswith('contrato'):
+        cid = op.get('contrato_id')
+        try:
+            return f'CT #{int(cid)}' if cid else f'#{oid}'
+        except (TypeError, ValueError):
+            return f'#{oid}'
+    return f'#{oid}'
+
+
 def _decimal(valor):
     try:
         return Decimal(str(valor or 0))
@@ -171,6 +196,7 @@ def liquidaciones_pendientes(request):
                 'tipo': tipo,
                 'tipo_display': op.get('tipo_display') or '',
                 'descripcion': descripcion,
+                'n_liq': _n_liq_display(op),
                 'fecha_inicio': fi,
                 'fecha_fin': ff,
                 'moneda': (op.get('moneda') or 'ARS').upper(),
