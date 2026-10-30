@@ -261,7 +261,30 @@
         }
     }, true);
 
+    // Antes de enviar: pasar de "569.950,40" a "569950.40" (Django DecimalField).
+    // Si no, el primer Guardar falla validación y parece que hay que hacer clic dos veces.
+    function denormalizarMontosEnForm(form) {
+        if (!form || !form.querySelectorAll) return;
+        var nodes = form.querySelectorAll('input');
+        for (var i = 0; i < nodes.length; i++) {
+            var el = nodes[i];
+            if (!esInputMonto(el) || el.disabled || el.readOnly) continue;
+            var raw = String(el.value || '').trim();
+            if (!raw) continue;
+            var n = parseMontoAR(raw);
+            if (!isFinite(n)) continue;
+            el.value = (Math.round(n * 100) / 100).toFixed(2);
+        }
+    }
+
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!form || form.tagName !== 'FORM') return;
+        denormalizarMontosEnForm(form);
+    }, true);
+
     global.parseMontoAR = parseMontoAR;
+    global.denormalizarMontosEnForm = denormalizarMontosEnForm;
     global.formatMontoAR = formatMontoAR;
     global.formatMontoARTyping = formatMontoARTyping;
     global.initMontoARInputs = initMontoARInputs;

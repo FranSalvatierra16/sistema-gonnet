@@ -58,6 +58,17 @@ def _widget_pct_comision():
     )
 
 
+def _widget_sueldo_basico():
+    return forms.TextInput(
+        attrs={
+            'class': 'form-control input-monto-ar',
+            'inputmode': 'decimal',
+            'autocomplete': 'off',
+            'data-monto-ar': '1',
+        }
+    )
+
+
 def _deslocalizar_campos_comision_pct(form):
     """Evita value=\"1,50\" en type=number (el browser lo muestra vacío y al guardar se borra)."""
     for name in _CAMPOS_COMISION_PCT_VENDEDOR:
@@ -67,6 +78,32 @@ def _deslocalizar_campos_comision_pct(form):
         field.localize = False
         if hasattr(field, 'widget') and field.widget is not None:
             field.widget.is_localized = False
+
+
+def _preparar_sueldo_basico(form):
+    """
+    Sueldo como texto con formato AR (569.950,40). DecimalField nativo rechaza ese string.
+    """
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+
+    old = form.fields.get('sueldo_basico')
+    if not old:
+        return
+    initial = old.initial
+    if initial is None and getattr(form, 'instance', None) is not None:
+        initial = getattr(form.instance, 'sueldo_basico', None)
+    if initial is not None and initial != '':
+        initial = str(initial).replace(',', '.')
+
+    form.fields['sueldo_basico'] = forms.CharField(
+        required=False,
+        label=getattr(old, 'label', None) or 'Sueldo básico',
+        help_text=getattr(old, 'help_text', '') or '',
+        initial=initial,
+        widget=_widget_sueldo_basico(),
+    )
+    # Adjuntar parser para clean_* en el form
+    form._parse_sueldo_basico = parse_decimal_monto
 
 
 # Formulario de creación de Vendedor
@@ -107,9 +144,7 @@ class VendedorUserCreationForm(forms.ModelForm):
             'comision_invierno_propiedad_oficina': _widget_pct_comision(),
             'comision_alquiler_24_meses_propiedad_oficina': _widget_pct_comision(),
             'comision_marconi': _widget_pct_comision(),
-            'sueldo_basico': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}
-            ),
+            'sueldo_basico': _widget_sueldo_basico(),
             'basico_no_suma_si_comisiones_superan': forms.CheckboxInput(
                 attrs={'class': 'form-check-input'}
             ),
@@ -124,11 +159,22 @@ class VendedorUserCreationForm(forms.ModelForm):
             raise forms.ValidationError("Las contraseñas no coinciden")
         return password2
 
+    def clean_sueldo_basico(self):
+        raw = self.cleaned_data.get('sueldo_basico')
+        if raw is None or str(raw).strip() == '':
+            return None
+        parse = getattr(self, '_parse_sueldo_basico', None)
+        if parse is None:
+            from inmobiliaria.decimal_utils import parse_decimal_monto
+            parse = parse_decimal_monto
+        return parse(raw)
+
     def __init__(self, *args, **kwargs):
         self.puede_editar_nivel = kwargs.pop('puede_editar_nivel', False)
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         _deslocalizar_campos_comision_pct(self)
+        _preparar_sueldo_basico(self)
         self.fields['sucursal'].required = True
         # Solo la sucursal del usuario logueado (Colón / Corrientes no se mezclan).
         if self.user and getattr(self.user, 'sucursal_id', None):
@@ -199,19 +245,28 @@ class VendedorChangeForm(UserChangeForm):
             'comision_invierno_propiedad_oficina': _widget_pct_comision(),
             'comision_alquiler_24_meses_propiedad_oficina': _widget_pct_comision(),
             'comision_marconi': _widget_pct_comision(),
-            'sueldo_basico': forms.NumberInput(
-                attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}
-            ),
+            'sueldo_basico': _widget_sueldo_basico(),
             'basico_no_suma_si_comisiones_superan': forms.CheckboxInput(
                 attrs={'class': 'form-check-input'}
             ),
         }
+
+    def clean_sueldo_basico(self):
+        raw = self.cleaned_data.get('sueldo_basico')
+        if raw is None or str(raw).strip() == '':
+            return None
+        parse = getattr(self, '_parse_sueldo_basico', None)
+        if parse is None:
+            from inmobiliaria.decimal_utils import parse_decimal_monto
+            parse = parse_decimal_monto
+        return parse(raw)
 
     def __init__(self, *args, **kwargs):
         self.puede_editar_nivel = kwargs.pop('puede_editar_nivel', False)
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         _deslocalizar_campos_comision_pct(self)
+        _preparar_sueldo_basico(self)
         if 'sucursal' in self.fields:
             # No permitir cambiar de Colón a Corrientes (ni al revés).
             if self.user and getattr(self.user, 'sucursal_id', None):
