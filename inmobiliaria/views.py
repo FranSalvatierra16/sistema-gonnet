@@ -32568,8 +32568,13 @@ def _operaciones_gastos_pendientes_data(
                 'incluible': True,
                 'id': reserva.id,
                 'descripcion': desc,
+                # Período pendiente de liquidar (puede diferir si hubo liquidación parcial).
                 'fecha_inicio': fd_pend.strftime('%Y-%m-%d') if fd_pend else '',
                 'fecha_fin': fh_pend.strftime('%Y-%m-%d') if fh_pend else '',
+                # Fecha de entrada de la operación (filtro "por día" en pendientes).
+                'fecha_entrada': (
+                    reserva.fecha_inicio.strftime('%Y-%m-%d') if reserva.fecha_inicio else ''
+                ),
                 'monto_total': str(reserva.precio_total),
                 'monto_pagado': str(total_pagado if total_pagado > 0 else reserva.precio_total),
                 'monto_propietario': str(monto_prop_ofrecer),
