@@ -1164,6 +1164,7 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
         _honorarios_por_etiqueta,
         _monto_honorarios_etiqueta,
     )
+    from inmobiliaria.views_ventas import _reparar_honorarios_ars_operacion
 
     fecha_desde, fecha_hasta = _rango_mes(anio, mes)
     vendedores_sueldos = vendedores_en_sueldos(sucursal)
@@ -1241,6 +1242,8 @@ def construir_cuadro_honorarios(sucursal, anio, mes):
     por_venta_detalle = comisiones_por_venta_vendedores(sucursal, fecha_desde, fecha_hasta)
     celdas_ventas = []
     for op in ventas:
+        # Corregir ARS guardado ~1000× chico (p. ej. 8.835 en vez de 8.835.000).
+        _reparar_honorarios_ars_operacion(op, persistir=True)
         celdas = _celdas(
             n,
             oficina=op.honorarios_ars,

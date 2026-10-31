@@ -240,16 +240,21 @@ def _honorarios_ventas_cerradas(sucursal, fecha_desde, fecha_hasta):
     """Honorarios ARS de ventas cerradas confirmadas en el mes (fecha de venta)."""
     if not sucursal or not fecha_desde or not fecha_hasta:
         return Decimal('0')
-    total = (
+    from inmobiliaria.views_ventas import _reparar_honorarios_ars_operacion
+
+    ops = list(
         OperacionVenta.objects.filter(
             sucursal=sucursal,
             estado='confirmada',
             fecha_venta__gte=fecha_desde,
             fecha_venta__lte=fecha_hasta,
-        ).aggregate(t=Sum('honorarios_ars'))['t']
-        or Decimal('0')
+        )
     )
-    return Decimal(str(total))
+    total = Decimal('0')
+    for op in ops:
+        _reparar_honorarios_ars_operacion(op, persistir=True)
+        total += Decimal(str(op.honorarios_ars or 0))
+    return total
 
 
 def _total_tasaciones(sucursal, fecha_desde, fecha_hasta):
