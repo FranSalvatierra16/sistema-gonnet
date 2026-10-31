@@ -154,6 +154,7 @@ def administracion_listado_operaciones(request):
         'fecha_desde': fecha_desde_s if not periodo_completo else '',
         'fecha_hasta': fecha_hasta_s if not periodo_completo else '',
         'periodo_completo': periodo_completo,
+        'modo_imprimir': request.GET.get('imprimir') == '1',
         'operaciones': Paginator([], 50).page(1),
         'total_operaciones': 0,
         'conteos_tipo': [],
@@ -286,7 +287,10 @@ def administracion_listado_operaciones(request):
         if conteos.get(key, 0) > 0
     ]
 
-    paginator = Paginator(filas, 50)
+    # imprimir=1: todas las filas del filtro (sin paginar) para el listado completo.
+    modo_imprimir = request.GET.get('imprimir') == '1'
+    per_page = max(len(filas), 1) if modo_imprimir else 50
+    paginator = Paginator(filas, per_page)
     page_num = request.GET.get('page', 1)
     try:
         page_obj = paginator.page(page_num)
@@ -304,6 +308,7 @@ def administracion_listado_operaciones(request):
             'fecha_desde': fecha_desde_s if not periodo_completo else '',
             'fecha_hasta': fecha_hasta_s if not periodo_completo else '',
             'periodo_completo': periodo_completo,
+            'modo_imprimir': modo_imprimir,
             'operaciones': page_obj,
             'total_operaciones': total_filtrado if tipo_filtro else total_sin_filtro_tipo,
             'total_periodo': total_sin_filtro_tipo,

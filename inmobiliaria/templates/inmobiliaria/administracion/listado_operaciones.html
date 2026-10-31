@@ -2,23 +2,77 @@
 
 {% block title %}Administración — Operaciones{% endblock %}
 
+{% block extra_css %}
+<style>
+    @media print {
+        .navbar, .sidebar, footer, .no-print, .btn, form, .alert {
+            display: none !important;
+        }
+        .container-fluid, .card, .card-body, .card-header, .table-responsive {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        body {
+            background: #fff !important;
+            font-size: 10pt;
+        }
+        h2 { font-size: 14pt; margin-bottom: 0.4rem; }
+        .print-only { display: block !important; }
+        table { font-size: 9pt; }
+        .badge {
+            border: 1px solid #333 !important;
+            color: #000 !important;
+            background: transparent !important;
+        }
+        a { color: inherit !important; text-decoration: none !important; }
+        .col-acciones { display: none !important; }
+    }
+    .print-only { display: none; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 no-print">
         <div>
             <h2 class="mb-1"><i class="fas fa-list-alt me-2 text-primary"></i>Operaciones registradas</h2>
             <p class="text-muted mb-0 small">Todas las operaciones de la sucursal. Filtrá por fecha de alta y por tipo (por día, invierno, 24 meses, etc.).</p>
         </div>
-        <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-outline-secondary btn-sm">
-            <i class="fas fa-arrow-left me-1"></i>Volver al inicio
-        </a>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-dark btn-sm"
+               href="?q={{ q|urlencode }}&tipo={{ tipo_filtro|urlencode }}&fecha_desde={{ fecha_desde|urlencode }}&fecha_hasta={{ fecha_hasta|urlencode }}{% if periodo_completo %}&todo=1{% endif %}&imprimir=1"
+               title="Imprime todo el listado filtrado (todas las páginas)">
+                <i class="fas fa-print me-1"></i>Imprimir listado
+            </a>
+            <a href="{% url 'inmobiliaria:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>Volver al inicio
+            </a>
+        </div>
+    </div>
+
+    <div class="print-only mb-2">
+        <h2 class="mb-1">Operaciones registradas</h2>
+        <p class="mb-0 small">
+            {% if periodo_completo %}
+                Todas las operaciones
+            {% else %}
+                Alta {{ fecha_desde }} — {{ fecha_hasta }}
+            {% endif %}
+            {% if q %} · Búsqueda: {{ q }}{% endif %}
+            {% if tipo_filtro %} · Tipo: {{ tipo_filtro }}{% endif %}
+            · {{ operaciones.paginator.count }} operación{{ operaciones.paginator.count|pluralize:"es" }}
+        </p>
     </div>
 
     {% if error %}
     <div class="alert alert-warning">{{ error }}</div>
     {% endif %}
 
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-4 no-print">
         <div class="col-md-4">
             <div class="card border-primary h-100 shadow-sm">
                 <div class="card-body text-center">
@@ -55,7 +109,7 @@
         {% endfor %}
     </div>
 
-    <div class="card shadow-sm mb-4">
+    <div class="card shadow-sm mb-4 no-print">
         <div class="card-body">
             {% if periodo_completo %}
             <div class="alert alert-info py-2 small mb-3">
@@ -104,7 +158,7 @@
     </div>
 
     <div class="card shadow-sm">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header d-flex justify-content-between align-items-center no-print">
             <strong>Detalle ({{ operaciones.paginator.count }} operación{{ operaciones.paginator.count|pluralize:"es" }})</strong>
             <span class="small text-muted">Página {{ operaciones.number }} de {{ operaciones.paginator.num_pages }}</span>
         </div>
@@ -121,7 +175,7 @@
                         <th>Propiedad</th>
                         <th>Vendedor</th>
                         <th>Estado</th>
-                        <th></th>
+                        <th class="col-acciones no-print"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -145,7 +199,7 @@
                         <td class="small">{{ op.propiedad }}{% if op.propiedad_id %} <span class="text-muted">(#{{ op.propiedad_id }})</span>{% endif %}</td>
                         <td class="small">{{ op.vendedor }}</td>
                         <td class="small">{{ op.estado }}</td>
-                        <td>
+                        <td class="col-acciones no-print">
                             <a href="{{ op.url_detalle }}" class="btn btn-outline-primary btn-sm py-0">Ver</a>
                             {% if op.kind == 'reserva' and user.nivel == 5 or op.kind == 'reserva' and user.is_superuser %}
                             <form method="post"
@@ -170,7 +224,7 @@
             </table>
         </div>
         {% if operaciones.has_other_pages %}
-        <div class="card-footer d-flex justify-content-center gap-2">
+        <div class="card-footer d-flex justify-content-center gap-2 no-print">
             {% if operaciones.has_previous %}
             <a class="btn btn-sm btn-outline-secondary" href="?page={{ operaciones.previous_page_number }}&q={{ q|urlencode }}&tipo={{ tipo_filtro|urlencode }}&fecha_desde={{ fecha_desde|urlencode }}&fecha_hasta={{ fecha_hasta|urlencode }}{% if periodo_completo %}&todo=1{% endif %}">Anterior</a>
             {% endif %}
@@ -181,4 +235,11 @@
         {% endif %}
     </div>
 </div>
+{% if modo_imprimir %}
+<script>
+    window.addEventListener('load', function () {
+        window.print();
+    });
+</script>
+{% endif %}
 {% endblock %}
