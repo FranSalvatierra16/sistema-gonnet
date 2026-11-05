@@ -1,0 +1,61 @@
+{% extends 'inmobiliaria/base.html' %}
+{% load custom_filters %}
+
+{% block title %}Editar concepto de liquidación{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0"><i class="fas fa-edit me-2"></i>Editar concepto de liquidación</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-light border mb-4">
+                        <p class="mb-1"><strong>Concepto:</strong> {{ gasto.descripcion|default:"—" }}</p>
+                        {% if gasto.concepto_caja_id %}
+                        <p class="mb-1"><strong>Cód. caja:</strong> {{ gasto.concepto_caja_id }}</p>
+                        {% endif %}
+                        {% if gasto.liquidacion_id %}
+                        <p class="mb-1"><strong>Liquidación:</strong> #{{ gasto.liquidacion_id }}</p>
+                        {% endif %}
+                        <p class="mb-1"><strong>Propiedad:</strong> {{ propiedad_label }}</p>
+                        <p class="mb-0"><strong>Moneda:</strong> {{ gasto.moneda|default:"ARS" }}</p>
+                    </div>
+
+                    <p class="small text-muted mb-3">
+                        Este ítem se cargó en una liquidación (no es un movimiento de caja).
+                        Cambiá la <strong>fecha</strong> para que figure en el mes correcto del reporte
+                        y de liquidación de productores.
+                    </p>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+                        <div class="mb-3">
+                            <label class="form-label" for="fecha_gasto">Fecha</label>
+                            <input type="date" class="form-control" id="fecha_gasto" name="fecha_gasto"
+                                   value="{{ fecha_gasto }}" required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label" for="monto">Monto ({{ gasto.moneda|default:"ARS" }})</label>
+                            <input type="text" class="form-control input-monto-ar" id="monto" name="monto"
+                                   inputmode="decimal" autocomplete="off" value="{{ monto_form }}" required>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-save me-1"></i>Guardar
+                            </button>
+                            <a href="{{ next }}" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

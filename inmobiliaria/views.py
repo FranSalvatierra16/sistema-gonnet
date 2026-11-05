@@ -18167,6 +18167,8 @@ def _filas_gastos_liquidacion_para_reporte_caja(
         fila = SimpleNamespace(
             id=None,
             es_concepto_liquidacion=True,
+            gasto_propietario_id=g.id,
+            liquidacion_id=liq_id,
             tipo=tipo_code,
             fecha=fecha,
             caja=None,
@@ -18571,6 +18573,109 @@ def reportes_caja(request):
         'puede_editar_movimiento_caja': usuario_puede_editar_movimiento_caja(request.user),
     }
     return render(request, 'inmobiliaria/caja/reportes.html', context)
+
+
+@login_required
+def editar_gasto_concepto_liquidacion(request, gasto_id):
+    """
+    Edita un concepto cargado en liquidación (GastoPropietario) desde reportes de caja.
+    Permite corregir fecha (mes del reporte) y monto.
+    """
+    from datetime import datetime as dt_cls
+    from urllib.parse import quote
+
+    from inmobiliaria.decimal_utils import format_monto_argentino, parse_decimal_monto
+    from inmobiliaria.models import GastoPropietario
+
+    if not usuario_puede_editar_movimiento_caja(request.user):
+        return HttpResponseForbidden('No tenés permiso para editar este concepto.')
+
+    sucursal = getattr(request.user, 'sucursal', None)
+    gasto = get_object_or_404(
+        GastoPropietario.objects.select_related(
+            'liquidacion', 'propiedad', 'propietario', 'sucursal'
+        ),
+        pk=gasto_id,
+    )
+    suc_gasto = gasto.sucursal_id or getattr(gasto.liquidacion, 'sucursal_id', None)
+    if not sucursal or (suc_gasto and suc_gasto != sucursal.id):
+        return HttpResponseForbidden('El concepto no pertenece a tu sucursal.')
+
+    next_url = (request.POST.get('next') or request.GET.get('next') or '').strip()
+    if not next_url:
+        next_url = reverse('inmobiliaria:reportes_caja')
+
+    fecha_actual = gasto.fecha_gasto
+    if not fecha_actual and gasto.fecha_creacion:
+        fc = gasto.fecha_creacion
+        if timezone.is_aware(fc):
+            fc = timezone.localtime(fc)
+        fecha_actual = fc.date()
+
+    if request.method == 'POST':
+        raw_fecha = (request.POST.get('fecha_gasto') or '').strip()
+        raw_monto = (request.POST.get('monto') or '').strip()
+        try:
+            nueva_fecha = dt_cls.strptime(raw_fecha[:10], '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            messages.error(request, 'Fecha inválida.')
+            return redirect(request.path + f'?next={next_url}')
+
+        try:
+            nuevo_monto = parse_decimal_monto(raw_monto).quantize(Decimal('0.01'))
+        except Exception:
+            messages.error(request, 'Monto inválido.')
+            return redirect(request.path + f'?next={next_url}')
+        if nuevo_monto <= 0:
+            messages.error(request, 'El monto debe ser mayor a cero.')
+            return redirect(request.path + f'?next={next_url}')
+
+        gasto.fecha_gasto = nueva_fecha
+        gasto.monto = nuevo_monto
+        gasto.save(update_fields=['fecha_gasto', 'monto'])
+
+        # Alinear fecha_creacion al mismo día (el reporte a veces cae por creación).
+        fc = gasto.fecha_creacion
+        if fc:
+            if timezone.is_aware(fc):
+                local = timezone.localtime(fc)
+            else:
+                local = fc
+            nuevo_dt = dt_cls.combine(nueva_fecha, local.time() if hasattr(local, 'time') else dt_cls.min.time())
+            if timezone.is_aware(fc):
+                try:
+                    nuevo_dt = timezone.make_aware(nuevo_dt, timezone.get_current_timezone())
+                except Exception:
+                    pass
+            GastoPropietario.objects.filter(pk=gasto.pk).update(fecha_creacion=nuevo_dt)
+
+        messages.success(
+            request,
+            f'Concepto actualizado: fecha {nueva_fecha.strftime("%d/%m/%Y")}, '
+            f'monto {format_monto_argentino(nuevo_monto)}.',
+        )
+        return redirect(next_url)
+
+    prop = gasto.propiedad
+    prop_label = '—'
+    if prop:
+        partes = [f'#{prop.id}']
+        if prop.direccion:
+            partes.append(prop.direccion)
+        prop_label = ' — '.join(partes)
+
+    return render(
+        request,
+        'inmobiliaria/caja/editar_gasto_concepto_liquidacion.html',
+        {
+            'gasto': gasto,
+            'fecha_gasto': fecha_actual.isoformat() if fecha_actual else '',
+            'monto_form': format_monto_argentino(gasto.monto),
+            'propiedad_label': prop_label,
+            'next': next_url,
+        },
+    )
+
 
 @login_required
 def arqueo_caja(request):
