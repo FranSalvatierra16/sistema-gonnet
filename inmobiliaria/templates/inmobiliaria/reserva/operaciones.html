@@ -843,6 +843,13 @@
                                 <a href="{% url 'inmobiliaria:detalle_contrato' op.contrato.id %}" class="btn-action btn-ver">
                                     <i class="fas fa-eye"></i>Ver
                                 </a>
+                                {% if op.propiedad_id or op.contrato.propiedad_id %}
+                                <a href="{% url 'inmobiliaria:propiedad_detalle' op.propiedad_id|default:op.contrato.propiedad_id %}?open_historial=1"
+                                   class="btn-action btn-ver" title="Ver disponibilidad del departamento"
+                                   target="_blank" rel="noopener">
+                                    <i class="fas fa-calendar-alt"></i>Disponibilidad
+                                </a>
+                                {% endif %}
                                 <a href="{% url 'inmobiliaria:recibo_contrato_24' op.contrato.id %}" class="btn-action btn-recibo">
                                     <i class="fas fa-receipt"></i>Recibo
                                 </a>
