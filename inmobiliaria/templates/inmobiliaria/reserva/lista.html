@@ -363,6 +363,15 @@
         <div class="header-section fade-in">
             <h1 class="page-title">📋 Reservas Pendientes</h1>
             <p class="subtitle">Gestiona todas las reservas que están esperando confirmación o pago</p>
+            <div class="text-center mb-3">
+                <span class="badge rounded-pill bg-success fs-5 px-4 py-2">
+                    {{ total_reservas }} reserva{{ total_reservas|pluralize:"s" }} hecha{{ total_reservas|pluralize:"s" }}
+                    {% if hay_busqueda %}(filtros aplicados){% endif %}
+                </span>
+                {% if lista_acotada %}
+                <div class="small text-muted mt-1">Se listan las {{ reservas|length }} más recientes</div>
+                {% endif %}
+            </div>
                 
                 <!-- ✅ Filtros de búsqueda -->
             <div class="row mb-3">

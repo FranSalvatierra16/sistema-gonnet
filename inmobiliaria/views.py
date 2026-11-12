@@ -4625,6 +4625,7 @@ def reservas(request):
     hay_busqueda = bool(
         search_id or fecha_desde or fecha_hasta or search_vendedor_id or search_ficha
     )
+    total_reservas = reservas.count()
     lista_acotada = False
     if not hay_busqueda:
         reservas = list(reservas[: MAX_LISTA_RESERVAS + 1])
@@ -4644,6 +4645,8 @@ def reservas(request):
 
     return render(request, 'inmobiliaria/reserva/lista.html', {
         'reservas': reservas_list,
+        'total_reservas': total_reservas,
+        'hay_busqueda': hay_busqueda,
         'search_id': search_id,
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
