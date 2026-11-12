@@ -2135,6 +2135,15 @@ function verHistorial() {
     modalHistorial.show();
 }
 
+document.addEventListener('DOMContentLoaded', function () {
+    try {
+        var params = new URLSearchParams(window.location.search || '');
+        if (params.get('open_historial') === '1' && document.getElementById('modalHistorial')) {
+            verHistorial();
+        }
+    } catch (e) { /* ignore */ }
+});
+
 function reconstruirHistorial() {
     Swal.fire({
         title: '¿Reconstruir historial?',

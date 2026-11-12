@@ -23,6 +23,13 @@
             <i class="fas fa-hand-holding-usd me-1"></i>{{ etiqueta_liquidacion_operacion }}
         </a>
         {% endif %}
+        {% if reserva.propiedad_id %}
+        <a href="{% url 'inmobiliaria:propiedad_detalle' reserva.propiedad_id %}?open_historial=1"
+           class="btn btn-sm btn-outline-info" target="_blank" rel="noopener"
+           title="Ver disponibilidad del departamento">
+            <i class="fas fa-calendar-alt me-1"></i>Ver disponibilidad
+        </a>
+        {% endif %}
         {% if puede_anular_operacion_caratula %}
         <form method="post" class="m-0 ms-auto" id="form-eliminar-operacion-top"
               onsubmit="return confirm('¿Eliminar esta operación? Se liberan las fechas. La caja NO se modifica (contrasiento manual si hace falta). Las comisiones ya acreditadas quedan en el mes original; el descuento se registra el día de la anulación.');">

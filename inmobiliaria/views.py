@@ -4552,12 +4552,20 @@ def reservas(request):
 
     MAX_LISTA_RESERVAS = 300
 
+    tipo_fecha = (request.GET.get('tipo_fecha') or 'entrada').strip().lower()
+    if tipo_fecha not in ('entrada', 'alta'):
+        tipo_fecha = 'entrada'
+
     reservas = queryset_reservas_pendientes_cobro(
         Reserva.objects.filter(
             sucursal=request.user.sucursal,
             eliminada=False,
         )
-    ).select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor').order_by('-id')
+    ).select_related('cliente', 'propiedad', 'propiedad__propietario', 'vendedor')
+    if tipo_fecha == 'entrada':
+        reservas = reservas.order_by('fecha_inicio', '-id')
+    else:
+        reservas = reservas.order_by('-id')
     
     # ✅ Filtro de búsqueda por ID (opcional)
     search_id = request.GET.get('search_id', '').strip()
@@ -4569,21 +4577,27 @@ def reservas(request):
             # Si no es un número, buscar como string
             reservas = reservas.filter(id__icontains=search_id)
     
-    # ✅ Filtro por fecha (fecha de inicio de la reserva)
+    # ✅ Filtro por fecha: entrada (fecha_inicio) o alta (fecha_creacion)
     fecha_desde = request.GET.get('fecha_desde', '').strip()
     fecha_hasta = request.GET.get('fecha_hasta', '').strip()
     
     if fecha_desde:
         try:
             fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-            reservas = reservas.filter(fecha_inicio__gte=fecha_desde_obj)
+            if tipo_fecha == 'alta':
+                reservas = reservas.filter(fecha_creacion__date__gte=fecha_desde_obj)
+            else:
+                reservas = reservas.filter(fecha_inicio__gte=fecha_desde_obj)
         except ValueError:
             pass
     
     if fecha_hasta:
         try:
             fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-            reservas = reservas.filter(fecha_inicio__lte=fecha_hasta_obj)
+            if tipo_fecha == 'alta':
+                reservas = reservas.filter(fecha_creacion__date__lte=fecha_hasta_obj)
+            else:
+                reservas = reservas.filter(fecha_inicio__lte=fecha_hasta_obj)
         except ValueError:
             pass
     
@@ -4633,6 +4647,7 @@ def reservas(request):
         'search_id': search_id,
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
+        'tipo_fecha': tipo_fecha,
         'search_vendedor': search_vendedor_id,
         'search_ficha': search_ficha,
         'vendedores': vendedores,
@@ -4764,10 +4779,18 @@ def _operaciones_impl(request):
         for i in range(0, len(seq), size):
             yield seq[i : i + size]
 
+    tipo_fecha = (request.GET.get('tipo_fecha') or 'entrada').strip().lower()
+    if tipo_fecha not in ('entrada', 'alta'):
+        tipo_fecha = 'entrada'
+
     reservas = Reserva.objects.filter(
         sucursal=user_sucursal,
         eliminada=False,
-    ).order_by('-id')
+    )
+    if tipo_fecha == 'entrada':
+        reservas = reservas.order_by('fecha_inicio', '-id')
+    else:
+        reservas = reservas.order_by('-id')
 
     search_id = request.GET.get('search_id', '').strip()
     if search_id:
@@ -4784,14 +4807,20 @@ def _operaciones_impl(request):
     if fecha_desde:
         try:
             fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-            reservas = reservas.filter(fecha_inicio__gte=fecha_desde_obj)
+            if tipo_fecha == 'alta':
+                reservas = reservas.filter(fecha_creacion__date__gte=fecha_desde_obj)
+            else:
+                reservas = reservas.filter(fecha_inicio__gte=fecha_desde_obj)
         except ValueError:
             pass
 
     if fecha_hasta:
         try:
             fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-            reservas = reservas.filter(fecha_inicio__lte=fecha_hasta_obj)
+            if tipo_fecha == 'alta':
+                reservas = reservas.filter(fecha_creacion__date__lte=fecha_hasta_obj)
+            else:
+                reservas = reservas.filter(fecha_inicio__lte=fecha_hasta_obj)
         except ValueError:
             pass
 
@@ -5175,6 +5204,7 @@ def _operaciones_impl(request):
             'search_id': search_id,
             'fecha_desde': fecha_desde,
             'fecha_hasta': fecha_hasta,
+            'tipo_fecha': tipo_fecha,
             'search_vendedor': search_vendedor_id,
             'search_ficha': search_ficha,
             'solo_pendientes': solo_pendientes,
@@ -18615,20 +18645,23 @@ def editar_gasto_concepto_liquidacion(request, gasto_id):
     if request.method == 'POST':
         raw_fecha = (request.POST.get('fecha_gasto') or '').strip()
         raw_monto = (request.POST.get('monto') or '').strip()
+        edit_url = reverse(
+            'inmobiliaria:editar_gasto_concepto_liquidacion', args=[gasto.id]
+        ) + '?next=' + quote(next_url, safe='')
         try:
             nueva_fecha = dt_cls.strptime(raw_fecha[:10], '%Y-%m-%d').date()
         except (TypeError, ValueError):
             messages.error(request, 'Fecha inválida.')
-            return redirect(request.path + f'?next={next_url}')
+            return redirect(edit_url)
 
         try:
             nuevo_monto = parse_decimal_monto(raw_monto).quantize(Decimal('0.01'))
         except Exception:
             messages.error(request, 'Monto inválido.')
-            return redirect(request.path + f'?next={next_url}')
+            return redirect(edit_url)
         if nuevo_monto <= 0:
             messages.error(request, 'El monto debe ser mayor a cero.')
-            return redirect(request.path + f'?next={next_url}')
+            return redirect(edit_url)
 
         gasto.fecha_gasto = nueva_fecha
         gasto.monto = nuevo_monto

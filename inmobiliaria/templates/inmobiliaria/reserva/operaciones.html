@@ -629,13 +629,21 @@
                             </div>
                             
                             <div class="col-md-3">
-                                <label class="form-label"><i class="fas fa-calendar me-1"></i>Fecha Desde</label>
+                                <label class="form-label"><i class="fas fa-filter me-1"></i>Ver por fecha de</label>
+                                <select name="tipo_fecha" class="form-select">
+                                    <option value="entrada" {% if tipo_fecha != 'alta' %}selected{% endif %}>Entrada (check-in)</option>
+                                    <option value="alta" {% if tipo_fecha == 'alta' %}selected{% endif %}>Alta (día de carga)</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label"><i class="fas fa-calendar me-1"></i>{% if tipo_fecha == 'alta' %}Alta desde{% else %}Entrada desde{% endif %}</label>
                                 <input type="date" name="fecha_desde" value="{{ fecha_desde }}" 
                                        class="form-control">
                             </div>
                             
                             <div class="col-md-3">
-                                <label class="form-label"><i class="fas fa-calendar me-1"></i>Fecha Hasta</label>
+                                <label class="form-label"><i class="fas fa-calendar me-1"></i>{% if tipo_fecha == 'alta' %}Alta hasta{% else %}Entrada hasta{% endif %}</label>
                                 <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" 
                                        class="form-control">
                             </div>
@@ -859,6 +867,13 @@
                             <a href="{% url 'inmobiliaria:reserva_detalle' op.id %}" class="btn-action btn-ver">
                                 <i class="fas fa-eye"></i>Ver
                             </a>
+                            {% if op.propiedad_id %}
+                            <a href="{% url 'inmobiliaria:propiedad_detalle' op.propiedad_id %}?open_historial=1"
+                               class="btn-action btn-ver" title="Ver disponibilidad del departamento"
+                               target="_blank" rel="noopener">
+                                <i class="fas fa-calendar-alt"></i>Disponibilidad
+                            </a>
+                            {% endif %}
                             
                             {% if op.todos_recibos %}
                                 {% if op.todos_recibos|length == 1 %}
@@ -974,12 +989,12 @@
                 <ul class="pagination mb-0">
                     {% if has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ previous_page }}{% if search_id %}&search_id={{ search_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}{% if search_vendedor %}&search_vendedor={{ search_vendedor }}{% endif %}{% if search_ficha %}&search_ficha={{ search_ficha }}{% endif %}{% if solo_pendientes %}&solo_pendientes=true{% endif %}">&laquo; Anterior</a>
+                        <a class="page-link" href="?page={{ previous_page }}{% if search_id %}&search_id={{ search_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}{% if tipo_fecha %}&tipo_fecha={{ tipo_fecha }}{% endif %}{% if search_vendedor %}&search_vendedor={{ search_vendedor }}{% endif %}{% if search_ficha %}&search_ficha={{ search_ficha }}{% endif %}{% if solo_pendientes %}&solo_pendientes=true{% endif %}">&laquo; Anterior</a>
                     </li>
                     {% endif %}
                     {% if has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ next_page }}{% if search_id %}&search_id={{ search_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}{% if search_vendedor %}&search_vendedor={{ search_vendedor }}{% endif %}{% if search_ficha %}&search_ficha={{ search_ficha }}{% endif %}{% if solo_pendientes %}&solo_pendientes=true{% endif %}">Siguiente &raquo;</a>
+                        <a class="page-link" href="?page={{ next_page }}{% if search_id %}&search_id={{ search_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}{% if tipo_fecha %}&tipo_fecha={{ tipo_fecha }}{% endif %}{% if search_vendedor %}&search_vendedor={{ search_vendedor }}{% endif %}{% if search_ficha %}&search_ficha={{ search_ficha }}{% endif %}{% if solo_pendientes %}&solo_pendientes=true{% endif %}">Siguiente &raquo;</a>
                     </li>
                     {% endif %}
                 </ul>

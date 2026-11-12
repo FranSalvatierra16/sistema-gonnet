@@ -536,8 +536,14 @@
                     <i class="fas fa-arrow-left"></i>
                     Volver a Lista
                 </a>
-                
-                
+
+                {% if reserva.propiedad_id %}
+                <a href="{% url 'inmobiliaria:propiedad_detalle' reserva.propiedad_id %}?open_historial=1"
+                   class="btn-modern btn-secondary-modern" target="_blank" rel="noopener">
+                    <i class="fas fa-calendar-alt"></i>
+                    Ver disponibilidad
+                </a>
+                {% endif %}
 
                 {% if reserva.estado == 'confirmada_no_pagada' %}
                 <a href="{% url 'inmobiliaria:finalizar_reserva_nueva' reserva.id %}" class="btn-modern btn-primary-modern btn-finalizar">
