@@ -237,27 +237,41 @@ function calcularTotalPagos() {
             return parseDecimalMontoJS(elemento.value);
         }
         
-        let totalPagos;
-        if (monedaOperacion === 'USD') {
-            totalPagos = parsearValor(dolaresElement);
+        const efectivo = parsearValor(efectivoElement);
+        const cheque = parsearValor(chequeElement);
+        const tarjeta = parsearValor(tarjetaElement);
+        const dolares = parsearValor(dolaresElement);
+        let totalCuentasBancarias = 0;
+        camposCuentasBancarias.forEach(campo => {
+            const valor = parsearValor(campo);
+            totalCuentasBancarias += valor;
+        });
+        const totalArs = efectivo + cheque + tarjeta + totalCuentasBancarias;
+        const cotizEl = document.getElementById('cotizacion_dolar');
+        const cotiz = parsearValor(cotizEl);
+        const hayArs = totalArs > 0.01;
+        const hayUsd = dolares > 0.01;
+        // Cruzado: pesos+dólares, o moneda de conceptos distinta a la del medio usado.
+        const necesitaCotiz = (hayArs && hayUsd)
+            || (monedaOperacion === 'USD' && hayArs)
+            || (monedaOperacion !== 'USD' && hayUsd);
+        const mixtoSinCotiz = necesitaCotiz && cotiz <= 0;
+        let totalPagos = 0;
+        const avisoCotiz = document.getElementById('aviso-cotizacion-mixta');
+        if (mixtoSinCotiz) {
+            if (avisoCotiz) avisoCotiz.classList.remove('d-none');
+            totalPagos = monedaOperacion === 'USD' ? dolares : totalArs;
         } else {
-            const efectivo = parsearValor(efectivoElement);
-            const cheque = parsearValor(chequeElement);
-            const tarjeta = parsearValor(tarjetaElement);
-            let totalCuentasBancarias = 0;
-            camposCuentasBancarias.forEach(campo => {
-                const valor = parsearValor(campo);
-                totalCuentasBancarias += valor;
-                console.log(`   ${campo.id}:`, valor);
-            });
-            totalPagos = efectivo + cheque + tarjeta + totalCuentasBancarias;
-            console.log('💰 CÁLCULO TOTAL PAGOS ARS:');
-            console.log('   Efectivo:', efectivo);
-            console.log('   Cheque:', cheque);
-            console.log('   Tarjeta:', tarjeta);
-            console.log('   Total Cuentas Bancarias:', totalCuentasBancarias);
+            if (avisoCotiz) avisoCotiz.classList.add('d-none');
+            if (monedaOperacion === 'USD') {
+                totalPagos = dolares + (hayArs ? (totalArs / cotiz) : 0);
+            } else {
+                totalPagos = totalArs + (hayUsd ? (dolares * cotiz) : 0);
+            }
         }
-        console.log('   TOTAL PAGOS:', totalPagos, monedaOperacion);
+        console.log('💰 CÁLCULO TOTAL PAGOS (mixto):', {
+            totalArs, dolares, cotiz, monedaOperacion, totalPagos, mixtoSinCotiz
+        });
         
         // Actualizar display del total de pagos
         const totalPagosElement = document.getElementById('totalPagos');
@@ -299,7 +313,9 @@ function calcularTotalPagos() {
         console.log('   Diferencia:', diferencia);
         
         // Habilitar/deshabilitar botón
-        habilitarBotonProcesar(Math.abs(diferencia) < 0.02 && totalRecibo > 0);
+        habilitarBotonProcesar(
+            Math.abs(diferencia) < 0.02 && totalRecibo > 0 && !mixtoSinCotiz
+        );
         
     } catch (error) {
         console.error('❌ Error en calcularTotalPagos:', error);
@@ -309,15 +325,22 @@ function calcularTotalPagos() {
 function actualizarVisibilidadMonedaPago() {
     const sel = document.getElementById('moneda_operacion');
     if (sel) monedaOperacion = (sel.value || 'ARS').toUpperCase();
+    // Siempre mostrar pesos y dólares: el recibo puede cobrarse mixto.
     const bloqueArs = document.getElementById('bloque_pagos_ars');
     const bloqueUsd = document.getElementById('bloque_pagos_usd');
-    if (bloqueArs) bloqueArs.classList.toggle('d-none', monedaOperacion === 'USD');
-    if (bloqueUsd) bloqueUsd.classList.toggle('d-none', monedaOperacion !== 'USD');
+    if (bloqueArs) bloqueArs.classList.remove('d-none');
+    if (bloqueUsd) bloqueUsd.classList.remove('d-none');
     const badge = document.getElementById('badge-moneda-pago');
-    if (badge) badge.textContent = monedaOperacion === 'USD' ? 'USD' : 'ARS';
+    if (badge) badge.textContent = 'ARS + USD';
     document.querySelectorAll('.label-simbolo-moneda').forEach(el => {
         el.textContent = monedaOperacion === 'USD' ? 'U$S' : '$';
     });
+    const hintConceptos = document.getElementById('hint-moneda-conceptos');
+    if (hintConceptos) {
+        hintConceptos.textContent = monedaOperacion === 'USD'
+            ? 'Conceptos en USD. Podés pagar parte en dólares y parte en pesos (con cotización).'
+            : 'Conceptos en pesos. Podés pagar parte en pesos y parte en dólares (con cotización).';
+    }
     if (typeof actualizarPagos === 'function') actualizarPagos();
 }
 
@@ -1259,13 +1282,19 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                                 <h5>💰 Información de Pagos</h5>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label mb-0" for="moneda_operacion"><strong>Moneda de la operación</strong></label>
+                                <label class="form-label mb-0" for="moneda_operacion"><strong>Moneda de los conceptos</strong></label>
                                 <select class="form-select form-select-sm" id="moneda_operacion" name="moneda"
                                         onchange="actualizarVisibilidadMonedaPago()">
                                     <option value="ARS" {% if moneda_operacion != 'USD' %}selected{% endif %}>Pesos (ARS)</option>
                                     <option value="USD" {% if moneda_operacion == 'USD' %}selected{% endif %}>Dólares (USD)</option>
                                 </select>
-                                <small class="text-muted">Precio, seña, depósito y conceptos en esta moneda.</small>
+                                <small class="text-muted" id="hint-moneda-conceptos">
+                                    {% if moneda_operacion == 'USD' %}
+                                    Conceptos en USD. Podés pagar parte en dólares y parte en pesos (con cotización).
+                                    {% else %}
+                                    Conceptos en pesos. Podés pagar parte en pesos y parte en dólares (con cotización).
+                                    {% endif %}
+                                </small>
                             </div>
                         </div>
                         
@@ -1431,11 +1460,12 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                         <div class="row mb-3" style="background-color: #fff3cd; padding: 15px; border-radius: 5px; border: 2px solid #ffc107;">
                             <div class="col-12 mb-2">
                                 <strong>Formas de pago</strong>
-                                <span class="badge bg-secondary ms-1" id="badge-moneda-pago">{% if moneda_operacion == 'USD' %}USD{% else %}ARS{% endif %}</span>
+                                <span class="badge bg-secondary ms-1" id="badge-moneda-pago">ARS + USD</span>
+                                <small class="text-muted d-block mt-1">Podés combinar pesos y dólares en el mismo recibo.</small>
                             </div>
 
-                            <!-- Bloque USD -->
-                            <div id="bloque_pagos_usd" class="col-12 {% if moneda_operacion != 'USD' %}d-none{% endif %}">
+                            <!-- Bloque USD (siempre visible para cobro mixto) -->
+                            <div id="bloque_pagos_usd" class="col-12">
                                 <div class="row mb-2">
                                     <div class="col-md-4">
                                         <label for="monto_dolares" class="form-label">💵 <strong>IMPORTE USD (efectivo):</strong></label>
@@ -1444,7 +1474,7 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                                             <input type="text" class="form-control importe-pago" id="monto_dolares" name="monto_dolares"
                                                    placeholder="0" onchange="actualizarPagos()" oninput="actualizarPagos()">
                                         </div>
-                                        <small class="text-muted">Cubrí el total de conceptos con dólares. Los importes de conceptos también van en USD.</small>
+                                        <small class="text-muted">Parte en dólares (efectivo). Se suma al total con la cotización.</small>
                                     </div>
                                 </div>
                             </div>
@@ -1452,18 +1482,21 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                             <div class="col-12 mb-2">
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <label for="cotizacion_dolar" class="form-label"><strong>Cotización del día (opcional):</strong></label>
+                                        <label for="cotizacion_dolar" class="form-label"><strong>Cotización del día:</strong></label>
                                         <div class="input-group">
                                             <span class="input-group-text">$</span>
                                             <input type="text" class="form-control" id="cotizacion_dolar" name="cotizacion_dolar"
-                                                   placeholder="Ej. 1450">
+                                                   placeholder="Ej. 1450" onchange="actualizarPagos()" oninput="actualizarPagos()">
                                         </div>
-                                        <small class="text-muted">Pesos por 1 dólar; queda registrado en el movimiento (ARS o USD).</small>
+                                        <small class="text-muted">Pesos por 1 dólar. Obligatoria si cobrás pesos y dólares juntos.</small>
+                                        <div id="aviso-cotizacion-mixta" class="text-danger small d-none mt-1">
+                                            Cargá la cotización para poder combinar pesos y dólares.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div id="bloque_pagos_ars" class="{% if moneda_operacion == 'USD' %}d-none{% endif %}">
+                            <div id="bloque_pagos_ars">
                             <!-- Fila 1: Banco y Cheques -->
                             <div class="col-md-6">
                                 <div class="row mb-2">

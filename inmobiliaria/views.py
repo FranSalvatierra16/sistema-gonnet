@@ -8088,30 +8088,15 @@ def procesar_movimiento_reserva(request):
             # Usar el total dinámico o el legacy como fallback
             monto_deposito = monto_deposito_total if monto_deposito_total > 0 else monto_deposito_legacy
 
-            if moneda_op == 'USD':
-                monto_efectivo = Decimal('0')
-                monto_cheque = Decimal('0')
-                monto_tarjeta = Decimal('0')
-                monto_deposito = Decimal('0')
-            
-# print(f"=== VALORES RAW RECIBIDOS ===")
-# print(f"monto_efectivo RAW: '{request.POST.get('monto_efectivo', '0')}'")
-# print(f"Cuentas bancarias dinámicas: {len(montos_cuentas_bancarias)}")
-            for cuenta_id, data in montos_cuentas_bancarias.items():
-                pass  # ✅ Bloque vacío
-# print(f"  {data['cuenta'].nombre_banco} ({data['campo']}): '{request.POST.get(data['campo'], '0')}'")
-            
-# print(f"=== VALORES CONVERTIDOS A DECIMAL ===")
-# print(f"Montos recibidos - Efectivo: {monto_efectivo}, Cheque: {monto_cheque}, Tarjeta: {monto_tarjeta}")
-# print(f"Transferencias dinámicas: ${monto_deposito_total}, Legacy: ${monto_deposito_legacy}, Total final: ${monto_deposito}")
-            total_movimientos = (
-                (monto_efectivo or 0)
-                + (monto_cheque or 0)
-                + (monto_tarjeta or 0)
-                + (monto_deposito or 0)
-                + (monto_dolares or 0)
+            # Cobro mixto: se mantienen pesos y dólares; se validan con cotización más abajo.
+            total_ars_medios = (
+                (monto_efectivo or Decimal('0'))
+                + (monto_cheque or Decimal('0'))
+                + (monto_tarjeta or Decimal('0'))
+                + (monto_deposito or Decimal('0'))
             )
-# print(f"TOTAL A CREAR EN MOVIMIENTOS: {total_movimientos}")
+            total_usd_medios = monto_dolares or Decimal('0')
+            total_movimientos = total_ars_medios + total_usd_medios
             
             # Datos adicionales
             banco = request.POST.get('banco', '').strip()
@@ -8204,28 +8189,54 @@ def procesar_movimiento_reserva(request):
             
 # print(f"📝 CONCEPTO FINAL: {concepto_detallado}")
 
-            if moneda_op == 'USD':
-                if total_conceptos > 0 and monto_dolares <= 0:
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Operación en USD: cargá el importe en el campo USD (efectivo).',
-                    })
-                if total_conceptos > 0 and abs(monto_dolares - total_conceptos) > Decimal('0.05'):
-                    return JsonResponse({
-                        'success': False,
-                        'error': (
-                            f'En USD, el importe dólares (U$S {monto_dolares}) debe coincidir '
-                            f'con el total de conceptos (U$S {total_conceptos}).'
-                        ),
-                    })
-
             # Sin plata no hay Operación: queda como Reserva (confirmada_no_pagada).
-            if total_movimientos <= Decimal('0.01') or total_conceptos <= Decimal('0.01'):
+            if (
+                (total_ars_medios <= Decimal('0.01') and total_usd_medios <= Decimal('0.01'))
+                or total_conceptos <= Decimal('0.01')
+            ):
                 return JsonResponse({
                     'success': False,
                     'error': (
                         'Sin cobro no se puede crear una operación. '
                         'Si no entra plata, dejá la reserva como «Reservado».'
+                    ),
+                })
+
+            # Total de medios expresado en la moneda de los conceptos (permite mixto ARS+USD).
+            necesita_cotiz = (
+                (total_ars_medios > Decimal('0.01') and total_usd_medios > Decimal('0.01'))
+                or (moneda_op == 'USD' and total_ars_medios > Decimal('0.01'))
+                or (moneda_op != 'USD' and total_usd_medios > Decimal('0.01'))
+            )
+            if necesita_cotiz and (not cotizacion_dolar or cotizacion_dolar <= 0):
+                return JsonResponse({
+                    'success': False,
+                    'error': (
+                        'Para cobrar parte en pesos y parte en dólares '
+                        'cargá la cotización del día (pesos por 1 dólar).'
+                    ),
+                })
+
+            if moneda_op == 'USD':
+                total_pagos_conceptos = total_usd_medios
+                if total_ars_medios > Decimal('0.01'):
+                    total_pagos_conceptos += (
+                        total_ars_medios / cotizacion_dolar
+                    ).quantize(Decimal('0.01'))
+            else:
+                total_pagos_conceptos = total_ars_medios
+                if total_usd_medios > Decimal('0.01'):
+                    total_pagos_conceptos += (
+                        total_usd_medios * cotizacion_dolar
+                    ).quantize(Decimal('0.01'))
+
+            if abs(total_pagos_conceptos - total_conceptos) > Decimal('0.05'):
+                return JsonResponse({
+                    'success': False,
+                    'error': (
+                        f'El total de formas de pago ({total_pagos_conceptos}) '
+                        f'no coincide con el total de conceptos ({total_conceptos}) '
+                        f'en {moneda_op}. Revisá importes y cotización.'
                     ),
                 })
             
