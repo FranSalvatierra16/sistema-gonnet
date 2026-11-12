@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 MAX_PROPIEDADES = 400
 
-ESTADOS_RESERVA_OPERACION = ('pagada', 'confirmada_no_pagada', 'confirmada')
+# Solo operaciones con cobro (pagada/confirmada). Sin plata = Reserva, no figura acá.
+ESTADOS_RESERVA_OPERACION = ('pagada', 'confirmada')
 
 
 def _parse_fecha(valor):
@@ -48,9 +49,13 @@ def _propiedades_candidatas(sucursal, desde, hasta, q, tipo_filtro=''):
     - Contratos: el contrato toca el rango (mes a liquidar).
     - Sin tipo / otros: unión de ambos (con tope).
     """
-    ids_reservas = Reserva.objects.filter(
-        estado__in=ESTADOS_RESERVA_OPERACION,
-        eliminada=False,
+    from inmobiliaria.caja_devolucion_deposito import queryset_reservas_con_operacion
+
+    ids_reservas = queryset_reservas_con_operacion(
+        Reserva.objects.filter(
+            estado__in=ESTADOS_RESERVA_OPERACION,
+            eliminada=False,
+        )
     )
     if tipo_filtro == 'reserva':
         # Irina: por día se lista por fecha de entrada en el período elegido.

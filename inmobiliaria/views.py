@@ -6031,15 +6031,21 @@ def confirmar_reserva(request):
 # print(f"✅ Reserva creada correctamente. ID: {reserva.id}")
 # print(f"📋 Las disponibilidades se mantienen fijas, solo se actualiza el historial")
 
+                # Hasta que entre plata sigue siendo Reserva (no Operación).
                 estado_asignado = 'confirmada_no_pagada'
                 if es_operacion_directa:
-                    tipo_operacion = 'Operación directa'
+                    tipo_operacion = 'Reserva (cobro pendiente)'
                     redirect_url = reverse('inmobiliaria:finalizar_reserva_nueva', args=[reserva.id])
-                    mensaje_estado = f'{tipo_operacion} creada. Continuá con el cobro.'
+                    mensaje_estado = (
+                        'Reserva creada. Para que sea Operación tenés que registrar un cobro '
+                        '(si no entra plata, queda como Reserva).'
+                    )
                 else:
                     tipo_operacion = 'Reserva'
                     redirect_url = reverse('inmobiliaria:reserva_exitosa', args=[reserva.id])
-                    mensaje_estado = f'{tipo_operacion} creada con estado: {estado_asignado}'
+                    mensaje_estado = (
+                        f'Reserva creada (Reservado). Pasa a Operación recién cuando entre plata.'
+                    )
 
                 return JsonResponse({
                     'success': True,
@@ -8212,6 +8218,16 @@ def procesar_movimiento_reserva(request):
                             f'con el total de conceptos (U$S {total_conceptos}).'
                         ),
                     })
+
+            # Sin plata no hay Operación: queda como Reserva (confirmada_no_pagada).
+            if total_movimientos <= Decimal('0.01') or total_conceptos <= Decimal('0.01'):
+                return JsonResponse({
+                    'success': False,
+                    'error': (
+                        'Sin cobro no se puede crear una operación. '
+                        'Si no entra plata, dejá la reserva como «Reservado».'
+                    ),
+                })
             
             # Crear movimiento principal con concepto detallado
             create_kwargs = dict(

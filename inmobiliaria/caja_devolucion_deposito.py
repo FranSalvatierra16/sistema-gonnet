@@ -448,91 +448,65 @@ def etiqueta_estado_reserva(reserva, senia: Decimal | None = None) -> str:
     return 'Operación (seña pagada)'
 
 
-def reserva_tiene_senia_cobrada(reserva) -> bool:
-    """True si hay seña u otro cobro de operación registrado en caja."""
-    senia_db = Decimal(str(getattr(reserva, 'senia', None) or 0))
-    if senia_db > Decimal('0.01'):
-        return True
+def reserva_tiene_cobro_real(reserva) -> bool:
+    """
+    True solo si entró plata (movimientos de caja / recibos con monto > 0).
+    Sin cobro real sigue siendo Reserva, no Operación — aunque el estado diga pagada.
+    """
     return total_senia_pagada_reserva(reserva) > Decimal('0.01')
+
+
+def reserva_tiene_senia_cobrada(reserva) -> bool:
+    """True si hay seña u otro cobro de operación registrado en caja/recibo."""
+    return reserva_tiene_cobro_real(reserva)
 
 
 def reserva_tiene_cobro_vinculado_directo(reserva, reserva_ids_con_recibo=None) -> bool:
     """
-    Cobro atribuible a esta reserva (campo seña, movimientos vinculados o recibo).
-    No usa el fallback por ingresos de la propiedad: ese respaldo puede marcar
-    cobro en otra operación y ocultar reservas que sí figuran como pendientes en el listado.
+    Cobro atribuible a esta reserva (movimientos vinculados o recibo con monto).
+    No usa solo estado='pagada' ni seña fantasma en BD.
     """
-    if (getattr(reserva, 'estado', None) or '').strip() == 'pagada':
-        return True
-    senia_db = Decimal(str(getattr(reserva, 'senia', None) or 0))
-    if senia_db > Decimal('0.01'):
-        return True
     rid = int(reserva.pk)
-    if reserva_ids_con_recibo is not None:
-        if rid in reserva_ids_con_recibo:
-            return True
-    else:
-        from inmobiliaria.models import Recibo
-
-        if Recibo.objects.filter(reserva_id=rid).exists():
-            return True
     for mov in movimientos_reserva(reserva, tipo=TipoMovimientoCajaEnum.INGRESO):
         if monto_senia_en_movimiento(mov, reserva_id=rid) > Decimal('0.01'):
             return True
-    if reserva_ids_con_recibo is None and _total_cobrado_desde_recibos_reserva(reserva) > Decimal('0.01'):
-        return True
-    return False
+    if reserva_ids_con_recibo is not None:
+        # El set debe incluir solo reservas con recibo de monto > 0.
+        if rid in reserva_ids_con_recibo:
+            return True
+        return False
+    return _total_cobrado_desde_recibos_reserva(reserva) > Decimal('0.01')
 
 
 def reserva_tuvo_operacion_en_caja(reserva) -> bool:
-    """Reserva con cobro en caja (no solo bloqueo de fechas en calendario)."""
-    if (getattr(reserva, 'estado', None) or '').strip() == 'pagada':
-        return True
-    if Decimal(str(getattr(reserva, 'senia', None) or 0)) > Decimal('0.01'):
-        return True
-    if _total_cobrado_desde_recibos_reserva(reserva) > Decimal('0.01'):
-        return True
-    return total_senia_pagada_reserva(reserva) > Decimal('0.01')
+    """Operación = hubo cobro real. Sin plata es solo Reserva (fechas bloqueadas)."""
+    return reserva_tiene_cobro_real(reserva)
 
 
 def queryset_reservas_con_operacion(qs):
     """
-    Reservas que deben figurar en listados de operaciones y carátulas.
-    Excluye las que siguen en «Reservado» sin seña ni recibo.
+    Reservas que son Operación: cobro real (recibo con monto o seña respaldada por recibo).
+    Excluye «Reservado» sin plata (aunque estado diga pagada / senia fantasma).
     """
     from inmobiliaria.models import Recibo
 
-    tiene_recibo = Exists(Recibo.objects.filter(reserva_id=OuterRef('pk')))
-    return qs.filter(
-        Q(senia__gt=Decimal('0.01'))
-        | tiene_recibo
-        | Q(estado='pagada')
-    ).distinct()
+    tiene_recibo_con_monto = Exists(
+        Recibo.objects.filter(reserva_id=OuterRef('pk'), monto_este_pago__gt=Decimal('0.01'))
+    )
+    return qs.filter(tiene_recibo_con_monto).distinct()
 
 
 def queryset_reservas_listado_operaciones(qs):
     """
-    Reservas para el listado de operaciones: con cobro real o pagadas / sindicato.
-    Excluye seña fantasma en BD (senia>0 sin recibo, sin pagada y sin sindicato).
+    Listado de operaciones: solo con cobro real (recibo con monto).
+    Sindicato sin recibo no cuenta como operación.
     """
     from inmobiliaria.models import Recibo
 
-    tiene_recibo = Exists(Recibo.objects.filter(reserva_id=OuterRef('pk')))
-    return (
-        qs.filter(
-            Q(senia__gt=Decimal('0.01'))
-            | tiene_recibo
-            | Q(estado='pagada')
-            | Q(es_alquiler_sindicato=True)
-        )
-        .exclude(
-            Q(senia__gt=Decimal('0.01'))
-            & ~tiene_recibo
-            & ~Q(estado='pagada')
-            & ~Q(es_alquiler_sindicato=True)
-        )
-        .distinct()
+    tiene_recibo_con_monto = Exists(
+        Recibo.objects.filter(reserva_id=OuterRef('pk'), monto_este_pago__gt=Decimal('0.01'))
     )
+    return qs.filter(tiene_recibo_con_monto).distinct()
 
 
 def deposito_pagado_en_movimientos_rows(movimientos_rows) -> bool:
