@@ -1640,12 +1640,16 @@ def _guardar_caratula_reserva(request, reserva):
     reserva.fecha_fin = fecha_fin
     reserva.hora_ingreso = hora_ingreso
     reserva.hora_egreso = hora_egreso
+    moneda_raw = (request.POST.get('moneda') or getattr(reserva, 'moneda', None) or 'ARS').strip().upper()
+    moneda = 'USD' if moneda_raw == 'USD' else 'ARS'
+
     reserva.precio_total = precio_total.quantize(Decimal('0.01'))
     reserva.senia = senia.quantize(Decimal('0.01'))
     reserva.deposito_garantia = deposito.quantize(Decimal('0.01'))
     reserva.cuota_pendiente = max(
         Decimal('0'), precio_total - senia
     ).quantize(Decimal('0.01'))
+    reserva.moneda = moneda
     reserva.estado = estado
 
     def _parse_liq_monto_opcional(campo):

@@ -107,11 +107,22 @@
             </div>
 
             <div class="caratula-cell span-4">
+                <span class="k">MONEDA</span>
+                {% if puede_editar_caratula and reserva %}
+                <select name="moneda" class="caratula-input-edit">
+                    <option value="ARS" {% if cl.moneda != 'USD' %}selected{% endif %}>Pesos (ARS)</option>
+                    <option value="USD" {% if cl.moneda == 'USD' %}selected{% endif %}>Dólares (USD)</option>
+                </select>
+                {% else %}
+                <span class="v">{% if cl.moneda == 'USD' %}U$S{% else %}${% endif %}</span>
+                {% endif %}
+            </div>
+            <div class="caratula-cell span-4">
                 <span class="k">IMPORTE LOCACION</span>
                 {% if puede_editar_caratula %}
                 <input type="text" name="precio_total" class="caratula-input-edit input-monto-ar text-end" value="{{ edit_montos.precio_total }}" inputmode="decimal" autocomplete="off" required>
                 {% else %}
-                <span class="v">{{ cl.importe_locacion }}</span>
+                <span class="v">{% if cl.simbolo_moneda %}{{ cl.simbolo_moneda }} {% endif %}{{ cl.importe_locacion }}</span>
                 {% endif %}
             </div>
             <div class="caratula-cell span-4">
