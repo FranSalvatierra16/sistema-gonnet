@@ -29503,11 +29503,28 @@ def lista_liquidaciones(request):
             Q(id__icontains=busqueda)
         )
 
-    # Por fecha de registro (columna «Fecha registro» de la lista)
-    if fecha_desde:
-        liquidaciones = liquidaciones.filter(fecha_creacion__date__gte=fecha_desde)
-    if fecha_hasta:
-        liquidaciones = liquidaciones.filter(fecha_creacion__date__lte=fecha_hasta)
+    # Por período liquidado (fecha_desde de la liquidación). Si no tiene período, cae a fecha de registro.
+    tipo_fecha_liq = (request.GET.get('tipo_fecha') or 'periodo').strip().lower()
+    if tipo_fecha_liq not in ('periodo', 'registro'):
+        tipo_fecha_liq = 'periodo'
+    if fecha_desde or fecha_hasta:
+        if tipo_fecha_liq == 'registro':
+            if fecha_desde:
+                liquidaciones = liquidaciones.filter(fecha_creacion__date__gte=fecha_desde)
+            if fecha_hasta:
+                liquidaciones = liquidaciones.filter(fecha_creacion__date__lte=fecha_hasta)
+        else:
+            # Mes liquidado: inicio del período dentro del rango (igual que pendientes).
+            if fecha_desde:
+                liquidaciones = liquidaciones.filter(
+                    Q(fecha_desde__gte=fecha_desde)
+                    | Q(fecha_desde__isnull=True, fecha_creacion__date__gte=fecha_desde)
+                )
+            if fecha_hasta:
+                liquidaciones = liquidaciones.filter(
+                    Q(fecha_desde__lte=fecha_hasta)
+                    | Q(fecha_desde__isnull=True, fecha_creacion__date__lte=fecha_hasta)
+                )
 
     # Totales sobre el filtro (sin materializar todas las filas).
     base_totales = liquidaciones
@@ -29605,6 +29622,7 @@ def lista_liquidaciones(request):
         'propiedades_opciones': propiedades_opciones,
         'busqueda': busqueda,
         'tipo_filtro': tipo_filtro,
+        'tipo_fecha': tipo_fecha_liq,
         'fecha_desde': fecha_desde_s,
         'fecha_hasta': fecha_hasta_s,
         'total_pendiente': total_pendiente,

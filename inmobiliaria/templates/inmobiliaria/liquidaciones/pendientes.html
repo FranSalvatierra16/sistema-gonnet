@@ -55,10 +55,10 @@
         </p>
     </div>
     <p class="text-muted no-print">
-        Operaciones que todavía no figuran en ninguna liquidación.
-        <strong>Por día:</strong> según fecha de entrada de la reserva en el rango elegido.
-        <strong>Contratos (24 meses / invierno):</strong> según el mes de la cuota a liquidar.
-        Al liquidarlas / pagarlas por caja dejan de aparecer acá.
+        Operaciones que todavía no figuran en ninguna liquidación (esto no es el listado de liquidaciones ya hechas).
+        <strong>Por día:</strong> fecha de entrada de la reserva en el rango.
+        <strong>Contratos (24 meses / invierno):</strong> cuotas cuyo mes de ocupación empieza en ese rango.
+        Por defecto solo se muestran las ya cobradas; las anticipadas (sin cobrar) se pueden incluir con el tilde.
     </p>
 
     <div class="card shadow mb-3 no-print">
@@ -87,8 +87,9 @@
                 </div>
                 <div class="col-md-2">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="solo_cobradas" value="1" id="solo_cobradas" {% if solo_cobradas %}checked{% endif %}>
-                        <label class="form-check-label" for="solo_cobradas">Solo cobradas (sin anticipadas)</label>
+                        <input type="hidden" name="incluir_anticipadas" value="0">
+                        <input class="form-check-input" type="checkbox" name="incluir_anticipadas" value="1" id="incluir_anticipadas" {% if incluir_anticipadas %}checked{% endif %}>
+                        <label class="form-check-label" for="incluir_anticipadas">Incluir anticipadas (sin cobrar)</label>
                     </div>
                 </div>
                 <div class="col-md-1 d-grid">

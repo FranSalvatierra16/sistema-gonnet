@@ -63,11 +63,18 @@
                             </select>
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label" for="fecha_desde">Registro desde</label>
+                            <label class="form-label">Filtrar fechas por</label>
+                            <select name="tipo_fecha" class="form-select">
+                                <option value="periodo" {% if tipo_fecha != 'registro' %}selected{% endif %}>Período liquidado</option>
+                                <option value="registro" {% if tipo_fecha == 'registro' %}selected{% endif %}>Fecha de registro</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" for="fecha_desde">Desde</label>
                             <input type="date" name="fecha_desde" id="fecha_desde" class="form-control" value="{{ fecha_desde }}">
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label" for="fecha_hasta">Registro hasta</label>
+                            <label class="form-label" for="fecha_hasta">Hasta</label>
                             <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
                         </div>
                         <div class="col-md-2">
@@ -111,7 +118,13 @@
                                 Limpiar filtros
                             </a>
                             {% if fecha_desde or fecha_hasta %}
-                            <span class="text-muted small ms-2">Filtra por la fecha en que se registró la liquidación.</span>
+                            <span class="text-muted small ms-2">
+                                {% if tipo_fecha == 'registro' %}
+                                Filtra por la fecha en que se registró la liquidación.
+                                {% else %}
+                                Filtra por el período liquidado (mes de la cuota / entrada). Las pendientes todavía no hechas están en «Pendientes de liquidar».
+                                {% endif %}
+                            </span>
                             {% endif %}
                         </div>
                         {% endif %}

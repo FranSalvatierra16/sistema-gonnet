@@ -160,7 +160,8 @@ def _decimal(valor):
 def _op_pasa_filtro_fechas(op, tipo, desde, hasta):
     """
     Por día: fecha de entrada de la reserva dentro del rango.
-    Contratos / otros: el período de la fila se solapa con el rango (mes a liquidar).
+    Contratos / otros: el mes de la cuota = inicio del período de ocupación
+    dentro de [desde, hasta] (no basta con que el tramo rozze el mes).
     """
     fi = _parse_fecha(op.get('fecha_inicio'))
     ff = _parse_fecha(op.get('fecha_fin')) or fi
@@ -173,7 +174,9 @@ def _op_pasa_filtro_fechas(op, tipo, desde, hasta):
             return False, fi, ff
         return True, fi, ff
 
-    if not fi or fi > hasta or (ff and ff < desde):
+    # Mes a liquidar: el período de la cuota tiene que empezar en el rango.
+    # Ej. 01/01–31/01 entra en enero; 26/12–25/01 es del mes anterior.
+    if not fi or fi < desde or fi > hasta:
         return False, fi, ff
     return True, fi, ff
 
@@ -186,7 +189,16 @@ def liquidaciones_pendientes(request):
     desde, hasta = _rango_request(request)
     q = (request.GET.get('q') or '').strip()
     tipo_filtro = (request.GET.get('tipo') or '').strip()
-    solo_cobradas = request.GET.get('solo_cobradas') == '1'
+    # Por defecto ocultamos anticipadas (sin cobro): llenaban el listado de ruido.
+    # Para verlas hay que tildar «Incluir anticipadas».
+    if 'incluir_anticipadas' in request.GET or 'solo_cobradas' in request.GET:
+        incluir_anticipadas = request.GET.get('incluir_anticipadas') == '1'
+        if 'solo_cobradas' in request.GET and 'incluir_anticipadas' not in request.GET:
+            # Compat con links viejos: solo_cobradas=1 → sin anticipadas.
+            incluir_anticipadas = request.GET.get('solo_cobradas') != '1'
+    else:
+        incluir_anticipadas = False
+    solo_cobradas = not incluir_anticipadas
 
     props, ids_match_directo, truncado = _propiedades_candidatas(
         sucursal, desde, hasta, q, tipo_filtro=tipo_filtro
@@ -277,6 +289,7 @@ def liquidaciones_pendientes(request):
             'q': q,
             'tipo_filtro': tipo_filtro,
             'solo_cobradas': solo_cobradas,
+            'incluir_anticipadas': incluir_anticipadas,
             'truncado': truncado,
             'max_propiedades': MAX_PROPIEDADES,
             'errores': errores,
