@@ -1,4 +1,4 @@
-"""Listado global de operaciones pendientes de liquidar al propietario (solo lectura)."""
+"""Listado de liquidaciones en estado pendiente (ya creadas, aún no pagadas)."""
 import logging
 from calendar import monthrange
 from datetime import date, datetime
@@ -11,16 +11,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from inmobiliaria.busqueda_persona import q_busqueda_persona
-from inmobiliaria.busqueda_propiedad import ordenar_propiedades, q_busqueda_propiedad
-from inmobiliaria.cartera_sucursal import qs_cartera_sucursal
-from inmobiliaria.models import ContratoAlquiler, Propiedad, Reserva
+from inmobiliaria.busqueda_propiedad import q_busqueda_propiedad
+from inmobiliaria.models import LiquidacionPropietario
 
 logger = logging.getLogger(__name__)
-
-MAX_PROPIEDADES = 400
-
-# Solo operaciones con cobro (pagada/confirmada). Sin plata = Reserva, no figura acá.
-ESTADOS_RESERVA_OPERACION = ('pagada', 'confirmada')
 
 
 def _parse_fecha(valor):
@@ -41,115 +35,6 @@ def _rango_request(request):
     return desde, hasta
 
 
-def _propiedades_candidatas(sucursal, desde, hasta, q, tipo_filtro=''):
-    """
-    Propiedades con operaciones que pueden figurar en el rango.
-
-    - Por día (reserva): entrada (fecha_inicio) dentro de [desde, hasta].
-    - Contratos: el contrato toca el rango (mes a liquidar).
-    - Sin tipo / otros: unión de ambos (con tope).
-    """
-    from inmobiliaria.caja_devolucion_deposito import queryset_reservas_con_operacion
-
-    ids_reservas = queryset_reservas_con_operacion(
-        Reserva.objects.filter(
-            estado__in=ESTADOS_RESERVA_OPERACION,
-            eliminada=False,
-        )
-    )
-    if tipo_filtro == 'reserva':
-        # Irina: por día se lista por fecha de entrada en el período elegido.
-        ids_reservas = ids_reservas.filter(
-            fecha_inicio__gte=desde,
-            fecha_inicio__lte=hasta,
-        )
-    else:
-        ids_reservas = ids_reservas.filter(
-            fecha_inicio__lte=hasta,
-            fecha_fin__gte=desde,
-        )
-    ids_reservas = ids_reservas.values('propiedad_id')
-
-    ids_contratos = ContratoAlquiler.objects.filter(
-        fecha_inicio__lte=hasta,
-        fecha_fin__gte=desde,
-    ).values('propiedad_id')
-
-    if tipo_filtro == 'reserva':
-        props = Propiedad.objects.filter(sucursal=sucursal, id__in=ids_reservas)
-    elif tipo_filtro == 'contrato':
-        props = Propiedad.objects.filter(sucursal=sucursal, id__in=ids_contratos)
-    else:
-        props = Propiedad.objects.filter(sucursal=sucursal).filter(
-            Q(id__in=ids_reservas) | Q(id__in=ids_contratos)
-        )
-
-    props = props.exclude(es_propiedad_oficina=True)
-    try:
-        props = props.exclude(
-            id__in=qs_cartera_sucursal(sucursal, sincronizar=False).values('propiedad_id')
-        )
-    except Exception:
-        logger.exception('liquidaciones_pendientes: no se pudo excluir la cartera de oficina')
-
-    ids_match_directo = None
-    if q:
-        q_prop = q_busqueda_propiedad(q) | q_busqueda_persona(
-            q, incluir_id=False, prefix='propietario__'
-        )
-        ids_match_directo = set(props.filter(q_prop).values_list('id', flat=True))
-        ids_por_inquilino = set(
-            Reserva.objects.filter(q_busqueda_persona(q, incluir_id=False, prefix='cliente__'))
-            .values_list('propiedad_id', flat=True)
-        ) | set(
-            ContratoAlquiler.objects.filter(
-                q_busqueda_persona(q, incluir_id=False, prefix='inquilino__')
-            ).values_list('propiedad_id', flat=True)
-        )
-        props = props.filter(id__in=ids_match_directo | ids_por_inquilino)
-
-    props = list(props.select_related('propietario')[: MAX_PROPIEDADES + 1])
-    truncado = len(props) > MAX_PROPIEDADES
-    return ordenar_propiedades(props[:MAX_PROPIEDADES]), ids_match_directo, truncado
-
-
-def _url_liquidar(op):
-    tipo = op.get('tipo')
-    try:
-        if tipo == 'reserva':
-            return reverse('inmobiliaria:crear_liquidacion_reserva', args=[int(op['id'])])
-        if tipo in ('contrato_cuota', 'contrato_operacion_principal') and op.get('contrato_id'):
-            return reverse('inmobiliaria:crear_liquidacion_contrato', args=[int(op['contrato_id'])])
-    except (TypeError, ValueError, KeyError):
-        pass
-    return reverse('inmobiliaria:crear_liquidacion')
-
-
-def _n_liq_display(op):
-    """N° visible: liquidación parcial si hay, si no el de la operación/reserva/cuota."""
-    liq_id = op.get('liquidacion_id')
-    if liq_id:
-        try:
-            return f'#{int(liq_id)}'
-        except (TypeError, ValueError):
-            pass
-    tipo = (op.get('tipo') or '').strip().lower()
-    raw_id = op.get('id')
-    try:
-        oid = int(raw_id)
-    except (TypeError, ValueError):
-        return '—'
-    if tipo == 'reserva':
-        return f'Op. #{oid}'
-    if tipo.startswith('contrato'):
-        cid = op.get('contrato_id')
-        try:
-            return f'CT #{int(cid)}' if cid else f'#{oid}'
-        except (TypeError, ValueError):
-            return f'#{oid}'
-    return f'#{oid}'
-
-
 def _decimal(valor):
     try:
         return Decimal(str(valor or 0))
@@ -157,119 +42,156 @@ def _decimal(valor):
         return Decimal('0')
 
 
-def _op_pasa_filtro_fechas(op, tipo, desde, hasta):
-    """
-    Por día: fecha de entrada de la reserva dentro del rango.
-    Contratos / otros: el mes de la cuota = inicio del período de ocupación
-    dentro de [desde, hasta] (no basta con que el tramo rozze el mes).
-    """
-    fi = _parse_fecha(op.get('fecha_inicio'))
-    ff = _parse_fecha(op.get('fecha_fin')) or fi
+def _etiqueta_propiedad(prop):
+    if not prop:
+        return '—'
+    partes = [f'#{prop.id}']
+    dir_txt = (prop.direccion or '').strip()
+    if dir_txt:
+        partes[0] = f'{dir_txt} (#{prop.id})'
+    return partes[0]
 
-    if tipo == 'reserva':
-        fe = _parse_fecha(op.get('fecha_entrada')) or fi
-        if not fe:
-            return False, fi, ff
-        if fe < desde or fe > hasta:
-            return False, fi, ff
-        return True, fi, ff
 
-    # Mes a liquidar: el período de la cuota tiene que empezar en el rango.
-    # Ej. 01/01–31/01 entra en enero; 26/12–25/01 es del mes anterior.
-    if not fi or fi < desde or fi > hasta:
+def _descripcion_liquidacion(liq):
+    if liq.reserva_id:
+        return f'Reserva #{liq.reserva_id}'
+    if liq.contrato_id:
+        return f'Contrato #{liq.contrato_id}'
+    ops = liq.operaciones_incluidas or []
+    if ops:
+        bits = []
+        for o in ops[:3]:
+            if not isinstance(o, dict):
+                continue
+            tipo = (o.get('tipo') or '').strip()
+            try:
+                oid = int(o.get('id'))
+            except (TypeError, ValueError):
+                continue
+            if tipo == 'reserva':
+                bits.append(f'Reserva #{oid}')
+            elif tipo.startswith('contrato'):
+                bits.append(f'Contrato/cuota #{oid}')
+            else:
+                bits.append(f'{tipo or "op"} #{oid}')
+        if bits:
+            extra = f' (+{len(ops) - 3})' if len(ops) > 3 else ''
+            return ', '.join(bits) + extra
+    return '—'
+
+
+def _periodo_liq(liq):
+    fi = liq.fecha_desde
+    ff = liq.fecha_hasta or fi
+    if fi:
+        return fi, ff
+    reserva = getattr(liq, 'reserva', None)
+    if reserva and reserva.fecha_inicio:
+        return reserva.fecha_inicio, reserva.fecha_fin or reserva.fecha_inicio
+    fc = liq.fecha_creacion
+    if fc:
+        d = fc.date() if hasattr(fc, 'date') else fc
+        return d, d
+    return None, None
+
+
+def _pasa_filtro_periodo(liq, desde, hasta):
+    """Mes liquidado: inicio del período dentro del rango elegido."""
+    fi, ff = _periodo_liq(liq)
+    if not fi:
+        return False, fi, ff
+    if fi < desde or fi > hasta:
         return False, fi, ff
     return True, fi, ff
 
 
+def _tipo_key_liq(liq):
+    key = getattr(liq, 'tipo_operacion_key', None) or ''
+    if key:
+        return key
+    if liq.reserva_id:
+        return 'dia'
+    if liq.contrato_id:
+        return 'contrato'
+    return ''
+
+
 @login_required
 def liquidaciones_pendientes(request):
-    from inmobiliaria.views import _etiqueta_propiedad_liquidacion, _operaciones_gastos_pendientes_data
+    """
+    Liquidaciones ya creadas en estado pendiente (a pagar al propietario).
+    No lista operaciones sin liquidación: eso confundía con altas de ayer.
+    """
+    from inmobiliaria.liquidacion_operacion import enriquecer_info_operacion_liquidaciones
 
     sucursal = request.user.sucursal
     desde, hasta = _rango_request(request)
     q = (request.GET.get('q') or '').strip()
     tipo_filtro = (request.GET.get('tipo') or '').strip()
-    # Por defecto ocultamos anticipadas (sin cobro): llenaban el listado de ruido.
-    # Para verlas hay que tildar «Incluir anticipadas».
-    if 'incluir_anticipadas' in request.GET or 'solo_cobradas' in request.GET:
-        incluir_anticipadas = request.GET.get('incluir_anticipadas') == '1'
-        if 'solo_cobradas' in request.GET and 'incluir_anticipadas' not in request.GET:
-            # Compat con links viejos: solo_cobradas=1 → sin anticipadas.
-            incluir_anticipadas = request.GET.get('solo_cobradas') != '1'
-    else:
-        incluir_anticipadas = False
-    solo_cobradas = not incluir_anticipadas
 
-    props, ids_match_directo, truncado = _propiedades_candidatas(
-        sucursal, desde, hasta, q, tipo_filtro=tipo_filtro
+    qs = (
+        LiquidacionPropietario.objects.filter(
+            sucursal=sucursal,
+            estado='pendiente',
+        )
+        .select_related(
+            'propietario',
+            'propiedad',
+            'reserva',
+            'contrato',
+        )
+        .order_by('fecha_desde', 'id')
     )
 
-    contratos_rescindidos = set(
-        ContratoAlquiler.objects.filter(
-            propiedad__in=[p.id for p in props], estado='rescindido'
-        ).values_list('id', flat=True)
-    )
-    q_norm = q.lower()
+    if q:
+        from inmobiliaria.models import Propiedad
+
+        ids_prop = Propiedad.objects.filter(q_busqueda_propiedad(q)).values('id')
+        q_filtro = (
+            Q(propiedad_id__in=ids_prop)
+            | q_busqueda_persona(q, incluir_id=False, prefix='propietario__')
+        )
+        if q.isdigit():
+            q_filtro |= Q(id=int(q)) | Q(reserva_id=int(q)) | Q(contrato_id=int(q))
+        qs = qs.filter(q_filtro)
+
+    liquidaciones = list(qs[:2000])
+    enriquecer_info_operacion_liquidaciones(liquidaciones)
 
     filas = []
-    errores = []
-    for prop in props:
-        try:
-            data = _operaciones_gastos_pendientes_data(prop, sucursal, solo_operaciones=True)
-        except Exception:
-            logger.exception('liquidaciones_pendientes: error en propiedad %s', prop.id)
-            errores.append(_etiqueta_propiedad_liquidacion(prop))
+    for liq in liquidaciones:
+        ok, fi, ff = _pasa_filtro_periodo(liq, desde, hasta)
+        if not ok:
             continue
 
-        propietario = prop.propietario
+        tipo_key = _tipo_key_liq(liq)
+        if tipo_filtro == 'reserva' and not (liq.reserva_id or tipo_key in ('dia',)):
+            continue
+        if tipo_filtro == 'contrato' and (tipo_key == 'dia' or (liq.reserva_id and not liq.contrato_id)):
+            continue
+
+        prop = liq.propiedad
+        propietario = liq.propietario
         nombre_propietario = (
             f'{propietario.apellido}, {propietario.nombre}' if propietario else '—'
         )
-        etiqueta = _etiqueta_propiedad_liquidacion(prop)
-        match_directo = ids_match_directo is None or prop.id in ids_match_directo
-
-        for op in data.get('operaciones') or []:
-            if op.get('incluible') is False:
-                continue
-            tipo = op.get('tipo') or ''
-            anticipada = bool(op.get('anticipada'))
-            if solo_cobradas and anticipada:
-                continue
-            if anticipada and op.get('contrato_id') in contratos_rescindidos:
-                continue
-            if tipo_filtro == 'reserva' and tipo != 'reserva':
-                continue
-            if tipo_filtro == 'contrato' and not tipo.startswith('contrato'):
-                continue
-            if tipo_filtro == 'otros' and (tipo == 'reserva' or tipo.startswith('contrato')):
-                continue
-
-            ok_fecha, fi, ff = _op_pasa_filtro_fechas(op, tipo, desde, hasta)
-            if not ok_fecha:
-                continue
-
-            descripcion = op.get('descripcion') or ''
-            if not match_directo and q_norm not in descripcion.lower():
-                continue
-
-            filas.append({
-                'propiedad_id': prop.id,
-                'propiedad_label': etiqueta,
-                'propietario': nombre_propietario,
-                'tipo': tipo,
-                'tipo_display': op.get('tipo_display') or '',
-                'descripcion': descripcion,
-                'n_liq': _n_liq_display(op),
-                'fecha_inicio': fi,
-                'fecha_fin': ff,
-                'fecha_entrada': _parse_fecha(op.get('fecha_entrada')) if tipo == 'reserva' else None,
-                'moneda': (op.get('moneda') or 'ARS').upper(),
-                'monto_total': _decimal(op.get('monto_total')),
-                'monto_propietario': _decimal(op.get('monto_propietario')),
-                'anticipada': anticipada,
-                'parcial': bool(op.get('liquidacion_parcial')) or 'parcial' in descripcion.lower(),
-                'url_liquidar': _url_liquidar(op),
-            })
+        moneda = (liq.moneda or 'ARS').upper()
+        monto = _decimal(liq.monto_a_pagar)
+        filas.append({
+            'liquidacion_id': liq.id,
+            'propiedad_id': prop.id if prop else None,
+            'propiedad_label': _etiqueta_propiedad(prop),
+            'propietario': nombre_propietario,
+            'tipo': tipo_key,
+            'tipo_display': getattr(liq, 'tipo_operacion_display', None) or '',
+            'descripcion': _descripcion_liquidacion(liq),
+            'n_liq': f'#{liq.id}',
+            'fecha_inicio': fi,
+            'fecha_fin': ff,
+            'moneda': moneda,
+            'monto_propietario': monto,
+            'url_detalle': reverse('inmobiliaria:detalle_liquidacion', args=[liq.id]),
+        })
 
     totales = {}
     for f in filas:
@@ -283,15 +205,10 @@ def liquidaciones_pendientes(request):
         {
             'filas': filas,
             'totales': sorted(totales.items()),
-            'cantidad_propiedades': len({f['propiedad_id'] for f in filas}),
+            'cantidad_propiedades': len({f['propiedad_id'] for f in filas if f['propiedad_id']}),
             'fecha_desde': desde.isoformat(),
             'fecha_hasta': hasta.isoformat(),
             'q': q,
             'tipo_filtro': tipo_filtro,
-            'solo_cobradas': solo_cobradas,
-            'incluir_anticipadas': incluir_anticipadas,
-            'truncado': truncado,
-            'max_propiedades': MAX_PROPIEDADES,
-            'errores': errores,
         },
     )

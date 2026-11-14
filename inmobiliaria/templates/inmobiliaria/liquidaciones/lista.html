@@ -17,7 +17,7 @@
                     <i class="fas fa-plus me-2"></i>Nueva Liquidación
                 </a>
                 <a href="{% url 'inmobiliaria:liquidaciones_pendientes' %}" class="btn btn-warning">
-                    <i class="fas fa-hourglass-half me-2"></i>Pendientes de liquidar
+                    <i class="fas fa-hourglass-half me-2"></i>Liquidaciones pendientes
                 </a>
                 <a href="{% url 'inmobiliaria:reporte_asegurado_liquidaciones' %}" class="btn btn-outline-primary">
                     <i class="fas fa-chart-line me-2"></i>Asegurado vs liquidaciones
@@ -122,7 +122,7 @@
                                 {% if tipo_fecha == 'registro' %}
                                 Filtra por la fecha en que se registró la liquidación.
                                 {% else %}
-                                Filtra por el período liquidado (mes de la cuota / entrada). Las pendientes todavía no hechas están en «Pendientes de liquidar».
+                                Filtra por el período liquidado. Las liquidaciones creadas y aún sin pagar están en «Liquidaciones pendientes».
                                 {% endif %}
                             </span>
                             {% endif %}

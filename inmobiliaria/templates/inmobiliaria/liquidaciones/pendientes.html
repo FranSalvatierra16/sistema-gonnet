@@ -55,10 +55,9 @@
         </p>
     </div>
     <p class="text-muted no-print">
-        Operaciones que todavía no figuran en ninguna liquidación (esto no es el listado de liquidaciones ya hechas).
-        <strong>Por día:</strong> fecha de entrada de la reserva en el rango.
-        <strong>Contratos (24 meses / invierno):</strong> cuotas cuyo mes de ocupación empieza en ese rango.
-        Por defecto solo se muestran las ya cobradas; las anticipadas (sin cobrar) se pueden incluir con el tilde.
+        Liquidaciones <strong>ya creadas</strong> que todavía están en estado <strong>pendiente</strong> (a pagar al propietario).
+        El filtro de fechas usa el <strong>período liquidado</strong>.
+        Las operaciones sin liquidación hecha no figuran acá: para eso usá <em>Nueva liquidación</em>.
     </p>
 
     <div class="card shadow mb-3 no-print">
@@ -72,51 +71,33 @@
                     <label class="form-label" for="fecha_hasta">Hasta</label>
                     <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label" for="q">Depto / dirección / propietario / inquilino</label>
-                    <input type="text" name="q" id="q" class="form-control" value="{{ q }}" placeholder="Ej: Sarmiento 120, 4B, Pérez...">
+                <div class="col-md-4">
+                    <label class="form-label" for="q">Depto / dirección / propietario / N° liq</label>
+                    <input type="text" name="q" id="q" class="form-control" value="{{ q }}" placeholder="Ej: Sarmiento 120, Pérez, 1540...">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label" for="tipo">Tipo</label>
                     <select name="tipo" id="tipo" class="form-select">
                         <option value="">Todos</option>
-                        <option value="reserva" {% if tipo_filtro == 'reserva' %}selected{% endif %}>Por día (reservas)</option>
-                        <option value="contrato" {% if tipo_filtro == 'contrato' %}selected{% endif %}>Contratos (cuotas)</option>
-                        <option value="otros" {% if tipo_filtro == 'otros' %}selected{% endif %}>Pagos a favor</option>
+                        <option value="reserva" {% if tipo_filtro == 'reserva' %}selected{% endif %}>Por día</option>
+                        <option value="contrato" {% if tipo_filtro == 'contrato' %}selected{% endif %}>Contratos</option>
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <div class="form-check">
-                        <input type="hidden" name="incluir_anticipadas" value="0">
-                        <input class="form-check-input" type="checkbox" name="incluir_anticipadas" value="1" id="incluir_anticipadas" {% if incluir_anticipadas %}checked{% endif %}>
-                        <label class="form-check-label" for="incluir_anticipadas">Incluir anticipadas (sin cobrar)</label>
-                    </div>
-                </div>
-                <div class="col-md-1 d-grid">
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i></button>
+                <div class="col-md-2 d-grid">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search me-1"></i>Buscar</button>
                 </div>
             </form>
         </div>
     </div>
 
-    {% if truncado %}
-    <div class="alert alert-warning no-print">
-        Hay más de {{ max_propiedades }} propiedades en el rango: se muestran las primeras. Achicá las fechas o buscá por depto.
-    </div>
-    {% endif %}
-    {% if errores %}
-    <div class="alert alert-danger small no-print">
-        No se pudieron calcular: {{ errores|join:"; " }}
-    </div>
-    {% endif %}
-
     <div class="d-flex flex-wrap gap-2 mb-3 no-print">
         <div class="alert alert-warning mb-0 py-2">
-            <strong>{{ filas|length }}</strong> pendiente{{ filas|length|pluralize }} en <strong>{{ cantidad_propiedades }}</strong> propiedad{{ cantidad_propiedades|pluralize:"es" }}
+            <strong>{{ filas|length }}</strong> liquidación{{ filas|length|pluralize:"es" }} pendiente{{ filas|length|pluralize:"s" }}
+            en <strong>{{ cantidad_propiedades }}</strong> propiedad{{ cantidad_propiedades|pluralize:"es" }}
         </div>
         {% for moneda, t in totales %}
         <div class="alert alert-info mb-0 py-2">
-            Total importe liquidación ({{ moneda }}): <strong>{% if moneda == 'USD' %}U$S{% else %}${% endif %}{{ t.monto_propietario|format_price }}</strong>
+            Total a pagar ({{ moneda }}): <strong>{% if moneda == 'USD' %}U$S{% else %}${% endif %}{{ t.monto_propietario|format_price }}</strong>
             <span class="text-muted">({{ t.cantidad }})</span>
         </div>
         {% endfor %}
@@ -132,7 +113,7 @@
                         <th>Operación</th>
                         <th>Período</th>
                         <th class="text-nowrap">N° de Liq</th>
-                        <th class="text-end">Importe liquidación</th>
+                        <th class="text-end">Importe a pagar</th>
                         <th class="no-print"></th>
                     </tr>
                 </thead>
@@ -143,21 +124,25 @@
                         <td>{{ f.propiedad_label }}</td>
                         <td class="small">
                             {{ f.descripcion }}
-                            {% if f.anticipada %}<span class="badge bg-secondary ms-1">Sin cobrar</span>{% endif %}
-                            {% if f.parcial %}<span class="badge bg-warning text-dark ms-1">Parcial</span>{% endif %}
+                            {% if f.tipo_display %}<span class="text-muted"> · {{ f.tipo_display }}</span>{% endif %}
                         </td>
-                        <td class="text-nowrap">{{ f.fecha_inicio|date:"d/m/Y" }}{% if f.fecha_fin and f.fecha_fin != f.fecha_inicio %} – {{ f.fecha_fin|date:"d/m/Y" }}{% endif %}</td>
-                        <td class="text-nowrap">{{ f.n_liq }}</td>
+                        <td class="text-nowrap">
+                            {% if f.fecha_inicio %}{{ f.fecha_inicio|date:"d/m/Y" }}{% else %}—{% endif %}
+                            {% if f.fecha_fin and f.fecha_fin != f.fecha_inicio %} – {{ f.fecha_fin|date:"d/m/Y" }}{% endif %}
+                        </td>
+                        <td class="text-nowrap"><strong>{{ f.n_liq }}</strong></td>
                         <td class="text-end text-nowrap fw-semibold">{% if f.moneda == 'USD' %}U$S{% else %}${% endif %}{{ f.monto_propietario|format_price }}</td>
                         <td class="text-end no-print">
-                            <a href="{{ f.url_liquidar }}" class="btn btn-sm btn-success text-nowrap">
-                                <i class="fas fa-hand-holding-usd me-1"></i>Liquidar
+                            <a href="{{ f.url_detalle }}" class="btn btn-sm btn-primary text-nowrap">
+                                <i class="fas fa-eye me-1"></i>Ver
                             </a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center text-muted py-4">No hay liquidaciones pendientes con esos filtros.</td>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            No hay liquidaciones pendientes (creadas y sin pagar) con esos filtros.
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
