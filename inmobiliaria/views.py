@@ -5560,6 +5560,7 @@ def listado_salidas(request):
                 'titular': titular,
                 'propietario': propietario,
                 'operacion': f'{r.id:05d}',
+                'carpeta': '—',
                 'direccion': (getattr(r.propiedad, 'direccion', None) or '—'),
                 'piso': (getattr(r.propiedad, 'piso', None) or '—'),
                 'depto': (getattr(r.propiedad, 'departamento', None) or '—'),
@@ -5604,6 +5605,7 @@ def listado_salidas(request):
                 vendedor = (apv or nov or '—').upper()
 
             tipo_menu = 'invierno' if int(c.duracion_meses or 0) <= 9 else '24_meses'
+            carpeta = (getattr(c, 'numero_carpeta', None) or '').strip() or '—'
             salidas.append({
                 'tipo': 'contrato',
                 'tipo_alquiler': ('Invierno' if tipo_menu == 'invierno' else '24 meses'),
@@ -5611,6 +5613,7 @@ def listado_salidas(request):
                 'titular': titular,
                 'propietario': propietario,
                 'operacion': f'{c.id:05d}',
+                'carpeta': carpeta,
                 'direccion': (getattr(c.propiedad, 'direccion', None) or '—'),
                 'piso': (getattr(c.propiedad, 'piso', None) or '—'),
                 'depto': (getattr(c.propiedad, 'departamento', None) or '—'),
