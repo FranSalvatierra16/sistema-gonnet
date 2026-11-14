@@ -11236,22 +11236,45 @@ def editar_historial_disponibilidad(request):
         ).order_by('fecha_inicio')
         
         if disponibilidades_cercanas.exists():
-            # Calcular el rango mínimo y máximo que cubre todas las disponibilidades cercanas + el nuevo rango
-            fechas_inicio = [disp.fecha_inicio for disp in disponibilidades_cercanas] + [fecha_inicio]
-            fechas_fin = [disp.fecha_fin for disp in disponibilidades_cercanas] + [fecha_fin]
-            
-            nueva_fecha_inicio = min(fechas_inicio)
-            nueva_fecha_fin = max(fechas_fin)
-            
-            # Actualizar la primera disponibilidad para que cubra todo el rango extendido
-            disponibilidad_principal = disponibilidades_cercanas.first()
-            disponibilidad_principal.fecha_inicio = nueva_fecha_inicio
-            disponibilidad_principal.fecha_fin = nueva_fecha_fin
-            disponibilidad_principal.save()
-            
-            # Eliminar las otras disponibilidades cercanas que ahora están cubiertas por la principal
-            if disponibilidades_cercanas.count() > 1:
-                disponibilidades_cercanas.exclude(id=disponibilidad_principal.id).delete()
+            # No fusionar disponibilidades aseguradas con otras: se pierden anticipos
+            # y se juntan períodos que el usuario cargó separados a propósito.
+            aseguradas = [d for d in disponibilidades_cercanas if d.asegurado]
+            no_aseguradas = [d for d in disponibilidades_cercanas if not d.asegurado]
+
+            if aseguradas:
+                # Solo tocar/crear el rango editado sin absorber las aseguradas.
+                solapa_editado = [
+                    d for d in disponibilidades_cercanas
+                    if d.fecha_fin > fecha_inicio and d.fecha_inicio < fecha_fin
+                ]
+                if len(solapa_editado) == 1 and not solapa_editado[0].asegurado:
+                    d = solapa_editado[0]
+                    d.fecha_inicio = fecha_inicio
+                    d.fecha_fin = fecha_fin
+                    d.save(update_fields=['fecha_inicio', 'fecha_fin'])
+                elif not solapa_editado:
+                    Disponibilidad.objects.create(
+                        propiedad=propiedad,
+                        fecha_inicio=fecha_inicio,
+                        fecha_fin=fecha_fin,
+                        es_manual=True,
+                    )
+                # Si solapa una asegurada, no la reescribimos desde el historial.
+            else:
+                fechas_inicio = [disp.fecha_inicio for disp in no_aseguradas] + [fecha_inicio]
+                fechas_fin = [disp.fecha_fin for disp in no_aseguradas] + [fecha_fin]
+                nueva_fecha_inicio = min(fechas_inicio)
+                nueva_fecha_fin = max(fechas_fin)
+
+                disponibilidad_principal = no_aseguradas[0]
+                disponibilidad_principal.fecha_inicio = nueva_fecha_inicio
+                disponibilidad_principal.fecha_fin = nueva_fecha_fin
+                disponibilidad_principal.save(update_fields=['fecha_inicio', 'fecha_fin'])
+
+                if len(no_aseguradas) > 1:
+                    Disponibilidad.objects.filter(
+                        id__in=[d.id for d in no_aseguradas[1:]]
+                    ).delete()
         else:
             # No hay disponibilidades cercanas, crear una nueva para este rango exacto
             Disponibilidad.objects.create(

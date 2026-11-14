@@ -1142,61 +1142,78 @@ class Disponibilidad(models.Model):
     
     def fusionar_disponibilidades_contiguas(self):
         """
-        Fusiona disponibilidades contiguas o superpuestas de la misma propiedad
+        Fusiona disponibilidades contiguas o superpuestas de la misma propiedad.
+
+        No fusiona rangos si alguno está marcado como asegurado o si los datos de
+        asegurado no coinciden: eso borra el anticipo y junta períodos que el
+        usuario cargó aparte a propósito.
         """
         from datetime import timedelta
-        
+
+        def _clave_asegurado(disp):
+            return (
+                bool(disp.asegurado),
+                disp.monto_asegurado,
+                (disp.moneda_asegurado or 'ARS') if disp.asegurado else None,
+                bool(getattr(disp, 'forzar_disponible', False)),
+            )
+
         with transaction.atomic():
-            disponibilidades = Disponibilidad.objects.filter(
-                propiedad=self.propiedad
-            ).order_by('fecha_inicio')
-            
-            if disponibilidades.count() <= 1:
+            disponibilidades = list(
+                Disponibilidad.objects.filter(propiedad=self.propiedad).order_by('fecha_inicio')
+            )
+
+            if len(disponibilidades) <= 1:
                 return
-            
-            print(f"🔗 Fusionando disponibilidades contiguas para propiedad {self.propiedad.id}")
-            
+
             disponibilidades_fusionadas = []
             actual = None
-            
+
             for disp in disponibilidades:
                 if actual is None:
                     actual = {
                         'fecha_inicio': disp.fecha_inicio,
                         'fecha_fin': disp.fecha_fin,
-                        'objetos': [disp]
+                        'objetos': [disp],
+                        'clave': _clave_asegurado(disp),
                     }
-                elif disp.fecha_inicio <= actual['fecha_fin'] + timedelta(days=1):
-                    # Contigua o superpuesta - fusionar
+                elif (
+                    disp.fecha_inicio <= actual['fecha_fin'] + timedelta(days=1)
+                    and _clave_asegurado(disp) == actual['clave']
+                    and not actual['clave'][0]  # nunca fusionar si está asegurado
+                ):
                     actual['fecha_fin'] = max(actual['fecha_fin'], disp.fecha_fin)
                     actual['objetos'].append(disp)
                 else:
-                    # Nueva disponibilidad separada
                     disponibilidades_fusionadas.append(actual)
                     actual = {
                         'fecha_inicio': disp.fecha_inicio,
                         'fecha_fin': disp.fecha_fin,
-                        'objetos': [disp]
+                        'objetos': [disp],
+                        'clave': _clave_asegurado(disp),
                     }
-            
+
             if actual:
                 disponibilidades_fusionadas.append(actual)
-            
-            # Eliminar disponibilidades originales y crear fusionadas
+
             for fusion in disponibilidades_fusionadas:
-                if len(fusion['objetos']) > 1:
-                    print(f"   🔗 Fusionando {len(fusion['objetos'])} disponibilidades en: {fusion['fecha_inicio']} al {fusion['fecha_fin']}")
-                    
-                    # Eliminar originales
-                    for obj in fusion['objetos']:
-                        obj.delete()
-                    
-                    # Crear fusionada
-                    Disponibilidad.objects.create(
-                        propiedad=self.propiedad,
-                        fecha_inicio=fusion['fecha_inicio'],
-                        fecha_fin=fusion['fecha_fin']
-                    )
+                if len(fusion['objetos']) <= 1:
+                    continue
+
+                base = fusion['objetos'][0]
+                for obj in fusion['objetos']:
+                    obj.delete()
+
+                Disponibilidad.objects.create(
+                    propiedad=self.propiedad,
+                    fecha_inicio=fusion['fecha_inicio'],
+                    fecha_fin=fusion['fecha_fin'],
+                    es_manual=True,
+                    asegurado=bool(base.asegurado),
+                    monto_asegurado=base.monto_asegurado,
+                    moneda_asegurado=base.moneda_asegurado,
+                    forzar_disponible=bool(getattr(base, 'forzar_disponible', False)),
+                )
 
     class Meta:
         verbose_name = _("Disponibilidad")
