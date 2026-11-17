@@ -5500,10 +5500,31 @@ def listado_salidas(request):
     """
     Listado de salidas por fecha exacta (fin de alquiler).
     Incluye reservas confirmadas/pagadas y contratos activos/finalizados/rescindidos.
+    Ordenado por apellido del propietario. Incluye día de la semana y hora de egreso.
     """
     if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tenés permisos para acceder a esta sección.')
         return redirect('inmobiliaria:dashboard')
+
+    _DIAS_ES = (
+        'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo',
+    )
+
+    def _fmt_hora(valor):
+        if valor is None:
+            return '—'
+        if hasattr(valor, 'strftime'):
+            return valor.strftime('%H:%M')
+        s = str(valor).strip()
+        return s[:5] if s else '—'
+
+    def _dia_semana(fecha):
+        if not fecha:
+            return '—'
+        try:
+            return _DIAS_ES[fecha.weekday()]
+        except (AttributeError, IndexError, TypeError):
+            return '—'
 
     fecha_raw = (request.GET.get('fecha') or '').strip()
     tipo_filtro = (request.GET.get('tipo') or 'todos').strip().lower()
@@ -5541,11 +5562,12 @@ def listado_salidas(request):
                 nombre = (getattr(r.cliente, 'nombre', '') or '').strip()
                 titular = f'{apellido}, {nombre}'.strip(', ') or '—'
 
+            prop_ap = prop_no = ''
             propietario = '—'
             if r.propiedad and r.propiedad.propietario:
-                ap = (getattr(r.propiedad.propietario, 'apellido', '') or '').strip()
-                no = (getattr(r.propiedad.propietario, 'nombre', '') or '').strip()
-                propietario = f'{ap}, {no}'.strip(', ') or '—'
+                prop_ap = (getattr(r.propiedad.propietario, 'apellido', '') or '').strip()
+                prop_no = (getattr(r.propiedad.propietario, 'nombre', '') or '').strip()
+                propietario = f'{prop_ap}, {prop_no}'.strip(', ') or '—'
 
             vendedor = '—'
             if r.vendedor:
@@ -5559,6 +5581,8 @@ def listado_salidas(request):
                 'tipo_menu': 'dia',
                 'titular': titular,
                 'propietario': propietario,
+                'propietario_apellido': prop_ap,
+                'propietario_nombre': prop_no,
                 'operacion': f'{r.id:05d}',
                 'carpeta': '—',
                 'direccion': (getattr(r.propiedad, 'direccion', None) or '—'),
@@ -5570,7 +5594,8 @@ def listado_salidas(request):
                 'intervino': vendedor,
                 'llave': (getattr(r.propiedad, 'llave', None) or '—'),
                 'fecha': r.fecha_fin,
-                'hora': (r.fecha_creacion.strftime('%H:%M') if getattr(r, 'fecha_creacion', None) else '—'),
+                'dia': _dia_semana(r.fecha_fin),
+                'hora': _fmt_hora(getattr(r, 'hora_egreso', None)),
             })
 
     if incluir_contratos:
@@ -5592,11 +5617,12 @@ def listado_salidas(request):
                 nombre = (getattr(c.inquilino, 'nombre', '') or '').strip()
                 titular = f'{apellido}, {nombre}'.strip(', ') or '—'
 
+            prop_ap = prop_no = ''
             propietario = '—'
             if c.propiedad and c.propiedad.propietario:
-                ap = (getattr(c.propiedad.propietario, 'apellido', '') or '').strip()
-                no = (getattr(c.propiedad.propietario, 'nombre', '') or '').strip()
-                propietario = f'{ap}, {no}'.strip(', ') or '—'
+                prop_ap = (getattr(c.propiedad.propietario, 'apellido', '') or '').strip()
+                prop_no = (getattr(c.propiedad.propietario, 'nombre', '') or '').strip()
+                propietario = f'{prop_ap}, {prop_no}'.strip(', ') or '—'
 
             vendedor = '—'
             if c.vendedor:
@@ -5612,6 +5638,8 @@ def listado_salidas(request):
                 'tipo_menu': tipo_menu,
                 'titular': titular,
                 'propietario': propietario,
+                'propietario_apellido': prop_ap,
+                'propietario_nombre': prop_no,
                 'operacion': f'{c.id:05d}',
                 'carpeta': carpeta,
                 'direccion': (getattr(c.propiedad, 'direccion', None) or '—'),
@@ -5623,10 +5651,17 @@ def listado_salidas(request):
                 'intervino': vendedor,
                 'llave': (getattr(c.propiedad, 'llave', None) or '—'),
                 'fecha': c.fecha_fin,
-                'hora': (c.fecha_creacion.strftime('%H:%M') if getattr(c, 'fecha_creacion', None) else '—'),
+                'dia': _dia_semana(c.fecha_fin),
+                'hora': '10:00',
             })
 
-    salidas.sort(key=lambda x: (x.get('hasta') or fecha_obj, x.get('operacion') or ''))
+    salidas.sort(
+        key=lambda x: (
+            (x.get('propietario_apellido') or '').casefold(),
+            (x.get('propietario_nombre') or '').casefold(),
+            x.get('operacion') or '',
+        )
+    )
 
     return render(
         request,
