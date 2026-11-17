@@ -20835,9 +20835,15 @@ def actualizar_historiales_invierno(request):
 @login_required
 def detalle_contrato(request, contrato_id):
     """Vista para ver el detalle de un contrato específico"""
+    from types import SimpleNamespace
+
     from .models import ContratoAlquiler
-    
-    contrato = get_object_or_404(ContratoAlquiler, id=contrato_id, sucursal=request.user.sucursal)
+
+    contrato = get_object_or_404(
+        ContratoAlquiler.objects.prefetch_related('garantes'),
+        id=contrato_id,
+        sucursal=request.user.sucursal,
+    )
     hoy = timezone.now().date()
     if contrato.finalizar_si_vencido(hoy):
         contrato.refresh_from_db()
@@ -20845,6 +20851,22 @@ def detalle_contrato(request, contrato_id):
         sincronizar_cuotas_totalmente_cubiertas_por_credito,
         limpiar_mora_automatica_cuotas,
     )
+
+    garantes_contrato = list(contrato.garantes.all())
+    if not garantes_contrato and (
+        contrato.garante_apellido or contrato.garante_nombre or contrato.garante_dni
+    ):
+        garantes_contrato = [
+            SimpleNamespace(
+                apellido=contrato.garante_apellido or '',
+                nombre=contrato.garante_nombre or '',
+                dni=contrato.garante_dni or '',
+                celular=getattr(contrato, 'garante_celular', None) or '',
+                email=contrato.garante_email or '',
+                domicilio=contrato.garante_domicilio or '',
+                id=None,
+            )
+        ]
 
     # Solo limpia mora inventada. NO reimputar recibos acá: al abrir el detalle
     # volvía a marcar como «Pagada» cuotas que están en adelanto (pago a cuenta).
@@ -20935,6 +20957,7 @@ def detalle_contrato(request, contrato_id):
 
     context = {
         'contrato': contrato,
+        'garantes_contrato': garantes_contrato,
         'cuotas': cuotas,
         'cuotas_pagadas': cuotas_pagadas,
         'cuotas_vencidas': cuotas_vencidas,
@@ -20966,7 +20989,7 @@ def detalle_contrato(request, contrato_id):
             for c in cuotas_list
         ],
     }
-    
+
     return render(request, 'inmobiliaria/contratos/detalle_contrato.html', context)
 
 
