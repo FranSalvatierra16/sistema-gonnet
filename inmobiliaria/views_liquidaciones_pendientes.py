@@ -134,6 +134,9 @@ def liquidaciones_pendientes(request):
             sucursal=sucursal,
             estado='pendiente',
         )
+        .exclude(
+            estado__in=('pagada', 'oficina', 'procesada', 'cancelada', 'cerrada'),
+        )
         .select_related(
             'propietario',
             'propiedad',
