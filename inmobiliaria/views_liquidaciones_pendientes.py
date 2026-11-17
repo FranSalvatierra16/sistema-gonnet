@@ -163,6 +163,10 @@ def liquidaciones_pendientes(request):
 
     filas = []
     for liq in liquidaciones:
+        # Cinturón y tirantes: nunca listar pagadas / oficina aunque el estado venga raro.
+        if (liq.estado or '').strip().lower() != 'pendiente':
+            continue
+
         ok, fi, ff = _pasa_filtro_periodo(liq, desde, hasta)
         if not ok:
             continue
