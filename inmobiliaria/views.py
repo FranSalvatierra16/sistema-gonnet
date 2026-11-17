@@ -21378,6 +21378,27 @@ def agregar_cuota_contrato(request, contrato_id):
         _reacomodar_plan_cuotas_tras_insertar(contrato, insert_at)
 
     monto_nuevo = _monto_cuota_nueva_en_posicion(contrato, insert_at, ref_cuota=ref_cuota or ultima)
+    tipo_importe = (request.POST.get('tipo_importe') or 'completo').strip().lower()
+    raw_monto = (request.POST.get('monto') or '').strip()
+    if tipo_importe == 'manual' or (raw_monto and tipo_importe != 'medio'):
+        try:
+            monto_custom = parse_decimal_monto(raw_monto)
+        except (ValueError, InvalidOperation, TypeError):
+            monto_custom = None
+        if monto_custom is None or monto_custom <= 0:
+            messages.error(request, 'El importe de la cuota tiene que ser mayor a cero.')
+            return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+        monto_nuevo = Decimal(str(monto_custom)).quantize(Decimal('0.01'))
+        tipo_importe = 'manual'
+    elif tipo_importe == 'medio':
+        monto_nuevo = (Decimal(str(monto_nuevo or 0)) / Decimal('2')).quantize(Decimal('0.01'))
+    else:
+        tipo_importe = 'completo'
+
+    if monto_nuevo <= 0:
+        messages.error(request, 'El importe de la cuota tiene que ser mayor a cero.')
+        return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)
+
     hoy = timezone.localdate()
     estado_cuota = 'vencida' if fecha_venc < hoy else 'pendiente'
 
@@ -21403,13 +21424,25 @@ def agregar_cuota_contrato(request, contrato_id):
     update_fields = ['duracion_meses', 'fecha_fin']
     pb = _precios_bloques_tras_agregar_cuota(contrato, insert_at, nuevo_total)
     if pb is not None:
+        # Medio mes / importe manual: dejar ese valor fijado en el plan de precios.
+        if tipo_importe in ('medio', 'manual'):
+            idx_pb = insert_at - 2  # precios_bloques empieza en mes 2
+            if 0 <= idx_pb < len(pb):
+                pb[idx_pb] = float(monto_nuevo)
         contrato.precios_bloques = pb
         update_fields.append('precios_bloques')
     contrato.save(update_fields=update_fields)
 
+    if tipo_importe == 'medio':
+        etiqueta = 'medio mes'
+    elif tipo_importe == 'manual':
+        etiqueta = 'importe manual'
+    else:
+        etiqueta = 'mes completo'
     messages.success(
         request,
-        f'Se agregó la cuota {insert_at}/{contrato.duracion_meses} '
+        f'Se agregó la cuota {insert_at}/{contrato.duracion_meses} ({etiqueta}) '
+        f'por ${format_monto_argentino(monto_nuevo)} '
         f'con vencimiento {fecha_venc.strftime("%d/%m/%Y")}.',
     )
     return redirect('inmobiliaria:detalle_contrato', contrato_id=contrato.id)

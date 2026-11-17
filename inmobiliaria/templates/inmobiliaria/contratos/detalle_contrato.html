@@ -333,7 +333,7 @@
                 <i class="fas fa-list"></i> Solo cuotas
             </a>
             {% if puede_agregar_cuota %}
-            <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalAgregarCuota" title="Agregar un mes al plan con fecha elegida">
+            <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalAgregarCuota" title="Agregar mes completo, medio mes o importe manual">
                 <i class="fas fa-plus"></i> Agregar cuota
             </button>
             <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalProporcionalPrevio" title="Días anteriores al inicio, por ejemplo octubre de un contrato que empieza en noviembre">
@@ -801,14 +801,37 @@
             <form method="post" action="{% url 'inmobiliaria:agregar_cuota_contrato' contrato.id %}" id="formAgregarCuota">
                 {% csrf_token %}
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalAgregarCuotaLabel"><i class="fas fa-plus-circle me-1"></i>Agregar mes al plan</h5>
+                    <h5 class="modal-title" id="modalAgregarCuotaLabel"><i class="fas fa-plus-circle me-1"></i>Agregar cuota al plan</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
                     <p class="small text-muted mb-3">
-                        Elegí dónde insertar el mes y la fecha de vencimiento. Solo puede haber <strong>un mes por período</strong>
+                        Elegí dónde insertar la cuota y la fecha de vencimiento. Solo puede haber <strong>un período por mes</strong>
                         (no dos cuotas de febrero 2026, por ejemplo).
+                        Para días <strong>antes del inicio</strong> del contrato usá <em>Proporcional anterior</em>.
                     </p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">Importe</label>
+                        <div class="d-flex flex-column gap-2 mb-2">
+                            <label class="form-check">
+                                <input class="form-check-input" type="radio" name="tipo_importe" value="completo" id="tipo_importe_completo" checked>
+                                <span class="form-check-label">Mes completo</span>
+                            </label>
+                            <label class="form-check">
+                                <input class="form-check-input" type="radio" name="tipo_importe" value="medio" id="tipo_importe_medio">
+                                <span class="form-check-label">Medio mes (½ del precio mensual)</span>
+                            </label>
+                            <label class="form-check">
+                                <input class="form-check-input" type="radio" name="tipo_importe" value="manual" id="tipo_importe_manual">
+                                <span class="form-check-label">Importe manual</span>
+                            </label>
+                        </div>
+                        <div id="bloque-monto-manual" class="d-none">
+                            <label for="monto_nueva_cuota" class="form-label small mb-0">Importe</label>
+                            <input type="text" name="monto" id="monto_nueva_cuota" class="form-control form-control-sm input-monto-ar" inputmode="decimal" placeholder="0">
+                        </div>
+                        <div class="form-text" id="ayuda-importe-nueva-cuota">Se usa el precio del plan para esa posición.</div>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold small">Ubicación</label>
                         <div class="d-flex flex-column gap-2">
@@ -834,7 +857,9 @@
                         <label for="despues_cuota_id" class="form-label small fw-bold">Después de</label>
                         <select name="despues_cuota_id" id="despues_cuota_id" class="form-select form-select-sm">
                             {% for c in cuotas %}
+                            {% if not c.es_proporcional %}
                             <option value="{{ c.id }}">Cuota {{ c.numero_cuota }}/{{ contrato.duracion_meses }} — {{ c.fecha_vencimiento|date:"d/m/Y" }}</option>
+                            {% endif %}
                             {% endfor %}
                         </select>
                     </div>
@@ -846,7 +871,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success btn-sm"><i class="fas fa-check me-1"></i>Agregar mes</button>
+                    <button type="submit" class="btn btn-success btn-sm"><i class="fas fa-check me-1"></i>Agregar cuota</button>
                 </div>
             </form>
         </div>
@@ -1062,6 +1087,10 @@ function confirmarPrecioCuotaMes(form, numeroMes) {
     var inputFecha = document.getElementById('fecha_vencimiento_nueva_cuota');
     var ayuda = document.getElementById('ayuda-fecha-nueva-cuota');
     var radios = form.querySelectorAll('input[name="modo"]');
+    var radiosImporte = form.querySelectorAll('input[name="tipo_importe"]');
+    var bloqueMonto = document.getElementById('bloque-monto-manual');
+    var inputMonto = document.getElementById('monto_nueva_cuota');
+    var ayudaImporte = document.getElementById('ayuda-importe-nueva-cuota');
 
     function pad2(n) { return n < 10 ? '0' + n : '' + n; }
 
@@ -1114,6 +1143,31 @@ function confirmarPrecioCuotaMes(form, numeroMes) {
         if (ayuda) ayuda.textContent = texto;
     }
 
+    function tipoImporteActual() {
+        var checked = form.querySelector('input[name="tipo_importe"]:checked');
+        return checked ? checked.value : 'completo';
+    }
+
+    function sincronizarImporte() {
+        var tipo = tipoImporteActual();
+        if (bloqueMonto) {
+            bloqueMonto.classList.toggle('d-none', tipo !== 'manual');
+        }
+        if (inputMonto) {
+            inputMonto.required = tipo === 'manual';
+            if (tipo !== 'manual') inputMonto.value = '';
+        }
+        if (ayudaImporte) {
+            if (tipo === 'medio') {
+                ayudaImporte.textContent = 'Se cobra la mitad del precio mensual de esa posición.';
+            } else if (tipo === 'manual') {
+                ayudaImporte.textContent = 'Ingresá el importe exacto (por ejemplo, un medio mes distinto).';
+            } else {
+                ayudaImporte.textContent = 'Se usa el precio del plan para esa posición.';
+            }
+        }
+    }
+
     function sincronizarModo() {
         var modo = modoActual();
         if (bloqueDespues) {
@@ -1128,6 +1182,9 @@ function confirmarPrecioCuotaMes(form, numeroMes) {
     radios.forEach(function (r) {
         r.addEventListener('change', sincronizarModo);
     });
+    radiosImporte.forEach(function (r) {
+        r.addEventListener('change', sincronizarImporte);
+    });
     if (selectDespues) {
         selectDespues.addEventListener('change', sugerirFecha);
     }
@@ -1135,11 +1192,19 @@ function confirmarPrecioCuotaMes(form, numeroMes) {
     form.addEventListener('submit', function (e) {
         if (!inputFecha || !inputFecha.value) {
             e.preventDefault();
-            alert('Indicá la fecha de vencimiento del nuevo mes.');
+            alert('Indicá la fecha de vencimiento de la nueva cuota.');
+            return;
+        }
+        var tipo = tipoImporteActual();
+        if (tipo === 'manual' && (!inputMonto || !String(inputMonto.value || '').trim())) {
+            e.preventDefault();
+            alert('Ingresá el importe de la cuota.');
+            if (inputMonto) inputMonto.focus();
             return;
         }
         var modo = modoActual();
-        var msg = '¿Agregar un mes con vencimiento ' + inputFecha.value.split('-').reverse().join('/') + '?';
+        var etiqueta = tipo === 'medio' ? 'medio mes' : (tipo === 'manual' ? 'cuota con importe manual' : 'mes completo');
+        var msg = '¿Agregar ' + etiqueta + ' con vencimiento ' + inputFecha.value.split('-').reverse().join('/') + '?';
         if (modo === 'fecha_libre') {
             msg += ' Se ubicará en el medio según la fecha.';
         }
@@ -1153,11 +1218,15 @@ function confirmarPrecioCuotaMes(form, numeroMes) {
         modalEl.addEventListener('show.bs.modal', function () {
             var finRadio = form.querySelector('input[name="modo"][value="final"]');
             if (finRadio) finRadio.checked = true;
+            var completoRadio = form.querySelector('input[name="tipo_importe"][value="completo"]');
+            if (completoRadio) completoRadio.checked = true;
             sincronizarModo();
+            sincronizarImporte();
         });
     }
 
     sincronizarModo();
+    sincronizarImporte();
 })();
 {% endif %}
 </script>
