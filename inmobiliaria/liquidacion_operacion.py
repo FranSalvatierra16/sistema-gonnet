@@ -398,6 +398,135 @@ def _fecha_hasta_parte_creada_liquidacion(liq):
     return getattr(liq, 'fecha_hasta', None)
 
 
+def _fecha_creacion_sola_liquidacion(liq):
+    fc = getattr(liq, 'fecha_creacion', None)
+    if not fc:
+        return None
+    try:
+        from django.utils import timezone as dj_tz
+
+        return dj_tz.localdate(fc)
+    except (ValueError, TypeError, OverflowError):
+        return fc.date() if hasattr(fc, 'date') else None
+
+
+def rango_fechas_liquidacion(liq):
+    """
+    Período que cubre una liquidación para reportes (asegurado vs liq., cierres).
+
+    Prioridad:
+    1) tramo de la parte dividida creada en esta liq.
+    2) fecha_desde / fecha_hasta de la liquidación
+    3) fechas de la reserva o del contrato asociados
+    4) fecha de alta (un solo día)
+    """
+    start = fecha_desde_parte_creada_liquidacion(liq)
+    end = _fecha_hasta_parte_creada_liquidacion(liq) if start else None
+    if start is None and end is None:
+        start = getattr(liq, 'fecha_desde', None)
+        end = getattr(liq, 'fecha_hasta', None)
+
+    if start is None and end is None:
+        reserva = getattr(liq, 'reserva', None)
+        if reserva is not None:
+            start = getattr(reserva, 'fecha_inicio', None)
+            end = getattr(reserva, 'fecha_fin', None)
+        if start is None and end is None:
+            contrato = getattr(liq, 'contrato', None)
+            if contrato is not None:
+                start = getattr(contrato, 'fecha_inicio', None)
+                end = getattr(contrato, 'fecha_fin', None)
+
+    if start is None and end is None:
+        fc = _fecha_creacion_sola_liquidacion(liq)
+        if fc is None:
+            return None, None
+        return fc, fc
+
+    if start is None:
+        start = end
+    if end is None:
+        end = start
+    if start > end:
+        start, end = end, start
+    return start, end
+
+
+def liquidacion_solapa_periodo(liq, d1, d2):
+    """True si el período de la liquidación intersecta [d1, d2] (inclusive)."""
+    if d1 is None or d2 is None:
+        return False
+    if d1 > d2:
+        d1, d2 = d2, d1
+    start, end = rango_fechas_liquidacion(liq)
+    if start is None or end is None:
+        return False
+    return start <= d2 and end >= d1
+
+
+def _dias_inclusive(a, b):
+    return (b - a).days + 1
+
+
+def monto_propietario_en_periodo(liq, d1, d2):
+    """
+    Parte de monto_propietario atribuible a [d1, d2].
+
+    Si la liquidación cubre un rango más amplio (p. ej. toda la temporada),
+    se prorratea por días de solape. Así un asegurado de enero no suma
+    también diciembre y febrero.
+    """
+    monto = Decimal(str(getattr(liq, 'monto_propietario', None) or 0))
+    if monto == 0:
+        return Decimal('0.00')
+    if d1 is None or d2 is None:
+        return Decimal('0.00')
+    if d1 > d2:
+        d1, d2 = d2, d1
+
+    start, end = rango_fechas_liquidacion(liq)
+    if start is None or end is None:
+        return Decimal('0.00')
+    if start > d2 or end < d1:
+        return Decimal('0.00')
+
+    overlap_start = max(start, d1)
+    overlap_end = min(end, d2)
+    dias_liq = _dias_inclusive(start, end)
+    dias_ov = _dias_inclusive(overlap_start, overlap_end)
+    if dias_liq <= 0 or dias_ov <= 0:
+        return Decimal('0.00')
+    if dias_ov >= dias_liq:
+        return monto.quantize(Decimal('0.01'))
+    return (monto * Decimal(dias_ov) / Decimal(dias_liq)).quantize(Decimal('0.01'))
+
+
+def montos_liquidacion_en_periodo(liq, d1, d2):
+    """
+    Montos de la liquidación prorrateados al período [d1, d2].
+    Devuelve (operacion, inmobiliaria, propietario) o ceros si no solapa.
+    """
+    prop = monto_propietario_en_periodo(liq, d1, d2)
+    if prop == 0 and not liquidacion_solapa_periodo(liq, d1, d2):
+        return Decimal('0.00'), Decimal('0.00'), Decimal('0.00')
+
+    start, end = rango_fechas_liquidacion(liq)
+    if start is None or end is None:
+        return Decimal('0.00'), Decimal('0.00'), Decimal('0.00')
+
+    dias_liq = _dias_inclusive(start, end)
+    overlap_start = max(start, d1 if d1 <= d2 else d2)
+    overlap_end = min(end, d2 if d1 <= d2 else d1)
+    dias_ov = _dias_inclusive(overlap_start, overlap_end)
+    if dias_liq <= 0 or dias_ov <= 0:
+        return Decimal('0.00'), Decimal('0.00'), Decimal('0.00')
+
+    factor = Decimal(1) if dias_ov >= dias_liq else (Decimal(dias_ov) / Decimal(dias_liq))
+    op = (Decimal(str(getattr(liq, 'monto_total_operacion', None) or 0)) * factor).quantize(Decimal('0.01'))
+    inm = (Decimal(str(getattr(liq, 'monto_inmobiliaria', None) or 0)) * factor).quantize(Decimal('0.01'))
+    return op, inm, prop.quantize(Decimal('0.01'))
+
+
 def fechas_periodo_pendiente_reserva(reserva):
     """
     Rango de fechas que queda por liquidar.

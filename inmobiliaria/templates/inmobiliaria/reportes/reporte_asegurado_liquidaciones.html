@@ -17,7 +17,8 @@
     <p class="text-muted small mb-3">
         Cuadro de cierre por disponibilidad asegurada.
         <strong>Pagado</strong> = monto asegurado ·
-        <strong>Cobrado</strong> = lo liquidado al propietario ·
+        <strong>Cobrado</strong> = lo liquidado al propietario en ese período
+        (si la liquidación cubre varios meses, se prorratea por días) ·
         <strong>Diferencia</strong> = cobrado − pagado ·
         <strong>Saldo</strong> = diferencia + otros.
         Sin cable ni cochera.
@@ -175,7 +176,7 @@
                     <div class="small text-muted">{{ d.get_moneda_asegurado_display }}</div>
                 </div>
                 <div class="col-md-4">
-                    <strong>Suma liquidaciones (período solapado)</strong>
+                    <strong>Suma liquidaciones (prorrateadas al período)</strong>
                     <ul class="list-unstyled small mt-1 mb-0">
                         <li>Total operación: <strong>${{ detalle.total_operacion|format_price }}</strong></li>
                         <li>Parte inmobiliaria: <strong>${{ detalle.total_inmobiliaria|format_price }}</strong></li>
@@ -213,9 +214,9 @@
                             <th>Ítems en liq.</th>
                             <th>Período liq.</th>
                             <th>Alta</th>
-                            <th class="text-end">Total operación</th>
-                            <th class="text-end">Inmobiliaria</th>
-                            <th class="text-end">Propietario</th>
+                            <th class="text-end">Op. (período)</th>
+                            <th class="text-end">Inmob. (período)</th>
+                            <th class="text-end">Prop. (período)</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -234,17 +235,19 @@
                                 {% endif %}
                             </td>
                             <td class="text-center small">{% if liq.operaciones_incluidas %}{{ liq.operaciones_incluidas|length }}{% else %}0{% endif %}</td>
-                            <td>
-                                {% if liq.fecha_desde or liq.fecha_hasta %}
+                            <td class="small">
+                                {% if liq.periodo_resuelto_desde or liq.periodo_resuelto_hasta %}
+                                    {{ liq.periodo_resuelto_desde|date:"d/m/Y"|default:"—" }} → {{ liq.periodo_resuelto_hasta|date:"d/m/Y"|default:"—" }}
+                                {% elif liq.fecha_desde or liq.fecha_hasta %}
                                     {{ liq.fecha_desde|date:"d/m/Y"|default:"—" }} → {{ liq.fecha_hasta|date:"d/m/Y"|default:"—" }}
                                 {% else %}
-                                    <span class="text-muted">(sin período; usa fecha alta)</span>
+                                    <span class="text-muted">(sin período)</span>
                                 {% endif %}
                             </td>
                             <td>{{ liq.fecha_creacion|date:"d/m/Y H:i" }}</td>
-                            <td class="text-end">${{ liq.monto_total_operacion|format_price }}</td>
-                            <td class="text-end">${{ liq.monto_inmobiliaria|format_price }}</td>
-                            <td class="text-end">${{ liq.monto_propietario|format_price }}</td>
+                            <td class="text-end">${{ liq.monto_operacion_periodo|format_price }}</td>
+                            <td class="text-end">${{ liq.monto_inmobiliaria_periodo|format_price }}</td>
+                            <td class="text-end">${{ liq.monto_propietario_periodo|format_price }}</td>
                             <td><a href="{% url 'inmobiliaria:detalle_liquidacion' liq.id %}" class="btn btn-outline-primary btn-sm">Ver</a></td>
                         </tr>
                         {% empty %}

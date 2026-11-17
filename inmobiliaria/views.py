@@ -29270,29 +29270,11 @@ def generar_enlace_publico(request):
 def _liquidacion_solapa_periodo(liq, d1, d2):
     """
     True si el período de la liquidación intersecta [d1, d2] (fechas inclusive).
-    Si no hay fecha_desde/fecha_hasta, se usa la fecha de creación del registro.
+    Delega en liquidacion_operacion (parte dividida / reserva / contrato / alta).
     """
-    fc = None
-    if getattr(liq, 'fecha_creacion', None):
-        try:
-            fc = timezone.localdate(liq.fecha_creacion)
-        except (ValueError, TypeError, OverflowError):
-            fc = liq.fecha_creacion.date() if hasattr(liq.fecha_creacion, 'date') else None
-    start = liq.fecha_desde
-    end = liq.fecha_hasta
-    if start is None and end is None:
-        if fc is None:
-            return False
-        start = end = fc
-    elif start is None:
-        start = end if end is not None else fc
-        if start is None:
-            return False
-        if end is None:
-            end = start
-    elif end is None:
-        end = start
-    return start <= d2 and end >= d1
+    from inmobiliaria.liquidacion_operacion import liquidacion_solapa_periodo
+
+    return liquidacion_solapa_periodo(liq, d1, d2)
 
 
 @login_required
@@ -29301,8 +29283,16 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
     Listado de disponibilidades con pago asegurado y cuadro tipo cierre de temporada.
     Filtro por fechas (solape con el período de la disponibilidad).
     Saldo asegurado = parte propietario liquidada − monto asegurado (ARS).
+
+    Cobrado prorratea cada liquidación por días de solape con la disponibilidad,
+    para no sumar toda la temporada en un solo mes asegurado.
     """
     from datetime import datetime as _dt
+    from inmobiliaria.liquidacion_operacion import (
+        liquidacion_solapa_periodo,
+        montos_liquidacion_en_periodo,
+        rango_fechas_liquidacion,
+    )
 
     sucursal = getattr(request.user, 'sucursal', None)
     if not sucursal:
@@ -29380,12 +29370,21 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
         total_propietario = Decimal('0')
         filas_liq = []
         for liq in liqs:
-            if not _liquidacion_solapa_periodo(liq, d1, d2):
+            if not liquidacion_solapa_periodo(liq, d1, d2):
                 continue
+            op_m, inm_m, prop_m = montos_liquidacion_en_periodo(liq, d1, d2)
+            if op_m == 0 and inm_m == 0 and prop_m == 0:
+                continue
+            start, end = rango_fechas_liquidacion(liq)
+            liq.monto_operacion_periodo = op_m
+            liq.monto_inmobiliaria_periodo = inm_m
+            liq.monto_propietario_periodo = prop_m
+            liq.periodo_resuelto_desde = start
+            liq.periodo_resuelto_hasta = end
             filas_liq.append(liq)
-            total_operacion += liq.monto_total_operacion or Decimal('0')
-            total_inmobiliaria += liq.monto_inmobiliaria or Decimal('0')
-            total_propietario += liq.monto_propietario or Decimal('0')
+            total_operacion += op_m
+            total_inmobiliaria += inm_m
+            total_propietario += prop_m
         return filas_liq, total_operacion, total_inmobiliaria, total_propietario
 
     # Cuadro estilo cierre (sin cable / cochera)

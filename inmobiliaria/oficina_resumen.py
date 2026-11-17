@@ -438,36 +438,19 @@ def _hijos_activos(raiz):
 
 def _liquidacion_solapa_rango(liq, d1, d2):
     """True si el período de la liquidación intersecta [d1, d2]."""
-    from django.utils import timezone as dj_tz
+    from inmobiliaria.liquidacion_operacion import liquidacion_solapa_periodo
 
-    fc = None
-    if getattr(liq, 'fecha_creacion', None):
-        try:
-            fc = dj_tz.localdate(liq.fecha_creacion)
-        except (ValueError, TypeError, OverflowError):
-            fc = liq.fecha_creacion.date() if hasattr(liq.fecha_creacion, 'date') else None
-    start = liq.fecha_desde
-    end = liq.fecha_hasta
-    if start is None and end is None:
-        if fc is None:
-            return False
-        start = end = fc
-    elif start is None:
-        start = end if end is not None else fc
-        if start is None:
-            return False
-        if end is None:
-            end = start
-    elif end is None:
-        end = start
-    return start <= d2 and end >= d1
+    return liquidacion_solapa_periodo(liq, d1, d2)
 
 
 def _saldo_cierre_dptos_tomados(sucursal, fecha_desde, fecha_hasta):
     """
     Saldo del reporte de departamentos tomados (asegurados) en el mes:
     suma (liquidado al propietario − monto asegurado) en ARS.
+    El liquidado se prorratea por días de solape con cada disponibilidad.
     """
+    from inmobiliaria.liquidacion_operacion import monto_propietario_en_periodo
+
     try:
         disps = list(
             Disponibilidad.objects.filter(
@@ -496,14 +479,7 @@ def _saldo_cierre_dptos_tomados(sucursal, fecha_desde, fecha_hasta):
                 sucursal=sucursal,
             )
             .exclude(estado='cancelada')
-            .only(
-                'propiedad_id',
-                'monto_propietario',
-                'fecha_desde',
-                'fecha_hasta',
-                'fecha_creacion',
-                'estado',
-            )
+            .select_related('reserva', 'contrato')
         ):
             liqs_por_prop[liq.propiedad_id].append(liq)
 
@@ -515,9 +491,7 @@ def _saldo_cierre_dptos_tomados(sucursal, fecha_desde, fecha_hasta):
         cobrado = Decimal('0')
         d1, d2 = disp.fecha_inicio, disp.fecha_fin
         for liq in liqs_por_prop.get(disp.propiedad_id, ()):
-            if not _liquidacion_solapa_rango(liq, d1, d2):
-                continue
-            cobrado += liq.monto_propietario or Decimal('0')
+            cobrado += monto_propietario_en_periodo(liq, d1, d2)
         tot_saldo += (cobrado - pagado).quantize(Decimal('0.01'))
     return tot_saldo.quantize(Decimal('0.01'))
 
