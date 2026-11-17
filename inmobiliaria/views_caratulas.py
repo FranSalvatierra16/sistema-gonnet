@@ -3575,6 +3575,7 @@ def _build_legacy_reserva(
         'turista': tr,
         'garante_id': tr['dni'],
         'garante_linea': tr['linea1'],
+        'garantes_lineas': [],
         'caratula_rotulo': _caratula_rotulo_prop_cli(prop, cli),
         'importe_locacion': _formato_importe_us(reserva.precio_total),
         'senia': _formato_importe_us(reserva.senia),
@@ -3638,21 +3639,25 @@ def _build_legacy_contrato(
     propi = getattr(prop, 'propietario', None) if prop else None
     vend = contrato.vendedor
 
-    garantes = list(contrato.garantes.all()[:1])
+    garantes = list(contrato.garantes.all())
     tr_inq = _turista_legado(inq)
+    garantes_lineas = []
     if garantes:
-        g0 = garantes[0]
-        garante_id = _dni_formato_legado(g0.dni)
-        garante_linea = _turista_legado(g0)['linea1']
+        for g in garantes:
+            garantes_lineas.append(_turista_legado(g)['linea1'])
+        garante_id = _dni_formato_legado(garantes[0].dni)
+        garante_linea = ' · '.join(garantes_lineas)
     elif contrato.garante_dni:
         garante_id = _dni_formato_legado(contrato.garante_dni)
         ap_g = (contrato.garante_apellido or '').strip().upper()
         nom_g = (contrato.garante_nombre or '').strip().upper()
         nom_g_fmt = f'{ap_g} {nom_g}'.strip() or '—'
         garante_linea = f'{garante_id} | {nom_g_fmt}'
+        garantes_lineas = [garante_linea]
     else:
-        garante_id = tr_inq['dni']
-        garante_linea = tr_inq['linea1']
+        garante_id = ''
+        garante_linea = '—'
+        garantes_lineas = []
 
     total_contrato = (contrato.precio_mensual or Decimal(0)) * Decimal(contrato.duracion_meses or 0)
     saldo_cuotas = sum(
@@ -3750,6 +3755,7 @@ def _build_legacy_contrato(
         'turista': tr_inq,
         'garante_id': garante_id,
         'garante_linea': garante_linea,
+        'garantes_lineas': garantes_lineas,
         'caratula_rotulo': _caratula_rotulo_prop_cli(prop, inq),
         'importe_locacion': _formato_importe_us(total_contrato),
         'senia': _formato_importe_us(senia_val),

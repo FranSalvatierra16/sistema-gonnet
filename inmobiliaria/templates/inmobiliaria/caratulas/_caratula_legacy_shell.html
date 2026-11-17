@@ -64,8 +64,14 @@
             </div>
         </div>
         <div class="mt-1">
-            <span class="lbl">GARANTE</span>
-            <span class="caratula-valor-pipe">{{ cl.garante_linea }}</span>
+            <span class="lbl">{% if cl.garantes_lineas and cl.garantes_lineas|length > 1 %}GARANTES{% else %}GARANTE{% endif %}</span>
+            {% if cl.garantes_lineas %}
+                {% for linea in cl.garantes_lineas %}
+                <div class="caratula-valor-pipe">{% if cl.garantes_lineas|length > 1 %}{{ forloop.counter }}. {% endif %}{{ linea }}</div>
+                {% endfor %}
+            {% else %}
+                <span class="caratula-valor-pipe">{{ cl.garante_linea|default:"—" }}</span>
+            {% endif %}
         </div>
     </div>
 
