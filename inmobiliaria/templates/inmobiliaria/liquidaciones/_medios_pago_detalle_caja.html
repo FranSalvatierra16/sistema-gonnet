@@ -1,28 +1,49 @@
 {# Detalle de medios como en caja. Requiere: cuentas_bancarias. Opcional: disabled_attr #}
 <div id="bloque_detalle_tarjeta" class="row mb-3 d-none border rounded p-3 bg-light">
+    <div class="col-12 d-flex justify-content-between align-items-center mb-2">
+        <h6 class="text-muted mb-0">Datos de tarjeta / cupones <small>(opcional)</small></h6>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="btn_agregar_cupon_liq" {{ disabled_attr }}>
+            <i class="fas fa-plus me-1"></i>Agregar cupón
+        </button>
+    </div>
     <div class="col-12">
-        <h6 class="text-muted mb-2">Datos de tarjeta <small>(opcional)</small></h6>
+        <small class="text-muted d-block mb-2">Podés cargar más de un cupón. La suma actualiza el total de Tarjeta.</small>
     </div>
-    <div class="col-md-4">
-        <label class="form-label">Nº / referencia</label>
-        <input type="text" name="tarjeta_numero" class="form-control" maxlength="32"
-               autocomplete="off" placeholder="Ej. últimos 4 dígitos"
-               {{ disabled_attr }}>
-    </div>
-    <div class="col-md-4">
-        <label class="form-label">Cupón</label>
-        <input type="text" name="tarjeta_cupon" class="form-control" maxlength="64"
-               autocomplete="off" {{ disabled_attr }}>
-    </div>
-    <div class="col-md-4">
-        <label class="form-label">Tipo</label>
-        <select name="tarjeta_tipo" class="form-select" {{ disabled_attr }}>
-            <option value="">—</option>
-            <option value="credito">Crédito</option>
-            <option value="debito">Débito</option>
-        </select>
+    <div class="col-12" id="lista_cupones_tarjeta_liq"></div>
+    <div class="col-12 mt-1">
+        <span class="small text-muted">Suma cupones: </span>
+        <strong id="suma_cupones_label_liq">$0,00</strong>
     </div>
 </div>
+<template id="tpl_fila_cupon_liq">
+    <div class="row g-2 align-items-end mb-2 fila-cupon border-bottom pb-2">
+        <div class="col-md-2">
+            <label class="form-label small mb-0">Monto</label>
+            <input type="text" name="tarjeta_item_monto" class="form-control form-control-sm input-monto-ar cupon-monto" inputmode="decimal" autocomplete="off" placeholder="0" {{ disabled_attr }}>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small mb-0">Cupón</label>
+            <input type="text" name="tarjeta_item_cupon" class="form-control form-control-sm" maxlength="64" autocomplete="off" {{ disabled_attr }}>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small mb-0">Nº / referencia</label>
+            <input type="text" name="tarjeta_item_numero" class="form-control form-control-sm" maxlength="32" autocomplete="off" placeholder="Últimos 4" {{ disabled_attr }}>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small mb-0">Tipo</label>
+            <select name="tarjeta_item_tipo" class="form-select form-select-sm" {{ disabled_attr }}>
+                <option value="">—</option>
+                <option value="credito">Crédito</option>
+                <option value="debito">Débito</option>
+            </select>
+        </div>
+        <div class="col-md-1">
+            <button type="button" class="btn btn-sm btn-outline-danger w-100 btn-quitar-cupon" title="Quitar" {{ disabled_attr }}>
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+</template>
 
 <div id="bloque_detalle_cheque" class="row mb-3 d-none border rounded p-3 bg-light">
     <div class="col-12">
@@ -70,3 +91,83 @@
         <small class="text-muted">La fecha real del banco (puede ser distinta a hoy).</small>
     </div>
 </div>
+<script>
+(function () {
+    function parseMonto(v) {
+        if (!v) return 0;
+        var s = String(v).replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+        var n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
+    }
+    function fmt(n) {
+        try {
+            return Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } catch (e) {
+            return String(n || 0);
+        }
+    }
+    function agregarFila(datos) {
+        var tpl = document.getElementById('tpl_fila_cupon_liq');
+        var lista = document.getElementById('lista_cupones_tarjeta_liq');
+        if (!tpl || !lista) return;
+        lista.insertAdjacentHTML('beforeend', tpl.innerHTML);
+        var fila = lista.querySelectorAll('.fila-cupon');
+        fila = fila[fila.length - 1];
+        if (!fila || !datos) return;
+        if (datos.monto) fila.querySelector('[name="tarjeta_item_monto"]').value = datos.monto;
+        if (datos.cupon) fila.querySelector('[name="tarjeta_item_cupon"]').value = datos.cupon;
+        if (datos.numero) fila.querySelector('[name="tarjeta_item_numero"]').value = datos.numero;
+        if (datos.tipo) fila.querySelector('[name="tarjeta_item_tipo"]').value = datos.tipo;
+    }
+    function actualizarSuma() {
+        var suma = 0;
+        document.querySelectorAll('#lista_cupones_tarjeta_liq .cupon-monto').forEach(function (el) {
+            suma += parseMonto(el.value);
+        });
+        var lab = document.getElementById('suma_cupones_label_liq');
+        if (lab) lab.textContent = '$' + fmt(suma);
+        if (suma > 0) {
+            var inp = document.querySelector('input[name="monto_tarjeta"]');
+            if (inp) inp.value = fmt(suma);
+        }
+        return suma;
+    }
+    function asegurarFila() {
+        if (!document.querySelector('#lista_cupones_tarjeta_liq .fila-cupon')) {
+            var tj = parseMonto((document.querySelector('input[name="monto_tarjeta"]') || {}).value);
+            agregarFila(tj > 0 ? { monto: fmt(tj) } : null);
+        }
+    }
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('#btn_agregar_cupon_liq')) {
+            agregarFila(null);
+        }
+        var quitar = e.target.closest('.btn-quitar-cupon');
+        if (quitar && quitar.closest('#lista_cupones_tarjeta_liq')) {
+            var filas = document.querySelectorAll('#lista_cupones_tarjeta_liq .fila-cupon');
+            var fila = quitar.closest('.fila-cupon');
+            if (filas.length <= 1) {
+                fila.querySelectorAll('input, select').forEach(function (el) { el.value = ''; });
+            } else {
+                fila.remove();
+            }
+            actualizarSuma();
+        }
+    });
+    document.addEventListener('input', function (e) {
+        if (e.target.classList.contains('cupon-monto') && e.target.closest('#lista_cupones_tarjeta_liq')) {
+            actualizarSuma();
+        }
+        if (e.target.name === 'monto_tarjeta') {
+            var tj = parseMonto(e.target.value);
+            var bloque = document.getElementById('bloque_detalle_tarjeta');
+            if (bloque) bloque.classList.toggle('d-none', tj <= 0);
+            if (tj > 0) asegurarFila();
+        }
+    });
+    var tj0 = parseMonto((document.querySelector('input[name="monto_tarjeta"]') || {}).value);
+    var bloque0 = document.getElementById('bloque_detalle_tarjeta');
+    if (bloque0) bloque0.classList.toggle('d-none', tj0 <= 0);
+    if (tj0 > 0) asegurarFila();
+})();
+</script>

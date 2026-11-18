@@ -980,6 +980,34 @@ class ChequeMovimientoCaja(models.Model):
         return f'Cheque {num} ${self.monto} (mov #{self.movimiento_id})'
 
 
+class CuponTarjetaMovimientoCaja(models.Model):
+    """Detalle de uno o más cupones de tarjeta asociados a un MovimientoCaja."""
+    TIPO_CHOICES = [
+        ('credito', 'Crédito'),
+        ('debito', 'Débito'),
+    ]
+    movimiento = models.ForeignKey(
+        MovimientoCaja,
+        on_delete=models.CASCADE,
+        related_name='cupones_tarjeta',
+    )
+    monto = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    cupon = models.CharField(max_length=64, blank=True)
+    numero = models.CharField(max_length=32, blank=True, help_text='Nº / referencia de tarjeta')
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, blank=True, default='')
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = 'inmobiliaria_cupontarjetamovimientocaja'
+        ordering = ['orden', 'id']
+        verbose_name = 'Cupón de tarjeta'
+        verbose_name_plural = 'Cupones de tarjeta'
+
+    def __str__(self):
+        cup = self.cupon or 's/n'
+        return f'Cupón {cup} ${self.monto} (mov #{self.movimiento_id})'
+
+
 class Concepto(models.Model):
     id = models.CharField(max_length=20, primary_key=True)  # ID personalizado
     nombre = models.CharField(max_length=100)

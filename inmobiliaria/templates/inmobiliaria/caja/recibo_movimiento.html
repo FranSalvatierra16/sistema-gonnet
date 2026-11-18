@@ -350,13 +350,24 @@
                 <span><strong>💳 Tarjeta:</strong></span>
                 <span>${{ total_tarjeta|format_price }}</span>
             </div>
-            {% if movimiento.tarjeta_numero or movimiento.tarjeta_cupon or movimiento.tarjeta_tipo %}
+            {% with cupones=movimiento.cupones_tarjeta.all %}
+            {% if cupones %}
+                {% for c in cupones %}
+                <div class="small text-muted mb-1" style="padding-left: 8px;">
+                    {% if c.monto %}${{ c.monto|format_price }} · {% endif %}
+                    {% if c.cupon %}Cupón {{ c.cupon }}{% endif %}
+                    {% if c.numero %}{% if c.cupon %} · {% endif %}{{ c.numero }}{% endif %}
+                    {% if c.tipo %}{% if c.cupon or c.numero %} · {% endif %}{{ c.get_tipo_display }}{% endif %}
+                </div>
+                {% endfor %}
+            {% elif movimiento.tarjeta_numero or movimiento.tarjeta_cupon or movimiento.tarjeta_tipo %}
             <div class="small text-muted mb-2" style="padding-left: 8px;">
                 {% if movimiento.tarjeta_numero %}{{ movimiento.tarjeta_numero }}{% endif %}
                 {% if movimiento.tarjeta_cupon %}{% if movimiento.tarjeta_numero %} · {% endif %}Cupón {{ movimiento.tarjeta_cupon }}{% endif %}
                 {% if movimiento.tarjeta_tipo %}{% if movimiento.tarjeta_numero or movimiento.tarjeta_cupon %} · {% endif %}{{ movimiento.get_tarjeta_tipo_display }}{% endif %}
             </div>
             {% endif %}
+            {% endwith %}
             {% endif %}
             
             {% if deposito_cuenta_monto > 0 %}

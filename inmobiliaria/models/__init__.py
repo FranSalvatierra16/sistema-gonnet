@@ -45,6 +45,7 @@ __all__ = [
     'CajaArqueoManual',
     'MovimientoCaja',
     'ChequeMovimientoCaja',
+    'CuponTarjetaMovimientoCaja',
     'TipoMovimientoCajaEnum',
     'TipoOperacion',
     'ContratoAlquiler',

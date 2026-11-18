@@ -8936,7 +8936,7 @@ def ver_recibo_movimiento(request, movimiento_id):
         movimiento = get_object_or_404(
             MovimientoCaja.objects.select_related(
                 'caja', 'propiedad', 'propiedad__propietario', 'empleado', 'sucursal'
-            ).prefetch_related('cheques'),
+            ).prefetch_related('cheques', 'cupones_tarjeta'),
             id=movimiento_id,
             sucursal=request.user.sucursal,
         )
@@ -15409,6 +15409,31 @@ def _form_post_desde_movimiento(movimiento):
     if cheques:
         fp['cheques'] = cheques
 
+    cupones = []
+    try:
+        for c in movimiento.cupones_tarjeta.all().order_by('orden', 'id'):
+            cupones.append({
+                'monto': _m(c.monto),
+                'cupon': (c.cupon or '').strip(),
+                'numero': (c.numero or '').strip(),
+                'tipo': (c.tipo or '').strip(),
+            })
+    except Exception:
+        pass
+    if not cupones and (
+        (movimiento.tarjeta_cupon or '').strip()
+        or (movimiento.tarjeta_numero or '').strip()
+        or (movimiento.tarjeta_tipo or '').strip()
+    ):
+        cupones.append({
+            'monto': _m(movimiento.monto_tarjeta),
+            'cupon': (movimiento.tarjeta_cupon or '').strip(),
+            'numero': (movimiento.tarjeta_numero or '').strip(),
+            'tipo': (movimiento.tarjeta_tipo or '').strip(),
+        })
+    if cupones:
+        fp['cupones'] = cupones
+
     vale = (
         ValeVendedor.objects.filter(movimiento_caja=movimiento)
         .select_related('vendedor', 'persona_oficina')
@@ -15636,6 +15661,103 @@ def _guardar_cheques_movimiento(movimiento, cheques_detalle):
         for idx, item in enumerate(cheques_detalle)
     ]
     ChequeMovimientoCaja.objects.bulk_create(objs)
+
+
+def _parse_cupones_tarjeta_post(request):
+    """
+    Lee cupones de tarjeta múltiples del POST
+    (tarjeta_item_monto[], cupon, numero, tipo).
+    """
+    montos = request.POST.getlist('tarjeta_item_monto')
+    cupones = request.POST.getlist('tarjeta_item_cupon')
+    numeros = request.POST.getlist('tarjeta_item_numero')
+    tipos = request.POST.getlist('tarjeta_item_tipo')
+    n = max(len(montos), len(cupones), len(numeros), len(tipos))
+    if n == 0:
+        return []
+
+    def _at(lst, i):
+        return (lst[i] if i < len(lst) else '') or ''
+
+    resultado = []
+    for i in range(n):
+        raw_monto = _at(montos, i).strip()
+        cupon = _at(cupones, i).strip()[:64]
+        numero = _at(numeros, i).strip()[:32]
+        tipo = _at(tipos, i).strip().lower()
+        if tipo not in ('credito', 'debito'):
+            tipo = ''
+        try:
+            monto = parse_decimal_monto(raw_monto) if raw_monto else Decimal('0')
+        except (ValueError, TypeError, InvalidOperation):
+            monto = Decimal('0')
+        if monto < 0:
+            monto = Decimal('0')
+        if monto <= 0 and not cupon and not numero and not tipo:
+            continue
+        resultado.append({
+            'monto': monto,
+            'cupon': cupon,
+            'numero': numero,
+            'tipo': tipo,
+        })
+    return resultado
+
+
+def _guardar_cupones_tarjeta_movimiento(movimiento, cupones_detalle):
+    """Persiste los cupones de tarjeta del movimiento."""
+    from inmobiliaria.models import CuponTarjetaMovimientoCaja
+
+    movimiento.cupones_tarjeta.all().delete()
+    if not cupones_detalle:
+        return
+    objs = [
+        CuponTarjetaMovimientoCaja(
+            movimiento=movimiento,
+            monto=item['monto'],
+            cupon=item.get('cupon') or '',
+            numero=item.get('numero') or '',
+            tipo=item.get('tipo') or '',
+            orden=idx,
+        )
+        for idx, item in enumerate(cupones_detalle)
+    ]
+    CuponTarjetaMovimientoCaja.objects.bulk_create(objs)
+
+
+def _aplicar_cupones_tarjeta_a_movimiento(movimiento, request, monto_tarjeta_actual=None):
+    """
+    Lee cupones del POST, actualiza campos legacy del movimiento y devuelve el detalle.
+    Si la suma de montos de cupones es > 0, esa suma pasa a ser monto_tarjeta.
+    """
+    cupones_detalle = _parse_cupones_tarjeta_post(request)
+    if cupones_detalle:
+        suma = sum((c['monto'] for c in cupones_detalle), Decimal('0'))
+        if suma > 0:
+            movimiento.monto_tarjeta = suma
+        primero = cupones_detalle[0]
+        movimiento.tarjeta_cupon = (primero.get('cupon') or '')[:64]
+        movimiento.tarjeta_numero = (primero.get('numero') or '')[:32]
+        movimiento.tarjeta_tipo = (primero.get('tipo') or '')[:10]
+        return cupones_detalle
+
+    movimiento.tarjeta_numero = (request.POST.get('tarjeta_numero') or '')[:32]
+    movimiento.tarjeta_cupon = (request.POST.get('tarjeta_cupon') or '')[:64]
+    tt = (request.POST.get('tarjeta_tipo') or '').strip().lower()
+    movimiento.tarjeta_tipo = tt if tt in ('credito', 'debito') else ''
+    base = monto_tarjeta_actual
+    if base is None:
+        base = Decimal(str(movimiento.monto_tarjeta or 0))
+    if base and base > 0 and (
+        movimiento.tarjeta_cupon or movimiento.tarjeta_numero or movimiento.tarjeta_tipo
+    ):
+        return [{
+            'monto': Decimal(str(base)),
+            'cupon': movimiento.tarjeta_cupon,
+            'numero': movimiento.tarjeta_numero,
+            'tipo': movimiento.tarjeta_tipo,
+        }]
+    return []
 
 
 @login_required
@@ -16004,10 +16126,7 @@ def nuevo_movimiento(request, numero_caja=None):
             else:
                 movimiento.fecha_transferencia = None
 
-            movimiento.tarjeta_numero = (request.POST.get('tarjeta_numero') or '')[:32]
-            movimiento.tarjeta_cupon = (request.POST.get('tarjeta_cupon') or '')[:64]
-            tt = (request.POST.get('tarjeta_tipo') or '').strip().lower()
-            movimiento.tarjeta_tipo = tt if tt in ('credito', 'debito') else ''
+            cupones_detalle = _aplicar_cupones_tarjeta_a_movimiento(movimiento, request)
 
             cheques_detalle = _parse_cheques_movimiento_post(request)
             if cheques_detalle:
@@ -16341,6 +16460,7 @@ def nuevo_movimiento(request, numero_caja=None):
                         movimiento, sucursal=request.user.sucursal
                     )
                 _guardar_cheques_movimiento(movimiento, cheques_detalle)
+                _guardar_cupones_tarjeta_movimiento(movimiento, cupones_detalle)
                 if not movimiento_edicion:
                     _marcar_movimiento_uid_usado(request, movimiento_uid)
                 if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
@@ -35817,10 +35937,30 @@ def _medios_pago_liquidacion_desde_post(request):
     monto_tarjeta = parse_decimal_monto(request.POST.get('monto_tarjeta', '0'))
     monto_deposito = parse_decimal_monto(request.POST.get('monto_deposito', '0'))
 
-    tarjeta_numero = (request.POST.get('tarjeta_numero') or '')[:32]
-    tarjeta_cupon = (request.POST.get('tarjeta_cupon') or '')[:64]
-    tt = (request.POST.get('tarjeta_tipo') or '').strip().lower()
-    tarjeta_tipo = tt if tt in ('credito', 'debito') else ''
+    cupones_detalle = _parse_cupones_tarjeta_post(request)
+    tarjeta_numero = ''
+    tarjeta_cupon = ''
+    tarjeta_tipo = ''
+    if cupones_detalle:
+        suma_cupones = sum((c['monto'] for c in cupones_detalle), Decimal('0'))
+        if suma_cupones > 0:
+            monto_tarjeta = suma_cupones
+        primero_c = cupones_detalle[0]
+        tarjeta_cupon = (primero_c.get('cupon') or '')[:64]
+        tarjeta_numero = (primero_c.get('numero') or '')[:32]
+        tarjeta_tipo = (primero_c.get('tipo') or '')[:10]
+    else:
+        tarjeta_numero = (request.POST.get('tarjeta_numero') or '')[:32]
+        tarjeta_cupon = (request.POST.get('tarjeta_cupon') or '')[:64]
+        tt = (request.POST.get('tarjeta_tipo') or '').strip().lower()
+        tarjeta_tipo = tt if tt in ('credito', 'debito') else ''
+        if monto_tarjeta and monto_tarjeta > 0 and (tarjeta_cupon or tarjeta_numero or tarjeta_tipo):
+            cupones_detalle = [{
+                'monto': Decimal(str(monto_tarjeta)),
+                'cupon': tarjeta_cupon,
+                'numero': tarjeta_numero,
+                'tipo': tarjeta_tipo,
+            }]
 
     cheques_detalle = _parse_cheques_movimiento_post(request)
     cheque_numero = ''
@@ -35883,6 +36023,7 @@ def _medios_pago_liquidacion_desde_post(request):
         'tarjeta_numero': tarjeta_numero,
         'tarjeta_cupon': tarjeta_cupon,
         'tarjeta_tipo': tarjeta_tipo,
+        'cupones_detalle': cupones_detalle,
         'cheque_numero': cheque_numero,
         'cheque_banco': cheque_banco,
         'cheque_fecha_vencimiento': cheque_fecha_vencimiento,
@@ -36000,6 +36141,7 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
     tarjeta_numero = medios.get('tarjeta_numero') or ''
     tarjeta_cupon = medios.get('tarjeta_cupon') or ''
     tarjeta_tipo = medios.get('tarjeta_tipo') or ''
+    cupones_detalle = medios.get('cupones_detalle') or []
     cheque_numero = medios.get('cheque_numero') or ''
     cheque_banco = medios.get('cheque_banco') or ''
     cheque_fecha_vencimiento = medios.get('cheque_fecha_vencimiento')
@@ -36009,6 +36151,7 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
         destino_deposito = None
         fecha_transferencia = None
         tarjeta_numero = tarjeta_cupon = tarjeta_tipo = ''
+        cupones_detalle = []
         cheque_numero = cheque_banco = ''
         cheque_fecha_vencimiento = None
         cheques_detalle = []
@@ -36073,6 +36216,8 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
     )
     if cheques_detalle and monto_cheque > 0:
         _guardar_cheques_movimiento(movimiento, cheques_detalle)
+    if cupones_detalle and monto_tarjeta > 0:
+        _guardar_cupones_tarjeta_movimiento(movimiento, cupones_detalle)
 
     from inmobiliaria.models.liquidacion import PagoLiquidacion
 

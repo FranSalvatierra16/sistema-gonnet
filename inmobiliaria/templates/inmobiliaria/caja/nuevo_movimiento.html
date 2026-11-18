@@ -695,26 +695,52 @@
                             </div>
                         </div>
                         <div id="bloque_detalle_tarjeta" class="row mb-3 d-none border rounded p-3 bg-light">
+                            <div class="col-12 d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="text-muted mb-0">Datos de tarjeta / cupones <small>(opcional)</small></h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btn_agregar_cupon">
+                                    <i class="fas fa-plus me-1"></i>Agregar cupón
+                                </button>
+                            </div>
                             <div class="col-12">
-                                <h6 class="text-muted mb-2">Datos de tarjeta <small>(opcional)</small></h6>
+                                <small class="text-muted d-block mb-2">
+                                    Podés cargar más de un cupón (ej. dos cobros con tarjeta). La suma actualiza el total de Tarjeta.
+                                </small>
                             </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Nº / referencia</label>
-                                <input type="text" name="tarjeta_numero" class="form-control" maxlength="32" autocomplete="off" placeholder="Ej. últimos 4 dígitos">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Cupón</label>
-                                <input type="text" name="tarjeta_cupon" class="form-control" maxlength="64" autocomplete="off">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Tipo</label>
-                                <select name="tarjeta_tipo" class="form-select">
-                                    <option value="">—</option>
-                                    <option value="credito">Crédito</option>
-                                    <option value="debito">Débito</option>
-                                </select>
+                            <div class="col-12" id="lista_cupones_tarjeta"></div>
+                            <div class="col-12 mt-1">
+                                <span class="small text-muted">Suma cupones: </span>
+                                <strong id="suma_cupones_label">$0,00</strong>
                             </div>
                         </div>
+                        <template id="tpl_fila_cupon">
+                            <div class="row g-2 align-items-end mb-2 fila-cupon border-bottom pb-2">
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Monto</label>
+                                    <input type="text" name="tarjeta_item_monto" class="form-control form-control-sm input-monto-ar cupon-monto" inputmode="decimal" autocomplete="off" placeholder="0">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Cupón</label>
+                                    <input type="text" name="tarjeta_item_cupon" class="form-control form-control-sm" maxlength="64" autocomplete="off">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Nº / referencia</label>
+                                    <input type="text" name="tarjeta_item_numero" class="form-control form-control-sm" maxlength="32" autocomplete="off" placeholder="Últimos 4">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Tipo</label>
+                                    <select name="tarjeta_item_tipo" class="form-select form-select-sm">
+                                        <option value="">—</option>
+                                        <option value="credito">Crédito</option>
+                                        <option value="debito">Débito</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-sm btn-outline-danger w-100 btn-quitar-cupon" title="Quitar">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
                         <div id="bloque_detalle_cheque" class="row mb-3 d-none border rounded p-3 bg-light">
                             <div class="col-12 d-flex justify-content-between align-items-center mb-2">
                                 <h6 class="text-muted mb-0">Datos de los cheques</h6>
@@ -2025,11 +2051,55 @@ $(document).ready(function() {
         }
     }
 
+    function agregarFilaCupon(datos) {
+        var tpl = document.getElementById('tpl_fila_cupon');
+        if (!tpl) return;
+        $('#lista_cupones_tarjeta').append(tpl.innerHTML);
+        var $fila = $('#lista_cupones_tarjeta .fila-cupon').last();
+        if (datos) {
+            if (datos.monto) $fila.find('[name="tarjeta_item_monto"]').val(datos.monto);
+            if (datos.cupon) $fila.find('[name="tarjeta_item_cupon"]').val(datos.cupon);
+            if (datos.numero) $fila.find('[name="tarjeta_item_numero"]').val(datos.numero);
+            if (datos.tipo) $fila.find('[name="tarjeta_item_tipo"]').val(datos.tipo);
+        }
+        var $monto = $fila.find('.cupon-monto');
+        if ($monto.length && $monto.val()) formatearMontoAlSalir($monto[0]);
+        actualizarSumaCupones();
+    }
+
+    function actualizarSumaCupones() {
+        var suma = 0;
+        $('#lista_cupones_tarjeta .cupon-monto').each(function() {
+            suma += parseMontoLocal($(this).val());
+        });
+        $('#suma_cupones_label').text('$' + fmtMontoLocal(suma));
+        if (suma > 0) {
+            $('input[name="monto_tarjeta"]').val(fmtMontoLocal(suma));
+            actualizarTotalVisible();
+        }
+        return suma;
+    }
+
+    function asegurarFilasCupon() {
+        if ($('#lista_cupones_tarjeta .fila-cupon').length === 0) {
+            var tj = parseMontoLocal($('input[name="monto_tarjeta"]').val());
+            agregarFilaCupon(tj > 0 ? { monto: fmtMontoLocal(tj) } : null);
+        }
+    }
+
     function actualizarVisibilidadMediosPago() {
         var tj = parseMontoLocal($('input[name="monto_tarjeta"]').val());
         var ch = parseMontoLocal($('input[name="monto_cheque"]').val());
-        $('#bloque_detalle_tarjeta').toggleClass('d-none', tj <= 0);
-        var mostrarCheque = ch > 0 || $('#lista_cheques_movimiento .fila-cheque').length > 0;
+        if (tj > 0) {
+            $('#bloque_detalle_tarjeta').removeClass('d-none');
+            asegurarFilasCupon();
+        } else if ($('#lista_cupones_tarjeta .cupon-monto').filter(function() {
+            return parseMontoLocal($(this).val()) > 0;
+        }).length === 0 && !$('#lista_cupones_tarjeta [name="tarjeta_item_cupon"]').filter(function() {
+            return String($(this).val() || '').trim();
+        }).length) {
+            $('#bloque_detalle_tarjeta').addClass('d-none');
+        }
         // Mostrar bloque si hay monto en cheques
         if (ch > 0) {
             $('#bloque_detalle_cheque').removeClass('d-none');
@@ -2064,9 +2134,32 @@ $(document).ready(function() {
         actualizarSumaCheques();
     });
 
+    $('#btn_agregar_cupon').on('click', function() {
+        agregarFilaCupon(null);
+    });
+    $('#lista_cupones_tarjeta').on('click', '.btn-quitar-cupon', function() {
+        var $filas = $('#lista_cupones_tarjeta .fila-cupon');
+        if ($filas.length <= 1) {
+            $(this).closest('.fila-cupon').find('input, select').val('');
+        } else {
+            $(this).closest('.fila-cupon').remove();
+        }
+        actualizarSumaCupones();
+        actualizarVisibilidadMediosPago();
+    });
+    $('#lista_cupones_tarjeta').on('input', '.cupon-monto', function() {
+        formatearMontoAlEscribir(this);
+        actualizarSumaCupones();
+        sincronizarCorresponde(ultimoCasilleroCorresponde);
+    });
+    $('#lista_cupones_tarjeta').on('blur', '.cupon-monto', function() {
+        formatearMontoAlSalir(this);
+        actualizarSumaCupones();
+    });
+
     // Total al cambiar importes — formateo miles en cada tecla
     $('#formMovimiento').on('input', '.monto, .input-monto-ar', function() {
-        if ($(this).hasClass('cheque-monto') || $(this).hasClass('input-monto-corresponde')) return;
+        if ($(this).hasClass('cheque-monto') || $(this).hasClass('cupon-monto') || $(this).hasClass('input-monto-corresponde')) return;
         formatearMontoAlEscribir(this);
         if (this.id !== 'monto_dolares_mov') {
             sincronizarUsdDesdeArs();
@@ -2076,7 +2169,7 @@ $(document).ready(function() {
         actualizarHintCorresponde();
     });
     $('#formMovimiento').on('blur', '.monto, .input-monto-ar', function() {
-        if ($(this).hasClass('cheque-monto') || $(this).hasClass('input-monto-corresponde')) return;
+        if ($(this).hasClass('cheque-monto') || $(this).hasClass('cupon-monto') || $(this).hasClass('input-monto-corresponde')) return;
         formatearMontoAlSalir(this);
         if (this.id !== 'monto_dolares_mov') {
             sincronizarUsdDesdeArs();
@@ -2999,9 +3092,29 @@ $(document).ready(function() {
         setVal('#monto_a_oficina', fp.monto_a_oficina);
         setVal('#monto_a_propietario', fp.monto_a_propietario);
         setVal('#monto_a_inquilino', fp.monto_a_inquilino);
-        setVal('input[name="tarjeta_numero"]', fp.tarjeta_numero);
-        setVal('input[name="tarjeta_cupon"]', fp.tarjeta_cupon);
-        setVal('select[name="tarjeta_tipo"]', fp.tarjeta_tipo);
+        $('#lista_cupones_tarjeta').empty();
+        if (fp.cupones && fp.cupones.length) {
+            fp.cupones.forEach(function(c) {
+                agregarFilaCupon({
+                    monto: c.monto,
+                    cupon: c.cupon,
+                    numero: c.numero,
+                    tipo: c.tipo
+                });
+            });
+            $('#bloque_detalle_tarjeta').removeClass('d-none');
+            actualizarSumaCupones();
+        } else if (fp.tarjeta_cupon || fp.tarjeta_numero || fp.tarjeta_tipo || parseMontoLocal(fp.monto_tarjeta || '') > 0) {
+            agregarFilaCupon({
+                monto: fp.monto_tarjeta,
+                cupon: fp.tarjeta_cupon,
+                numero: fp.tarjeta_numero,
+                tipo: fp.tarjeta_tipo
+            });
+            if (parseMontoLocal(fp.monto_tarjeta || '') > 0) {
+                $('#bloque_detalle_tarjeta').removeClass('d-none');
+            }
+        }
         $('#lista_cheques_movimiento').empty();
         if (fp.cheques && fp.cheques.length) {
             fp.cheques.forEach(function(c) {
