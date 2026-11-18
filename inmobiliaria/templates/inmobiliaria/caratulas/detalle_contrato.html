@@ -103,11 +103,20 @@
                                         </a>
                                         <span class="text-muted small">({{ c.liquidacion_estado }})</span>
                                         {% elif c.liq_estado == 'pendiente' %}
+                                        {% if c.liq_parcial and c.liquidacion_url %}
+                                        <a href="{{ c.liquidacion_url }}" class="badge bg-info text-dark text-decoration-none" title="Ya se liquidó un pago a cuenta; queda saldo">
+                                            A cuenta #{{ c.liquidacion_id }}
+                                        </a>
+                                        {% endif %}
                                         <a href="{{ c.url_liquidar }}" class="badge bg-warning text-dark text-decoration-none">
                                             {% if c.es_anticipada_liquidable %}
                                             Liquidar anticipada
                                             {% elif c.liq_es_grupo_recibo and not c.mostrar_btn_liquidar %}
                                             Incl. en recibo (meses {{ c.liq_grupo_meses }})
+                                            {% elif c.liq_parcial %}
+                                            Liquidar saldo
+                                            {% elif c.liq_desde_recibo %}
+                                            Pendiente (desde recibo)
                                             {% else %}
                                             Pendiente de liquidar{% if c.liq_es_grupo_recibo %} — {{ c.liq_grupo_recibo_etiqueta }}{% endif %}
                                             {% endif %}
@@ -118,8 +127,8 @@
                                     </td>
                                     <td class="text-end text-nowrap">
                                         {% if c.liq_estado == 'pendiente' and c.mostrar_btn_liquidar %}
-                                        <a href="{{ c.url_liquidar }}" class="btn btn-sm btn-warning me-1" title="{% if c.liq_es_grupo_recibo %}Liquidar todas las cuotas del mismo recibo{% else %}Crear liquidación de este mes{% endif %}">
-                                            <i class="fas fa-hand-holding-usd me-1"></i>{% if c.liq_es_grupo_recibo %}Liquidar recibo{% else %}Liquidar{% endif %}
+                                        <a href="{{ c.url_liquidar }}" class="btn btn-sm btn-warning me-1" title="{% if c.liq_desde_recibo %}Liquidar lo cobrado en el recibo{% elif c.liq_es_grupo_recibo %}Liquidar todas las cuotas del mismo recibo{% else %}Crear liquidación de este mes{% endif %}">
+                                            <i class="fas fa-hand-holding-usd me-1"></i>{% if c.liq_desde_recibo or c.liq_es_grupo_recibo %}Liquidar recibo{% elif c.liq_parcial %}Liquidar saldo{% else %}Liquidar{% endif %}
                                         </a>
                                         {% endif %}
                                         {% if c.estado == 'pagada' or c.estado == 'pagada_con_mora' %}

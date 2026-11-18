@@ -28,7 +28,25 @@
                         <input type="hidden" name="propietario_id" id="propietario_id" value="">
                         <input type="hidden" name="operacion_referencia_numero" id="operacion_referencia_numero" value="">
                         <input type="hidden" name="operacion_referencia_tipo" id="operacion_referencia_tipo" value="">
+                        <input type="hidden" name="movimiento_cobro_id" id="movimiento_cobro_id" value="{{ movimiento_cobro_id|default:'' }}">
                         {{ cuotas_liquidacion_inicial|json_script:"cuotas-liquidacion-inicial-data" }}
+                        {% if montos_cuota_desde_recibo %}{{ montos_cuota_desde_recibo|json_script:"montos-cuota-desde-recibo-data" }}{% else %}<script type="application/json" id="montos-cuota-desde-recibo-data">{}</script>{% endif %}
+
+                        {% if aviso_desde_recibo %}
+                        <div class="alert alert-warning mb-3">
+                            <i class="fas fa-receipt me-2"></i>{{ aviso_desde_recibo }}
+                            {% if conceptos_recibo_otros %}
+                            <div class="small mt-2">
+                                Conceptos del recibo que <strong>no</strong> se incluyen al propietario (podés sumarlos a mano si corresponde):
+                                <ul class="mb-0 mt-1">
+                                    {% for co in conceptos_recibo_otros %}
+                                    <li>{{ co.codigo }} {{ co.nombre }} — ${{ co.importe }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                         
                         <div class="row mb-3">
                             <div class="col-md-6">
@@ -783,6 +801,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (aviso) aviso.classList.add('d-none');
     }
 
+    function montosCuotaDesdeRecibo() {
+        var el = document.getElementById('montos-cuota-desde-recibo-data');
+        if (!el) return {};
+        try { return JSON.parse(el.textContent) || {}; } catch (e) { return {}; }
+    }
+
     function tildarCuotaInicialSiCorresponde() {
         var lista = [];
         var elCuotas = document.getElementById('cuotas-liquidacion-inicial-data');
@@ -794,15 +818,37 @@ document.addEventListener('DOMContentLoaded', function() {
             if (uno) lista = [uno];
         }
         if (!lista.length) return;
+        var montosRecibo = montosCuotaDesdeRecibo();
         lista.forEach(function(cid) {
             const cb = document.querySelector(
                 '.operacion-checkbox[data-tipo="contrato_cuota"][data-id="' + cid + '"]'
             );
             if (cb && !cb.disabled) {
+                var m = montosRecibo[String(cid)];
+                if (m != null && m !== '') {
+                    // parseFloat del formulario espera punto decimal
+                    cb.setAttribute('data-monto-propietario', String(m).replace(',', '.'));
+                }
                 cb.checked = true;
                 cb.dispatchEvent(new Event('change', { bubbles: true }));
             }
         });
+        // Forzar monto al propietario = suma cobrada del recibo (editable después).
+        var suma = 0;
+        Object.keys(montosRecibo).forEach(function(k) {
+            var n = parseFloat(String(montosRecibo[k]).replace(',', '.'));
+            if (!isNaN(n)) suma += n;
+        });
+        if (suma > 0 && typeof montoPropietario !== 'undefined' && montoPropietario) {
+            try {
+                if (typeof fmtMontoLocal === 'function') {
+                    montoPropietario.value = fmtMontoLocal(suma);
+                } else {
+                    montoPropietario.value = String(suma.toFixed(2)).replace('.', ',');
+                }
+                montoPropietario.dispatchEvent(new Event('input', { bubbles: true }));
+            } catch (e) {}
+        }
     }
 
     function tildarPrincipalInicialSiCorresponde() {

@@ -386,6 +386,12 @@
             <i class="fas fa-print"></i> Imprimir Recibo
         </button>
         {% include 'inmobiliaria/caja/_boton_editar_forma_pago.html' with extra_class='ms-2' %}
+        {% if url_liquidar_desde_recibo %}
+        <a href="{{ url_liquidar_desde_recibo }}" class="btn btn-warning ms-2" title="Liquidar al propietario lo cobrado en este recibo">
+            <i class="fas fa-hand-holding-usd"></i>
+            {% if liquidar_recibo_es_a_cuenta %}Liquidar a cuenta al propietario{% else %}Liquidar al propietario{% endif %}
+        </a>
+        {% endif %}
         {% if muestra_siguiente_caratula and url_siguiente %}
         <a href="{{ url_siguiente }}" class="btn btn-success ms-2" target="_blank" rel="noopener">
             <i class="fas fa-file-alt"></i> Imprimir carátula

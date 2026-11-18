@@ -2622,7 +2622,14 @@ def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal, movimientos=
         cuota_ids_mismo_recibo,
         mapa_cuota_ids_por_movimiento,
         mapa_movimientos_recibo_por_cuota_id,
+        movimiento_recibo_principal_cuota,
     )
+    from inmobiliaria.views import _cuotas_excluidas_por_liquidaciones_contrato
+    from decimal import Decimal
+
+    # Asegura cache de montos liquidados (parcial vs completa).
+    excluidas_completas = _cuotas_excluidas_por_liquidaciones_contrato(contrato.propiedad)
+    liquidados = getattr(contrato.propiedad, '_cache_montos_liq_cuota_0', None) or {}
 
     mapa_liq = _mapa_liquidacion_por_cuota_contrato(contrato)
     liquidables = _cuotas_liquidables_contrato(contrato, sucursal, movimientos=movimientos)
@@ -2639,7 +2646,12 @@ def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal, movimientos=
 
     for c in cuotas_list:
         liq = mapa_liq.get(c.id)
-        if liq:
+        slot = liquidados.get(int(c.id)) or {}
+        ya_liq = Decimal(str(slot.get('monto') or 0))
+        completa = int(c.id) in excluidas_completas
+        c.liq_parcial = bool(liq and ya_liq > Decimal('0.05') and not completa)
+
+        if liq and completa:
             c.liq_estado = 'liquidada'
             c.liquidacion_id = liq.id
             c.liquidacion_estado = liq.get_estado_display()
@@ -2651,21 +2663,26 @@ def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal, movimientos=
             c.liq_es_grupo_recibo = False
             c.liq_grupo_recibo_etiqueta = ''
             c.liq_grupo_meses = ''
-        elif c.id in liquidables:
-            c.es_anticipada_liquidable = c.estado in ('pendiente', 'vencida')
+        elif c.id in liquidables or (liq and not completa):
+            # Pendiente (o saldo a cuenta): liquidar desde el recibo de cobranza.
+            c.es_anticipada_liquidable = c.estado in ('pendiente', 'vencida') and not getattr(
+                c, 'recibos_cobro', None
+            ) and ya_liq <= Decimal('0.05')
             grupo_ids = cuota_ids_mismo_recibo(
                 c,
                 cuotas_list,
                 movs,
-                solo_ids=liquidables,
+                solo_ids=liquidables or {int(c.id)},
                 mapa_mov=mapa_mov,
             )
             if c.es_anticipada_liquidable:
                 grupo_ids = [int(c.id)]
+            if not grupo_ids:
+                grupo_ids = [int(c.id)]
             c.liq_cuotas_grupo_ids = grupo_ids
             c.liq_es_grupo_recibo = len(grupo_ids) > 1
             if c.liq_es_grupo_recibo:
-                nums = [int(cuotas_by_id[cid].numero_cuota) for cid in grupo_ids]
+                nums = [int(cuotas_by_id[cid].numero_cuota) for cid in grupo_ids if cid in cuotas_by_id]
                 c.liq_grupo_meses = '–'.join(str(n) for n in sorted(nums))
                 c.liq_grupo_recibo_etiqueta = f"Meses {c.liq_grupo_meses} (mismo recibo)"
             else:
@@ -2675,18 +2692,29 @@ def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal, movimientos=
             if grupo_key not in grupos_liquidar:
                 grupos_liquidar[grupo_key] = min(
                     grupo_ids,
-                    key=lambda cid: int(cuotas_by_id[cid].numero_cuota),
+                    key=lambda cid: int(getattr(cuotas_by_id.get(cid), 'numero_cuota', cid) or cid),
                 )
             c.liq_estado = 'pendiente'
-            c.liquidacion_id = None
-            c.liquidacion_estado = ''
-            c.liquidacion_url = None
-            c.liquidacion_bloqueo_id = None
-            qs_cuotas = ','.join(str(x) for x in sorted(grupo_ids))
-            c.url_liquidar = (
-                reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
-                + f'?cuotas={qs_cuotas}'
+            c.liquidacion_id = liq.id if liq else None
+            c.liquidacion_estado = liq.get_estado_display() if liq else ''
+            c.liquidacion_url = (
+                reverse('inmobiliaria:detalle_liquidacion', args=[liq.id]) if liq else None
             )
+            c.liquidacion_bloqueo_id = None
+            mid = movimiento_recibo_principal_cuota(c, movs)
+            if mid:
+                c.url_liquidar = (
+                    reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
+                    + f'?movimiento={mid}'
+                )
+                c.liq_desde_recibo = True
+            else:
+                qs_cuotas = ','.join(str(x) for x in sorted(grupo_ids))
+                c.url_liquidar = (
+                    reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
+                    + f'?cuotas={qs_cuotas}'
+                )
+                c.liq_desde_recibo = False
             c.mostrar_btn_liquidar = int(c.id) == grupos_liquidar[grupo_key]
         else:
             c.liq_estado = 'espera'
@@ -2700,6 +2728,7 @@ def _enriquecer_cuotas_liquidacion(cuotas_list, contrato, sucursal, movimientos=
             c.liq_es_grupo_recibo = False
             c.liq_grupo_recibo_etiqueta = ''
             c.liq_grupo_meses = ''
+            c.liq_desde_recibo = False
         c.es_operacion_principal = False
 
 

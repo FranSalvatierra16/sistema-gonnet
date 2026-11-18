@@ -27788,6 +27788,21 @@ def recibo_contrato_24(request, contrato_id):
             'recibo_etiqueta_tipo_contrato': contrato.etiqueta_recibo_tipo_contrato,
             'recibo_es_contrato_invierno': contrato.es_contrato_invierno(),
         }
+
+        # Botón liquidar al propietario desde este recibo de cobranza.
+        if primer_movimiento and primer_movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
+            datos_liq = _datos_liquidacion_desde_movimiento_cobro(
+                primer_movimiento, request.user.sucursal
+            )
+            if datos_liq.get('ok'):
+                context['url_liquidar_desde_recibo'] = (
+                    reverse('inmobiliaria:crear_liquidacion_contrato', args=[contrato.id])
+                    + f'?movimiento={primer_movimiento.id}'
+                )
+                context['liquidar_recibo_monto'] = datos_liq['monto_propietario']
+                context['liquidar_recibo_es_a_cuenta'] = any(
+                    c.get('parcial') for c in datos_liq.get('cuotas') or []
+                )
         
         return render(request, 'inmobiliaria/contratos/recibo_contrato_24.html', context)
         
@@ -30490,6 +30505,14 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
                 if cq and cq.estado in ('pendiente', 'vencida'):
                     o['anticipada'] = True
 
+            # Vínculo al recibo de cobranza (si se liquidó desde ese movimiento).
+            mov_cobro_raw = (request.POST.get('movimiento_cobro_id') or '').strip()
+            movimiento_cobro_id = int(mov_cobro_raw) if mov_cobro_raw.isdigit() else None
+            if movimiento_cobro_id:
+                for o in operaciones_incluidas:
+                    if isinstance(o, dict) and (o.get('tipo') or '').lower() == 'contrato_cuota':
+                        o['movimiento_cobro_id'] = movimiento_cobro_id
+
             # Contrato / cuotas: guardar IDs de cuotas imputadas (evita doble uso).
             excl_prev = _cuotas_excluidas_por_liquidaciones_contrato(propiedad)
 
@@ -31064,6 +31087,31 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
     else:
         cuotas_inicial = []
 
+    from inmobiliaria.decimal_utils import format_monto_argentino
+
+    movimiento_cobro = None
+    datos_cobro = None
+    mov_cobro_get = (request.GET.get('movimiento') or request.GET.get('movimiento_id') or '').strip()
+    if mov_cobro_get.isdigit():
+        movimiento_cobro = (
+            MovimientoCaja.objects.filter(
+                id=int(mov_cobro_get),
+                sucursal=request.user.sucursal,
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+                fecha_eliminacion__isnull=True,
+            ).first()
+        )
+        if movimiento_cobro:
+            datos_cobro = _datos_liquidacion_desde_movimiento_cobro(
+                movimiento_cobro, request.user.sucursal
+            )
+            if datos_cobro.get('ok') and datos_cobro.get('contrato'):
+                contrato = datos_cobro['contrato']
+                operacion_buscar_inicial = contrato.id
+                cuotas_inicial = [str(x) for x in datos_cobro['cuota_ids']]
+            elif datos_cobro and datos_cobro.get('error'):
+                messages.warning(request, datos_cobro['error'])
+
     context = {
         'reserva': reserva,
         'contrato': contrato,
@@ -31075,12 +31123,17 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         'moneda_inicial': (
             (contrato.moneda or 'ARS') if contrato else 'ARS'
         ),
+        'movimiento_cobro_id': movimiento_cobro.id if movimiento_cobro else '',
+        'liquidacion_desde_recibo': bool(datos_cobro and datos_cobro.get('ok')),
+        'montos_cuota_desde_recibo': (
+            {str(c['id']): c['monto'] for c in (datos_cobro or {}).get('cuotas') or []}
+        ),
+        'conceptos_recibo_otros': (datos_cobro or {}).get('conceptos_otros') or [],
     }
 
     if reserva:
         context['propiedad'] = reserva.propiedad
         context['monto_total'] = reserva.precio_total
-        from inmobiliaria.decimal_utils import format_monto_argentino
         from inmobiliaria.liquidacion_operacion import (
             fechas_periodo_pendiente_reserva,
             saldo_liquidacion_reserva,
@@ -31115,6 +31168,22 @@ def crear_liquidacion(request, reserva_id=None, contrato_id=None):
         context['propiedad'] = contrato.propiedad
         context['fecha_desde'] = contrato.fecha_inicio
         context['fecha_hasta'] = contrato.fecha_fin
+        if datos_cobro and datos_cobro.get('ok'):
+            fc = datos_cobro.get('fecha_cobranza')
+            # Período / fecha de liquidación = fecha de cobranza del recibo.
+            if fc:
+                context['fecha_desde'] = fc
+                context['fecha_hasta'] = fc
+            context['monto_propietario_inicial'] = format_monto_argentino(
+                datos_cobro['monto_propietario']
+            )
+            context['monto_inmobiliaria_inicial'] = format_monto_argentino(Decimal('0'))
+            context['aviso_desde_recibo'] = (
+                f'Liquidación desde recibo de cobranza #{movimiento_cobro.id}. '
+                f'Se precompleta con lo cobrado de alquiler'
+                f'{" (a cuenta)" if any(c.get("parcial") for c in datos_cobro["cuotas"]) else ""}. '
+                f'Podés bajar el monto si hay algo del recibo que no corresponde al propietario.'
+            )
 
     return render(request, 'inmobiliaria/liquidaciones/crear.html', context)
 
@@ -31268,6 +31337,169 @@ def _reserva_ids_ya_liquidadas_propiedad(propiedad):
     from inmobiliaria.liquidacion_operacion import reserva_ids_completamente_liquidadas
 
     return reserva_ids_completamente_liquidadas(propiedad)
+
+
+def _fecha_cobranza_movimiento(movimiento):
+    """Fecha del cobro para liquidar al propietario (transferencia o día del movimiento)."""
+    if not movimiento:
+        return None
+    ft = getattr(movimiento, 'fecha_transferencia', None)
+    if ft:
+        return ft
+    f = getattr(movimiento, 'fecha', None)
+    if not f:
+        return None
+    if timezone.is_aware(f):
+        f = timezone.localtime(f)
+    return f.date() if hasattr(f, 'date') else f
+
+
+def _datos_liquidacion_desde_movimiento_cobro(movimiento, sucursal):
+    """
+    Arma cuotas e importes cobrados de un recibo de cobranza para liquidar al propietario.
+    Devuelve dict con contrato, cuotas [{id, monto, numero, etiqueta}], fecha_cobranza,
+    conceptos_otros (líneas del recibo que no son alquiler a cuota) y montos.
+    """
+    from inmobiliaria.cuotas_imputacion import (
+        CONCEPTOS_CUOTA_OBJETIVO,
+        lineas_imputables_desde_movimiento,
+        linea_es_imputacion_alquiler_cuota,
+        payload_conceptos_desde_movimiento_detalle,
+        payload_raiz_desde_movimiento_detalle,
+        texto_linea_concepto,
+        _normalizar_codigo_concepto_caja,
+    )
+
+    vacio = {
+        'ok': False,
+        'contrato': None,
+        'cuotas': [],
+        'cuota_ids': [],
+        'monto_propietario': Decimal('0'),
+        'fecha_cobranza': None,
+        'conceptos_otros': [],
+        'movimiento_id': getattr(movimiento, 'id', None),
+        'error': '',
+    }
+    if not movimiento:
+        vacio['error'] = 'Movimiento inválido.'
+        return vacio
+
+    contrato = _obtener_contrato_desde_movimiento(movimiento, sucursal)
+    if not contrato:
+        vacio['error'] = 'Este recibo no está vinculado a un contrato.'
+        return vacio
+
+    fecha_cob = _fecha_cobranza_movimiento(movimiento)
+    payload = payload_raiz_desde_movimiento_detalle(movimiento)
+    payload_cuota_id = int(payload.get('cuota_id') or 0) if payload.get('pago_cuota_mensual') else 0
+
+    montos_por_cuota = {}
+    for line in lineas_imputables_desde_movimiento(movimiento):
+        raw_q = str(line.get('cuota_objetivo_id') or '').strip()
+        if not raw_q.isdigit() and payload_cuota_id:
+            raw_q = str(payload_cuota_id)
+        if not raw_q.isdigit():
+            continue
+        cid = int(raw_q)
+        try:
+            imp = parse_decimal_monto(line.get('importe'))
+        except Exception:
+            imp = Decimal('0')
+        if imp <= 0:
+            continue
+        montos_por_cuota[cid] = montos_por_cuota.get(cid, Decimal('0')) + imp
+
+    # Fallback: cuota.movimiento = este recibo
+    if not montos_por_cuota:
+        for cq in CuotaMensual.objects.filter(movimiento_id=movimiento.id, contrato=contrato):
+            m = Decimal(str(cq.monto_total or 0))
+            if m > 0:
+                montos_por_cuota[int(cq.id)] = m
+
+    if not montos_por_cuota:
+        vacio['contrato'] = contrato
+        vacio['fecha_cobranza'] = fecha_cob
+        vacio['error'] = 'El recibo no tiene importes de alquiler imputados a cuota.'
+        return vacio
+
+    # Restar lo ya liquidado a cuenta
+    liquidados = getattr(contrato.propiedad, '_cache_montos_liq_cuota_0', None)
+    if liquidados is None:
+        _cuotas_excluidas_por_liquidaciones_contrato(contrato.propiedad)
+        liquidados = getattr(contrato.propiedad, '_cache_montos_liq_cuota_0', None) or {}
+
+    cuotas_out = []
+    total_prop = Decimal('0')
+    cuotas_db = {
+        int(c.id): c
+        for c in CuotaMensual.objects.filter(id__in=list(montos_por_cuota), contrato=contrato)
+    }
+    for cid, cobrado in sorted(montos_por_cuota.items()):
+        cq = cuotas_db.get(cid)
+        if not cq:
+            continue
+        ya = Decimal(str((liquidados.get(cid) or {}).get('monto') or 0))
+        saldo = (cobrado - ya).quantize(Decimal('0.01'))
+        if saldo <= Decimal('0.05'):
+            continue
+        total_prop += saldo
+        es_parcial = saldo + Decimal('0.05') < Decimal(str(cq.monto_total or 0))
+        cuotas_out.append({
+            'id': cid,
+            'numero': int(cq.numero_cuota or 0),
+            'monto': str(saldo),
+            'monto_cobrado_recibo': str(cobrado.quantize(Decimal('0.01'))),
+            'monto_cuota': str(Decimal(str(cq.monto_total or 0)).quantize(Decimal('0.01'))),
+            'parcial': es_parcial or ya > Decimal('0.05'),
+            'etiqueta': (
+                f'Cuota {cq.numero_cuota}/{contrato.duracion_meses}'
+                + (' (a cuenta)' if es_parcial or ya > Decimal('0.05') else '')
+            ),
+        })
+
+    conceptos_otros = []
+    for it in payload_conceptos_desde_movimiento_detalle(movimiento):
+        if not isinstance(it, dict):
+            continue
+        if linea_es_imputacion_alquiler_cuota(it):
+            continue
+        cid = _normalizar_codigo_concepto_caja(
+            it.get('id') if it.get('id') is not None else it.get('codigo')
+        )
+        if cid in CONCEPTOS_CUOTA_OBJETIVO:
+            continue
+        try:
+            imp = parse_decimal_monto(it.get('importe'))
+        except Exception:
+            imp = Decimal('0')
+        if imp <= 0:
+            continue
+        conceptos_otros.append({
+            'codigo': cid or '',
+            'nombre': (texto_linea_concepto(it) or it.get('nombre') or '')[:120],
+            'importe': str(imp.quantize(Decimal('0.01'))),
+            'pagar_propietario': False,
+        })
+
+    if not cuotas_out:
+        vacio['contrato'] = contrato
+        vacio['fecha_cobranza'] = fecha_cob
+        vacio['conceptos_otros'] = conceptos_otros
+        vacio['error'] = 'Las cuotas de este recibo ya están liquidadas al propietario.'
+        return vacio
+
+    return {
+        'ok': True,
+        'contrato': contrato,
+        'cuotas': cuotas_out,
+        'cuota_ids': [c['id'] for c in cuotas_out],
+        'monto_propietario': total_prop.quantize(Decimal('0.01')),
+        'fecha_cobranza': fecha_cob,
+        'conceptos_otros': conceptos_otros,
+        'movimiento_id': int(movimiento.id),
+        'error': '',
+    }
 
 
 def _mapa_importe_cobrado_cuotas_en_movimientos_caja(contrato, cuota_ids, sucursal, movimientos=None):
@@ -36521,8 +36753,37 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
         monto_dolares if es_usd else (monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito)
     ).quantize(Decimal('0.01'))
 
+    # Fecha del egreso: preferir la del recibo de cobranza vinculado (mes cobrado).
+    fecha_egreso = timezone.now()
+    mov_cobro_ids = []
+    for liq in liquidaciones:
+        for op in getattr(liq, 'operaciones_incluidas', None) or []:
+            if not isinstance(op, dict):
+                continue
+            raw_mc = op.get('movimiento_cobro_id')
+            if raw_mc is None:
+                continue
+            try:
+                mov_cobro_ids.append(int(raw_mc))
+            except (TypeError, ValueError):
+                pass
+    if mov_cobro_ids:
+        mov_cobro = (
+            MovimientoCaja.objects.filter(id__in=mov_cobro_ids)
+            .order_by('fecha', 'id')
+            .first()
+        )
+        fc = _fecha_cobranza_movimiento(mov_cobro) if mov_cobro else None
+        if fc:
+            try:
+                ahora = timezone.localtime(timezone.now())
+                naive = datetime.combine(fc, ahora.time().replace(microsecond=0))
+                fecha_egreso = timezone.make_aware(naive, timezone.get_current_timezone())
+            except Exception:
+                fecha_egreso = timezone.now()
+
     movimiento = MovimientoCaja.objects.create(
-        fecha=timezone.now(),
+        fecha=fecha_egreso,
         tipo=TipoMovimientoCajaEnum.EGRESO,
         tipo_comprobante='RC',
         concepto=concepto,
