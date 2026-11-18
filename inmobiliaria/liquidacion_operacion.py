@@ -390,6 +390,127 @@ def fecha_desde_parte_creada_liquidacion(liq):
     return _parse_fecha_parte_liq(parte.get('fecha_desde'))
 
 
+def monto_parte_dividida_liquidacion(liq):
+    """Monto de la parte que esta liquidación paga, si hay bloque division."""
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+
+    parte = _parte_creada_division(liq)
+    if not parte:
+        return None
+    raw = parte.get('monto')
+    if raw is None or raw == '':
+        return None
+    try:
+        monto = parse_decimal_monto(raw) if not isinstance(raw, Decimal) else Decimal(str(raw))
+    except (TypeError, ValueError, Exception):
+        try:
+            monto = Decimal(str(raw).replace('.', '').replace(',', '.'))
+        except Exception:
+            return None
+    if monto <= 0:
+        return None
+    return monto.quantize(Decimal('0.01'))
+
+
+def monto_propietario_total_division_liquidacion(liq):
+    """Total planificado del propietario en el bloque division (si existe)."""
+    from inmobiliaria.decimal_utils import parse_decimal_monto
+
+    for op in getattr(liq, 'operaciones_incluidas', None) or []:
+        if not isinstance(op, dict) or (op.get('tipo') or '').lower() != 'division':
+            continue
+        raw = op.get('monto_propietario_total')
+        if raw is None or raw == '':
+            continue
+        try:
+            monto = parse_decimal_monto(raw) if not isinstance(raw, Decimal) else Decimal(str(raw))
+        except (TypeError, ValueError, Exception):
+            try:
+                monto = Decimal(str(raw).replace('.', '').replace(',', '.'))
+            except Exception:
+                continue
+        if monto > 0:
+            return monto.quantize(Decimal('0.01'))
+    return None
+
+
+def reparar_montos_liquidaciones_divididas(*, dry_run=True, ids=None, sucursal=None):
+    """
+    Restaura monto_propietario de liquidaciones divididas que fueron pisadas
+    con el total de la operación (p. ej. sync de carátula).
+
+    Criterio: hay bloque division con monto de parte; el monto actual de la liq
+    difiere de esa parte (típicamente quedó igual al total).
+    """
+    from inmobiliaria.models import LiquidacionPropietario
+
+    qs = (
+        LiquidacionPropietario.objects.exclude(estado='cancelada')
+        .exclude(operaciones_incluidas=[])
+        .order_by('id')
+    )
+    if ids:
+        qs = qs.filter(id__in=list(ids))
+    if sucursal is not None:
+        qs = qs.filter(sucursal=sucursal)
+
+    reparadas = []
+    for liq in qs.iterator(chunk_size=200):
+        ops = getattr(liq, 'operaciones_incluidas', None) or []
+        if not any(
+            isinstance(op, dict) and (op.get('tipo') or '').lower() == 'division'
+            for op in ops
+        ):
+            continue
+        parte_monto = monto_parte_dividida_liquidacion(liq)
+        if parte_monto is None:
+            continue
+        actual = Decimal(str(liq.monto_propietario or 0)).quantize(Decimal('0.01'))
+        if abs(actual - parte_monto) <= _TOLERANCIA_LIQ:
+            continue
+        total_div = monto_propietario_total_division_liquidacion(liq)
+        # Solo reparar si parece corrupción (actual ≈ total, o actual > parte).
+        parece_corrupto = actual > parte_monto + _TOLERANCIA_LIQ
+        if total_div is not None and abs(actual - total_div) <= _TOLERANCIA_LIQ:
+            parece_corrupto = True
+        if not parece_corrupto:
+            continue
+
+        info = {
+            'id': liq.id,
+            'antes': actual,
+            'despues': parte_monto,
+            'total_division': total_div,
+            'reserva_id': getattr(liq, 'reserva_id', None),
+            'propiedad_id': getattr(liq, 'propiedad_id', None),
+        }
+        if not dry_run:
+            liq.monto_propietario = parte_monto
+            # Partes satélite no deberían llevar la comisión de oficina completa.
+            parte = _parte_creada_division(liq)
+            nro = None
+            if parte:
+                try:
+                    nro = int(parte.get('numero') or 0)
+                except (TypeError, ValueError):
+                    nro = None
+            if nro is not None and nro > 1:
+                cero = Decimal('0')
+                if Decimal(str(liq.monto_inmobiliaria or 0)) > 0:
+                    liq.monto_inmobiliaria = cero
+                if Decimal(str(liq.monto_cochera or 0)) > 0:
+                    liq.monto_cochera = cero
+                if Decimal(str(liq.monto_fondo_mantenimiento or 0)) > 0:
+                    liq.monto_fondo_mantenimiento = cero
+            if hasattr(liq, '_recalcular_monto_a_pagar_fields'):
+                liq._recalcular_monto_a_pagar_fields()
+            else:
+                liq.calcular_monto_a_pagar()
+            liq.save()
+        reparadas.append(info)
+    return reparadas
+
+
 def _fecha_hasta_parte_creada_liquidacion(liq):
     """Fecha hasta de la parte liquidada en esta liquidación (división o campos de la liq.)."""
     parte = _parte_creada_division(liq)

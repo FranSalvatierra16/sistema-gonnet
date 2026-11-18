@@ -1531,6 +1531,13 @@ def _mapa_comisiones_db_caratula(*, reserva=None, contrato=None):
     return {(c.rol_comision, c.vendedor_id): c for c in qs.order_by('id')}
 
 
+def _liquidacion_tiene_division(liq):
+    for op in getattr(liq, 'operaciones_incluidas', None) or []:
+        if isinstance(op, dict) and (op.get('tipo') or '').lower() == 'division':
+            return True
+    return False
+
+
 def _sincronizar_montos_caratula_a_liquidaciones_reserva(
     reserva,
     *,
@@ -1543,9 +1550,50 @@ def _sincronizar_montos_caratula_a_liquidaciones_reserva(
     """
     Actualiza liquidaciones activas de la reserva con los montos del resumen de carátula.
     Así Honorarios (que lee monto_inmobiliaria de la liquidación) queda alineado.
+
+    IMPORTANTE: si el pago al propietario está dividido en varias liquidaciones,
+    NO se pisa monto_propietario con el total de carátula (eso duplicaba cada parte).
     """
     from inmobiliaria.liquidacion_operacion import liquidaciones_activas_reserva
 
+    liqs = [
+        liq
+        for liq in liquidaciones_activas_reserva(reserva)
+        if (getattr(liq, 'estado', None) or '') != 'cancelada'
+    ]
+    if not liqs:
+        return
+
+    hay_division = any(_liquidacion_tiene_division(liq) for liq in liqs)
+    # Varias liquidaciones o pago dividido: no sobrescribir la parte del propietario.
+    if hay_division or len(liqs) > 1:
+        principal = next(
+            (
+                liq
+                for liq in liqs
+                if Decimal(str(getattr(liq, 'monto_inmobiliaria', None) or 0)) > 0
+            ),
+            liqs[0],
+        )
+        update_fields = []
+        if monto_total is not None:
+            principal.monto_total_operacion = monto_total
+            update_fields.append('monto_total_operacion')
+        if monto_inmobiliaria is not None:
+            principal.monto_inmobiliaria = monto_inmobiliaria
+            update_fields.append('monto_inmobiliaria')
+        if monto_cochera is not None:
+            principal.monto_cochera = monto_cochera or Decimal('0')
+            update_fields.append('monto_cochera')
+        if monto_fondo is not None:
+            principal.monto_fondo_mantenimiento = monto_fondo or Decimal('0')
+            update_fields.append('monto_fondo_mantenimiento')
+        if update_fields:
+            principal._recalcular_monto_a_pagar_fields()
+            principal.save(update_fields=update_fields + ['monto_gastos', 'monto_a_pagar'])
+        return
+
+    liq = liqs[0]
     campos = [
         'monto_total_operacion',
         'monto_propietario',
@@ -1553,18 +1601,15 @@ def _sincronizar_montos_caratula_a_liquidaciones_reserva(
         'monto_cochera',
         'monto_fondo_mantenimiento',
     ]
-    for liq in liquidaciones_activas_reserva(reserva):
-        if (getattr(liq, 'estado', None) or '') == 'cancelada':
-            continue
-        liq.monto_total_operacion = monto_total
-        if monto_propietario is not None:
-            liq.monto_propietario = monto_propietario
-        if monto_inmobiliaria is not None:
-            liq.monto_inmobiliaria = monto_inmobiliaria
-        liq.monto_cochera = monto_cochera or Decimal('0')
-        liq.monto_fondo_mantenimiento = monto_fondo or Decimal('0')
-        liq._recalcular_monto_a_pagar_fields()
-        liq.save(update_fields=campos + ['monto_gastos', 'monto_a_pagar'])
+    liq.monto_total_operacion = monto_total
+    if monto_propietario is not None:
+        liq.monto_propietario = monto_propietario
+    if monto_inmobiliaria is not None:
+        liq.monto_inmobiliaria = monto_inmobiliaria
+    liq.monto_cochera = monto_cochera or Decimal('0')
+    liq.monto_fondo_mantenimiento = monto_fondo or Decimal('0')
+    liq._recalcular_monto_a_pagar_fields()
+    liq.save(update_fields=campos + ['monto_gastos', 'monto_a_pagar'])
 
 
 def _guardar_caratula_reserva(request, reserva):
