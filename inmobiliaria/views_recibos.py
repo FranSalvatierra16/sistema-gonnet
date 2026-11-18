@@ -81,7 +81,10 @@ def _fila_desde_movimiento(mov, recibo=None, reserva=None, contrato=None):
 
     numero = (recibo.numero_recibo if recibo else None) or (mov.numero_liquidacion or '').strip() or '—'
     monto = recibo.monto_este_pago if recibo and recibo.monto_este_pago is not None else _monto_movimiento(mov)
-    fecha = recibo.fecha_emision if recibo and recibo.fecha_emision else mov.fecha
+    # Misma regla que el recibo impreso / caja: priorizar fecha de transferencia.
+    fecha = getattr(mov, 'fecha_transferencia', None)
+    if fecha is None:
+        fecha = recibo.fecha_emision if recibo and recibo.fecha_emision else mov.fecha
 
     return {
         'id': recibo.id if recibo else f'm{mov.id}',
