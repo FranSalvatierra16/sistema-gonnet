@@ -5526,8 +5526,9 @@ def listado_entradas(request):
 def listado_salidas(request):
     """
     Listado de salidas por fecha exacta (fin de alquiler).
-    Incluye reservas confirmadas/pagadas y contratos activos/finalizados/rescindidos.
-    Ordenado por apellido del propietario. Incluye día de la semana y hora de egreso.
+    Incluye reservas confirmadas/pagadas y contratos.
+    En invierno/24 meses se puede editar día y hora de la salida;
+    a medida que se cargan, aparecen en la agenda programada.
     """
     if not usuario_es_nivel_administracion(request.user):
         messages.error(request, 'No tenés permisos para acceder a esta sección.')
@@ -5623,7 +5624,6 @@ def listado_salidas(request):
                 'fecha': r.fecha_fin,
                 'dia': _dia_semana(r.fecha_fin),
                 'hora': _fmt_hora(getattr(r, 'hora_egreso', None)),
-                'quien_hace': '',
                 'editable_salida': False,
             })
 
@@ -5662,6 +5662,7 @@ def listado_salidas(request):
             tipo_menu = 'invierno' if int(c.duracion_meses or 0) <= 9 else '24_meses'
             carpeta = (getattr(c, 'numero_carpeta', None) or '').strip() or '—'
             hora_c = getattr(c, 'hora_salida', None)
+            fecha_sal = getattr(c, 'fecha_salida', None) or c.fecha_fin
             salidas.append({
                 'tipo': 'contrato',
                 'tipo_alquiler': ('Invierno' if tipo_menu == 'invierno' else '24 meses'),
@@ -5683,10 +5684,12 @@ def listado_salidas(request):
                 'intervino': vendedor,
                 'llave': (getattr(c.propiedad, 'llave', None) or '—'),
                 'fecha': c.fecha_fin,
-                'dia': _dia_semana(c.fecha_fin),
+                'fecha_salida': fecha_sal,
+                'fecha_salida_value': fecha_sal.strftime('%Y-%m-%d') if fecha_sal else '',
+                'fecha_salida_cargada': bool(getattr(c, 'fecha_salida', None) or hora_c),
+                'dia': _dia_semana(fecha_sal),
                 'hora': _fmt_hora(hora_c) if hora_c else '',
                 'hora_value': hora_c.strftime('%H:%M') if hora_c else '',
-                'quien_hace': (getattr(c, 'quien_hace_salida', None) or '').strip(),
             })
 
     salidas.sort(
@@ -5697,6 +5700,58 @@ def listado_salidas(request):
         )
     )
 
+    # Agenda: contratos con día y/o hora ya cargados (alrededor de la fecha filtrada).
+    agenda = []
+    if incluir_contratos:
+        from datetime import timedelta
+        desde_ag = fecha_obj - timedelta(days=7)
+        hasta_ag = fecha_obj + timedelta(days=21)
+        qs_ag = (
+            ContratoAlquiler.objects.filter(sucursal=request.user.sucursal)
+            .exclude(estado__in=['reservado', 'rescindido'])
+            .filter(
+                models.Q(fecha_salida__gte=desde_ag, fecha_salida__lte=hasta_ag)
+                | models.Q(
+                    fecha_salida__isnull=True,
+                    fecha_fin__gte=desde_ag,
+                    fecha_fin__lte=hasta_ag,
+                    hora_salida__isnull=False,
+                )
+            )
+            .select_related('inquilino', 'propiedad', 'vendedor')
+        )
+        if tipo_filtro == 'invierno':
+            qs_ag = qs_ag.filter(duracion_meses__lte=9)
+        elif tipo_filtro == '24_meses':
+            qs_ag = qs_ag.filter(duracion_meses__gt=9)
+
+        for c in qs_ag:
+            if not getattr(c, 'fecha_salida', None) and not getattr(c, 'hora_salida', None):
+                continue
+            fecha_sal = getattr(c, 'fecha_salida', None) or c.fecha_fin
+            hora_c = getattr(c, 'hora_salida', None)
+            tipo_menu = 'invierno' if int(c.duracion_meses or 0) <= 9 else '24_meses'
+            titular = '—'
+            if c.inquilino:
+                apellido = (getattr(c.inquilino, 'apellido', '') or '').strip()
+                nombre = (getattr(c.inquilino, 'nombre', '') or '').strip()
+                titular = f'{apellido}, {nombre}'.strip(', ') or '—'
+            agenda.append({
+                'contrato_id': c.id,
+                'fecha_salida': fecha_sal,
+                'fecha_salida_iso': fecha_sal.strftime('%Y-%m-%d') if fecha_sal else '',
+                'dia': _dia_semana(fecha_sal),
+                'hora': _fmt_hora(hora_c) if hora_c else '',
+                'hora_sort': hora_c.strftime('%H:%M') if hora_c else '99:99',
+                'tipo_alquiler': ('Invierno' if tipo_menu == 'invierno' else '24 meses'),
+                'carpeta': (getattr(c, 'numero_carpeta', None) or '').strip() or '—',
+                'titular': titular,
+                'direccion': (getattr(c.propiedad, 'direccion', None) or '—'),
+                'llave': (getattr(c.propiedad, 'llave', None) or '—'),
+                'operacion': f'{c.id:05d}',
+            })
+        agenda.sort(key=lambda x: (x.get('fecha_salida_iso') or '', x.get('hora_sort') or '99:99', x.get('operacion') or ''))
+
     return render(
         request,
         'inmobiliaria/reportes/listado_salidas.html',
@@ -5706,6 +5761,8 @@ def listado_salidas(request):
             'tipo_filtro': tipo_filtro,
             'salidas': salidas,
             'cantidad_salidas': len(salidas),
+            'agenda_salidas': agenda,
+            'cantidad_agenda': len(agenda),
         },
     )
 
@@ -5714,8 +5771,7 @@ def listado_salidas(request):
 @require_POST
 def guardar_salida_contrato(request, contrato_id):
     """
-    Guarda hora de salida y quién la hace (texto libre) en un contrato.
-    Pensado para cargar desde el listado de salidas (invierno / 24 meses).
+    Guarda día y hora de salida en un contrato (listado de salidas).
     """
     from datetime import time as _time
 
@@ -5723,13 +5779,13 @@ def guardar_salida_contrato(request, contrato_id):
         return JsonResponse({'ok': False, 'error': 'Sin permisos.'}, status=403)
 
     contrato = get_object_or_404(
-        ContratoAlquiler,
+        ContratoAlquiler.objects.select_related('inquilino', 'propiedad'),
         id=contrato_id,
         sucursal=request.user.sucursal,
     )
 
     raw_hora = (request.POST.get('hora_salida') or '').strip()
-    quien = (request.POST.get('quien_hace_salida') or '').strip()[:120]
+    raw_fecha = (request.POST.get('fecha_salida') or '').strip()
 
     hora = None
     if raw_hora:
@@ -5739,19 +5795,53 @@ def guardar_salida_contrato(request, contrato_id):
         except (ValueError, TypeError, IndexError):
             return JsonResponse({'ok': False, 'error': 'Hora inválida.'}, status=400)
 
+    fecha_sal = None
+    if raw_fecha:
+        try:
+            fecha_sal = datetime.strptime(raw_fecha, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({'ok': False, 'error': 'Fecha de salida inválida.'}, status=400)
+
+    contrato.fecha_salida = fecha_sal
     contrato.hora_salida = hora
-    contrato.quien_hace_salida = quien
-    contrato.save(update_fields=['hora_salida', 'quien_hace_salida'])
+    contrato.save(update_fields=['fecha_salida', 'hora_salida'])
+
+    _DIAS_ES = (
+        'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo',
+    )
+    dia_nombre = _DIAS_ES[fecha_sal.weekday()] if fecha_sal else ''
 
     wants_json = (
         'application/json' in (request.headers.get('Accept') or '')
         or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     )
     if wants_json:
+        titular = '—'
+        if contrato.inquilino_id:
+            ap = (getattr(contrato.inquilino, 'apellido', '') or '').strip()
+            no = (getattr(contrato.inquilino, 'nombre', '') or '').strip()
+            titular = f'{ap}, {no}'.strip(', ') or '—'
+        tipo_menu = 'invierno' if int(contrato.duracion_meses or 0) <= 9 else '24_meses'
         return JsonResponse({
             'ok': True,
+            'fecha_salida': fecha_sal.strftime('%Y-%m-%d') if fecha_sal else '',
+            'fecha_salida_display': fecha_sal.strftime('%d/%m/%Y') if fecha_sal else '',
+            'dia': dia_nombre,
             'hora_salida': hora.strftime('%H:%M') if hora else '',
-            'quien_hace_salida': quien,
+            'agenda': {
+                'contrato_id': contrato.id,
+                'operacion': f'{contrato.id:05d}',
+                'tipo_alquiler': 'Invierno' if tipo_menu == 'invierno' else '24 meses',
+                'carpeta': (getattr(contrato, 'numero_carpeta', None) or '').strip() or '—',
+                'titular': titular,
+                'direccion': (getattr(contrato.propiedad, 'direccion', None) or '—') if contrato.propiedad_id else '—',
+                'llave': (getattr(contrato.propiedad, 'llave', None) or '—') if contrato.propiedad_id else '—',
+                'fecha_salida': fecha_sal.strftime('%Y-%m-%d') if fecha_sal else '',
+                'fecha_salida_display': fecha_sal.strftime('%d/%m/%Y') if fecha_sal else '',
+                'dia': dia_nombre,
+                'hora_salida': hora.strftime('%H:%M') if hora else '',
+                'en_agenda': bool(fecha_sal or hora),
+            },
         })
 
     fecha = (request.POST.get('fecha') or '').strip()

@@ -9,7 +9,7 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 no-print">
         <div>
             <h1 class="h4 mb-1"><i class="fas fa-sign-out-alt text-danger"></i> Listado de Salidas</h1>
-            <p class="text-muted mb-0">Operaciones que finalizan alquiler en la fecha indicada. En invierno/24 meses podés cargar hora y quién hace la salida.</p>
+            <p class="text-muted mb-0">Operaciones que finalizan alquiler en la fecha indicada. En invierno/24 meses cargá el <strong>día</strong> y la <strong>hora</strong> de la salida; se van listando abajo en la agenda.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">
@@ -55,7 +55,7 @@
         </div>
     </form>
 
-    <div class="card listado-tabla-print">
+    <div class="card listado-tabla-print mb-3">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-sm table-striped table-hover mb-0">
@@ -77,12 +77,18 @@
                             <th>Llave</th>
                             <th>Día</th>
                             <th>Hora</th>
-                            <th>Quién hace</th>
+                            <th class="no-print"></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for s in salidas %}
-                        <tr data-contrato-id="{{ s.contrato_id|default:'' }}">
+                        <tr data-contrato-id="{{ s.contrato_id|default:'' }}"
+                            data-titular="{{ s.titular }}"
+                            data-direccion="{{ s.direccion }}"
+                            data-carpeta="{{ s.carpeta }}"
+                            data-llave="{{ s.llave }}"
+                            data-tipo="{{ s.tipo_alquiler }}"
+                            data-operacion="{{ s.operacion }}">
                             <td>{{ forloop.counter }}</td>
                             <td>{{ s.tipo_alquiler }}</td>
                             <td>{% if s.tipo_menu == 'invierno' or s.tipo_menu == '24_meses' %}<strong>{{ s.carpeta }}</strong>{% else %}{{ s.carpeta }}{% endif %}</td>
@@ -97,7 +103,20 @@
                             <td class="text-end">${{ s.deposito|format_price }}</td>
                             <td>{{ s.intervino }}</td>
                             <td>{{ s.llave }}</td>
-                            <td>{{ s.dia }}</td>
+                            <td class="text-nowrap">
+                                {% if s.editable_salida %}
+                                <div class="d-flex flex-column gap-0 no-print" style="min-width:8.5rem;">
+                                    <input type="date"
+                                           class="form-control form-control-sm salida-fecha"
+                                           value="{{ s.fecha_salida_value }}"
+                                           title="Día en que se hace la salida">
+                                    <small class="text-muted salida-dia-nombre">{{ s.dia }}</small>
+                                </div>
+                                <span class="print-only-dia d-none">{{ s.fecha_salida|date:"d/m/Y" }} ({{ s.dia }})</span>
+                                {% else %}
+                                {{ s.dia }}
+                                {% endif %}
+                            </td>
                             <td class="text-nowrap">
                                 {% if s.editable_salida %}
                                 <input type="time"
@@ -110,25 +129,13 @@
                                 {{ s.hora }}
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="no-print">
                                 {% if s.editable_salida %}
-                                <div class="d-flex gap-1 align-items-center no-print">
-                                    <input type="text"
-                                           class="form-control form-control-sm salida-quien"
-                                           value="{{ s.quien_hace }}"
-                                           maxlength="120"
-                                           placeholder="Nombre libre"
-                                           style="min-width:7rem;max-width:11rem"
-                                           title="Quién hace la salida (texto libre)">
-                                    <button type="button"
-                                            class="btn btn-outline-success btn-sm py-0 px-1 btn-guardar-salida"
-                                            title="Guardar">
-                                        <i class="fas fa-save"></i>
-                                    </button>
-                                </div>
-                                <span class="print-only-quien d-none">{{ s.quien_hace|default:"—" }}</span>
-                                {% else %}
-                                {{ s.quien_hace|default:"—" }}
+                                <button type="button"
+                                        class="btn btn-outline-success btn-sm py-0 px-1 btn-guardar-salida"
+                                        title="Guardar día y hora">
+                                    <i class="fas fa-save"></i>
+                                </button>
                                 {% endif %}
                             </td>
                         </tr>
@@ -144,13 +151,65 @@
             </div>
         </div>
     </div>
+
+    <div class="card border-danger mb-4" id="agenda-salidas-card">
+        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <strong><i class="fas fa-calendar-check me-1"></i> Agenda de salidas cargadas</strong>
+                <span class="ms-2 small opacity-75">Se arma a medida que guardás día y/o hora · ordenadas por día y hora</span>
+            </div>
+            <span class="badge bg-light text-danger" id="agenda-count">{{ cantidad_agenda }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0" id="tabla-agenda-salidas">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Día</th>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                            <th>Tipo</th>
+                            <th>Carpeta</th>
+                            <th>Titular</th>
+                            <th>Dirección</th>
+                            <th>Llave</th>
+                            <th>Op.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="agenda-salidas-body">
+                        {% for a in agenda_salidas %}
+                        <tr data-agenda-id="{{ a.contrato_id }}"
+                            data-fecha="{{ a.fecha_salida_iso }}"
+                            data-hora="{{ a.hora }}">
+                            <td>{{ a.dia }}</td>
+                            <td>{{ a.fecha_salida|date:"d/m/Y" }}</td>
+                            <td>{% if a.hora %}{{ a.hora }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                            <td>{{ a.tipo_alquiler }}</td>
+                            <td><strong>{{ a.carpeta }}</strong></td>
+                            <td>{{ a.titular }}</td>
+                            <td>{{ a.direccion }}</td>
+                            <td>{{ a.llave }}</td>
+                            <td>{{ a.operacion }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr id="agenda-vacia">
+                            <td colspan="9" class="text-center text-muted py-3">
+                                Todavía no hay salidas con día u hora cargados en este período.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
 @media print {
     .no-print, nav, footer, .navbar, .alert { display: none !important; }
     .print-only-header { display: block !important; }
-    .print-only-hora, .print-only-quien { display: inline !important; }
+    .print-only-hora, .print-only-dia { display: inline !important; }
     body { background: #fff !important; font-size: 9pt; }
     .listado-entradas-salidas { margin: 0 !important; max-width: 100% !important; }
     .listado-tabla-print { border: none !important; box-shadow: none !important; }
@@ -164,24 +223,116 @@
     a[href]:after { content: none !important; }
     @page { size: A4 portrait; margin: 0.8cm; }
     .table { font-size: 7pt; }
+    #agenda-salidas-card { break-before: page; }
 }
 </style>
 <script>
 (function () {
+    var DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
     function csrfToken() {
         var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
         return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    function diaNombreDesdeISO(iso) {
+        if (!iso) return '';
+        var p = iso.split('-');
+        if (p.length < 3) return '';
+        var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+        if (isNaN(d.getTime())) return '';
+        // getDay: 0=Domingo … convertir a Lunes=0
+        var idx = (d.getDay() + 6) % 7;
+        return DIAS[idx] || '';
+    }
+
+    function fmtFechaDisplay(iso) {
+        if (!iso) return '—';
+        var p = iso.split('-');
+        if (p.length < 3) return iso;
+        return p[2] + '/' + p[1] + '/' + p[0];
+    }
+
+    function actualizarDiaNombre(tr) {
+        var fechaInp = tr.querySelector('.salida-fecha');
+        var lab = tr.querySelector('.salida-dia-nombre');
+        if (!fechaInp || !lab) return;
+        lab.textContent = diaNombreDesdeISO(fechaInp.value) || '—';
+    }
+
+    function upsertAgenda(ag) {
+        var tbody = document.getElementById('agenda-salidas-body');
+        if (!tbody || !ag) return;
+        var vacia = document.getElementById('agenda-vacia');
+        if (vacia) vacia.remove();
+
+        var existing = tbody.querySelector('tr[data-agenda-id="' + ag.contrato_id + '"]');
+        if (!ag.en_agenda) {
+            if (existing) existing.remove();
+            if (!tbody.querySelector('tr[data-agenda-id]')) {
+                var trV = document.createElement('tr');
+                trV.id = 'agenda-vacia';
+                trV.innerHTML = '<td colspan="9" class="text-center text-muted py-3">Todavía no hay salidas con día u hora cargados en este período.</td>';
+                tbody.appendChild(trV);
+            }
+            actualizarContadorAgenda();
+            return;
+        }
+
+        var html =
+            '<td>' + (ag.dia || '—') + '</td>' +
+            '<td>' + (ag.fecha_salida_display || fmtFechaDisplay(ag.fecha_salida) || '—') + '</td>' +
+            '<td>' + (ag.hora_salida ? ag.hora_salida : '<span class="text-muted">—</span>') + '</td>' +
+            '<td>' + (ag.tipo_alquiler || '') + '</td>' +
+            '<td><strong>' + (ag.carpeta || '—') + '</strong></td>' +
+            '<td>' + (ag.titular || '—') + '</td>' +
+            '<td>' + (ag.direccion || '—') + '</td>' +
+            '<td>' + (ag.llave || '—') + '</td>' +
+            '<td>' + (ag.operacion || '') + '</td>';
+
+        var tr;
+        if (existing) {
+            tr = existing;
+            tr.innerHTML = html;
+        } else {
+            tr = document.createElement('tr');
+            tr.innerHTML = html;
+            tbody.appendChild(tr);
+        }
+        tr.setAttribute('data-agenda-id', String(ag.contrato_id));
+        tr.setAttribute('data-fecha', ag.fecha_salida || '');
+        tr.setAttribute('data-hora', ag.hora_salida || '');
+
+        // Reordenar por fecha + hora
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr[data-agenda-id]'));
+        rows.sort(function (a, b) {
+            var fa = a.getAttribute('data-fecha') || '';
+            var fb = b.getAttribute('data-fecha') || '';
+            if (fa !== fb) return fa < fb ? -1 : 1;
+            var ha = a.getAttribute('data-hora') || '99:99';
+            var hb = b.getAttribute('data-hora') || '99:99';
+            if (ha !== hb) return ha < hb ? -1 : 1;
+            return 0;
+        });
+        rows.forEach(function (r) { tbody.appendChild(r); });
+        actualizarContadorAgenda();
+    }
+
+    function actualizarContadorAgenda() {
+        var n = document.querySelectorAll('#agenda-salidas-body tr[data-agenda-id]').length;
+        var badge = document.getElementById('agenda-count');
+        if (badge) badge.textContent = String(n);
     }
 
     function guardarFila(tr) {
         var contratoId = tr.getAttribute('data-contrato-id');
         if (!contratoId) return;
         var horaInp = tr.querySelector('.salida-hora');
-        var quienInp = tr.querySelector('.salida-quien');
+        var fechaInp = tr.querySelector('.salida-fecha');
         var btn = tr.querySelector('.btn-guardar-salida');
         var body = new URLSearchParams();
         body.set('hora_salida', horaInp ? horaInp.value : '');
-        body.set('quien_hace_salida', quienInp ? quienInp.value : '');
+        body.set('fecha_salida', fechaInp ? fechaInp.value : '');
         body.set('fecha', '{{ fecha }}');
         body.set('tipo', '{{ tipo_filtro|default:"todos" }}');
         if (btn) {
@@ -206,9 +357,15 @@
                 return;
             }
             var printHora = tr.querySelector('.print-only-hora');
-            var printQuien = tr.querySelector('.print-only-quien');
+            var printDia = tr.querySelector('.print-only-dia');
+            var lab = tr.querySelector('.salida-dia-nombre');
             if (printHora) printHora.textContent = res.d.hora_salida || '—';
-            if (printQuien) printQuien.textContent = res.d.quien_hace_salida || '—';
+            if (lab) lab.textContent = res.d.dia || '—';
+            if (printDia) {
+                printDia.textContent = (res.d.fecha_salida_display || '—') +
+                    (res.d.dia ? ' (' + res.d.dia + ')' : '');
+            }
+            if (res.d.agenda) upsertAgenda(res.d.agenda);
             if (btn) {
                 btn.classList.remove('btn-secondary');
                 btn.classList.add('btn-success');
@@ -228,6 +385,13 @@
             }
           });
     }
+
+    document.querySelectorAll('.salida-fecha').forEach(function (inp) {
+        inp.addEventListener('change', function () {
+            var tr = inp.closest('tr');
+            if (tr) actualizarDiaNombre(tr);
+        });
+    });
 
     document.querySelectorAll('.btn-guardar-salida').forEach(function (btn) {
         btn.addEventListener('click', function () {

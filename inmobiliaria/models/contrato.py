@@ -154,6 +154,12 @@ class ContratoAlquiler(models.Model):
         verbose_name='Nº carpeta',
         help_text='Número de carpeta física para contratos invierno / 24 meses.',
     )
+    fecha_salida = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha de salida (operativa)',
+        help_text='Día en que se hace la salida (puede cargarse desde el listado).',
+    )
     hora_salida = models.TimeField(
         null=True,
         blank=True,
