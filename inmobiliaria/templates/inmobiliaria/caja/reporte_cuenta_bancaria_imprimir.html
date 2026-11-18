@@ -101,8 +101,8 @@
                     {% if x.direccion %}<div class="text-muted">{{ x.direccion }}</div>{% endif %}
                     {% if x.observaciones %}<div class="text-muted">{{ x.observaciones }}</div>{% endif %}
                 </td>
-                <td class="text-end">{% if m.tipo == 'IN' %}${{ m.monto_deposito|format_price }}{% else %}—{% endif %}</td>
-                <td class="text-end">{% if m.tipo == 'EG' %}-${{ m.monto_deposito|format_price }}{% else %}—{% endif %}</td>
+                <td class="text-end">{% if m.tipo == 'IN' %}${{ m.monto_deposito_cuenta|default:m.monto_deposito|format_price }}{% else %}—{% endif %}</td>
+                <td class="text-end">{% if m.tipo == 'EG' %}-${{ m.monto_deposito_cuenta|default:m.monto_deposito|format_price }}{% else %}—{% endif %}</td>
                 <td class="text-end">${{ m.saldo_acumulado|format_price }}</td>
             </tr>
             {% endwith %}

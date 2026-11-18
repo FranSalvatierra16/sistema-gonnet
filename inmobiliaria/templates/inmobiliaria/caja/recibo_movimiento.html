@@ -370,11 +370,30 @@
             {% endwith %}
             {% endif %}
             
+            {% if transferencias_recibo %}
+            <div class="pago-item">
+                <span><strong>🏦 Transferencia:</strong></span>
+                <span>${{ total_deposito|format_price }}</span>
+            </div>
+            {% for t in transferencias_recibo %}
+            <div class="small text-muted mb-1" style="padding-left: 8px;">
+                ${{ t.monto|format_price }}
+                {% if t.get_destino_display %} · {{ t.get_destino_display }}{% endif %}
+                {% if t.fecha %} · {{ t.fecha|date:"d/m/Y" }}{% endif %}
+                {% if t.referencia %} · Cupón {{ t.referencia }}{% endif %}
+            </div>
+            {% endfor %}
+            {% else %}
             {% if deposito_cuenta_monto > 0 %}
             <div class="pago-item">
                 <span><strong>🏦 Transferencia {{ deposito_cuenta_label }}:</strong></span>
                 <span>${{ deposito_cuenta_monto|format_price }}</span>
             </div>
+            {% if movimiento.fecha_transferencia %}
+            <div class="small text-muted mb-1" style="padding-left: 8px;">
+                Fecha: {{ movimiento.fecha_transferencia|date:"d/m/Y" }}
+            </div>
+            {% endif %}
             {% endif %}
 
             {% if total_deposito_galicia > 0 %}
@@ -389,6 +408,7 @@
                 <span><strong>💳 Transferencia Mercado Pago:</strong></span>
                 <span>${{ total_deposito_mp|format_price }}</span>
             </div>
+            {% endif %}
             {% endif %}
             
             {% if total_dolares > 0 %}

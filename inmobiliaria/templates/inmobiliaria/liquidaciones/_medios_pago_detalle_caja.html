@@ -67,30 +67,56 @@
 </div>
 
 <div id="bloque_detalle_deposito" class="row mb-3 border rounded p-3 bg-light">
-    <div class="col-12">
-        <h6 class="mb-2">Datos de transferencia / depósito</h6>
+    <div class="col-12 d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">Cupones de transferencia</h6>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="btn_agregar_transferencia_liq" {{ disabled_attr }}>
+            <i class="fas fa-plus me-1"></i>Agregar cupón
+        </button>
     </div>
-    <div class="col-md-7">
-        <label class="form-label" for="destino_deposito_liq">Cuenta / banco</label>
-        <select name="destino_deposito" id="destino_deposito_liq" class="form-select fw-bold" style="font-weight:700;" {{ disabled_attr }}>
-            <option value="">— Elegí cuenta —</option>
-            {% for cuenta in cuentas_bancarias %}
-            <option value="cuenta_{{ cuenta.id }}" style="font-weight:700;">{{ cuenta.nombre_banco }}</option>
-            {% empty %}
-            <option value="" disabled>Sin cuentas en esta sucursal</option>
-            {% endfor %}
-        </select>
-        <small class="text-muted">Solo cuentas de la sucursal.
+    <div class="col-12">
+        <small class="text-muted d-block mb-2">
+            Podés pagar con dos o más transferencias en el mismo recibo. Cada una con su cuenta y fecha.
             <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}">Gestionar cuentas</a>
         </small>
     </div>
-    <div class="col-md-5">
-        <label class="form-label" for="fecha_transferencia_liq">Día de la transferencia</label>
-        <input type="date" name="fecha_transferencia" id="fecha_transferencia_liq"
-               class="form-control" value="{% now 'Y-m-d' %}" {{ disabled_attr }}>
-        <small class="text-muted">La fecha real del banco (puede ser distinta a hoy).</small>
+    <div class="col-12" id="lista_transferencias_liq"></div>
+    <div class="col-12 mt-1">
+        <span class="small text-muted">Suma transferencias: </span>
+        <strong id="suma_transferencias_label_liq">$0,00</strong>
     </div>
 </div>
+<template id="tpl_fila_transferencia_liq">
+    <div class="row g-2 align-items-end mb-2 fila-transferencia border-bottom pb-2">
+        <div class="col-md-2">
+            <label class="form-label small mb-0">Monto</label>
+            <input type="text" name="transferencia_item_monto" class="form-control form-control-sm input-monto-ar transferencia-monto" inputmode="decimal" autocomplete="off" placeholder="0" {{ disabled_attr }}>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small mb-0">Cuenta</label>
+            <select name="transferencia_item_destino" class="form-select form-select-sm fw-bold" style="font-weight:700;" {{ disabled_attr }}>
+                <option value="">— Elegí cuenta —</option>
+                {% for cuenta in cuentas_bancarias %}
+                <option value="cuenta_{{ cuenta.id }}" style="font-weight:700;">{{ cuenta.nombre_banco }}</option>
+                {% empty %}
+                <option value="" disabled>Sin cuentas en esta sucursal</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small mb-0">Fecha</label>
+            <input type="date" name="transferencia_item_fecha" class="form-control form-control-sm" value="{% now 'Y-m-d' %}" {{ disabled_attr }}>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small mb-0">Cupón / ref.</label>
+            <input type="text" name="transferencia_item_referencia" class="form-control form-control-sm" maxlength="64" autocomplete="off" placeholder="Opcional" {{ disabled_attr }}>
+        </div>
+        <div class="col-md-1">
+            <button type="button" class="btn btn-sm btn-outline-danger w-100 btn-quitar-transferencia" title="Quitar" {{ disabled_attr }}>
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+</template>
 <script>
 (function () {
     function parseMonto(v) {
@@ -138,6 +164,41 @@
             agregarFila(tj > 0 ? { monto: fmt(tj) } : null);
         }
     }
+    function agregarFilaTransferencia(datos) {
+        var tpl = document.getElementById('tpl_fila_transferencia_liq');
+        var lista = document.getElementById('lista_transferencias_liq');
+        if (!tpl || !lista) return;
+        lista.insertAdjacentHTML('beforeend', tpl.innerHTML);
+        var filas = lista.querySelectorAll('.fila-transferencia');
+        var fila = filas[filas.length - 1];
+        if (!fila) return;
+        if (datos) {
+            if (datos.monto) fila.querySelector('[name="transferencia_item_monto"]').value = datos.monto;
+            if (datos.destino) fila.querySelector('[name="transferencia_item_destino"]').value = datos.destino;
+            if (datos.fecha) fila.querySelector('[name="transferencia_item_fecha"]').value = datos.fecha;
+            if (datos.referencia) fila.querySelector('[name="transferencia_item_referencia"]').value = datos.referencia;
+        }
+        actualizarSumaTransferencias();
+    }
+    function actualizarSumaTransferencias() {
+        var suma = 0;
+        document.querySelectorAll('#lista_transferencias_liq .transferencia-monto').forEach(function (el) {
+            suma += parseMonto(el.value);
+        });
+        var lab = document.getElementById('suma_transferencias_label_liq');
+        if (lab) lab.textContent = '$' + fmt(suma);
+        if (suma > 0) {
+            var inp = document.querySelector('input[name="monto_deposito"]');
+            if (inp) inp.value = fmt(suma);
+        }
+        return suma;
+    }
+    function asegurarFilaTransferencia() {
+        if (!document.querySelector('#lista_transferencias_liq .fila-transferencia')) {
+            var dep = parseMonto((document.querySelector('input[name="monto_deposito"]') || {}).value);
+            agregarFilaTransferencia(dep > 0 ? { monto: fmt(dep) } : null);
+        }
+    }
     document.addEventListener('click', function (e) {
         if (e.target.closest('#btn_agregar_cupon_liq')) {
             agregarFila(null);
@@ -153,6 +214,28 @@
             }
             actualizarSuma();
         }
+        if (e.target.closest('#btn_agregar_transferencia_liq')) {
+            agregarFilaTransferencia(null);
+        }
+        var quitarTr = e.target.closest('.btn-quitar-transferencia');
+        if (quitarTr && quitarTr.closest('#lista_transferencias_liq')) {
+            var filasTr = document.querySelectorAll('#lista_transferencias_liq .fila-transferencia');
+            var filaTr = quitarTr.closest('.fila-transferencia');
+            if (filasTr.length <= 1) {
+                filaTr.querySelectorAll('input').forEach(function (el) {
+                    if (el.name === 'transferencia_item_fecha') {
+                        el.value = new Date().toISOString().slice(0, 10);
+                    } else {
+                        el.value = '';
+                    }
+                });
+                var sel = filaTr.querySelector('select');
+                if (sel) sel.value = '';
+            } else {
+                filaTr.remove();
+            }
+            actualizarSumaTransferencias();
+        }
     });
     document.addEventListener('input', function (e) {
         if (e.target.classList.contains('cupon-monto') && e.target.closest('#lista_cupones_tarjeta_liq')) {
@@ -164,10 +247,18 @@
             if (bloque) bloque.classList.toggle('d-none', tj <= 0);
             if (tj > 0) asegurarFila();
         }
+        if (e.target.classList.contains('transferencia-monto') && e.target.closest('#lista_transferencias_liq')) {
+            actualizarSumaTransferencias();
+        }
+        if (e.target.name === 'monto_deposito') {
+            var dep = parseMonto(e.target.value);
+            if (dep > 0) asegurarFilaTransferencia();
+        }
     });
     var tj0 = parseMonto((document.querySelector('input[name="monto_tarjeta"]') || {}).value);
     var bloque0 = document.getElementById('bloque_detalle_tarjeta');
     if (bloque0) bloque0.classList.toggle('d-none', tj0 <= 0);
     if (tj0 > 0) asegurarFila();
+    asegurarFilaTransferencia();
 })();
 </script>

@@ -277,10 +277,10 @@
                                 {% endif %}
                             </td>
                             <td class="text-end text-success fw-semibold">
-                                {% if m.tipo == 'IN' %}${{ m.monto_deposito|format_price }}{% else %}—{% endif %}
+                                {% if m.tipo == 'IN' %}${{ m.monto_deposito_cuenta|default:m.monto_deposito|format_price }}{% else %}—{% endif %}
                             </td>
                             <td class="text-end text-danger fw-semibold">
-                                {% if m.tipo == 'EG' %}-${{ m.monto_deposito|format_price }}{% else %}—{% endif %}
+                                {% if m.tipo == 'EG' %}-${{ m.monto_deposito_cuenta|default:m.monto_deposito|format_price }}{% else %}—{% endif %}
                             </td>
                             <td class="text-end fw-semibold {% if m.saldo_acumulado >= 0 %}text-primary{% else %}text-warning{% endif %}">
                                 ${{ m.saldo_acumulado|format_price }}

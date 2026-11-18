@@ -13,8 +13,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
+from django.db.models import Exists, OuterRef, Q
+
 from inmobiliaria.decimal_utils import parse_decimal_monto
-from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+from inmobiliaria.models.caja import (
+    MovimientoCaja,
+    TipoMovimientoCajaEnum,
+    TransferenciaMovimientoCaja,
+)
 from inmobiliaria.models.sucursal import CuentaBancaria
 
 # Fallback histórico si alguna cuenta no tiene fecha cargada.
@@ -83,23 +89,67 @@ def _mostrar_fila_saldo_inicial(cuenta, fecha_desde, fecha_hasta, periodo_comple
     return _saldo_inicial_en_periodo(cuenta, fecha_desde, fecha_hasta, periodo_completo)
 
 
-def _qs_movimientos_cuenta(sucursal, destino):
+def _qs_transferencias_cuenta(sucursal, destino):
+    """Cupones/transferencias a una cuenta (fuente de verdad del extracto)."""
     return (
-        MovimientoCaja.objects.filter(
-            sucursal=sucursal,
-            destino_deposito=destino,
-            monto_deposito__gt=0,
-        ).annotate(fecha_banco=Coalesce(F('fecha_transferencia'), TruncDate('fecha')))
+        TransferenciaMovimientoCaja.objects.filter(
+            destino=destino,
+            monto__gt=0,
+            movimiento__sucursal=sucursal,
+            movimiento__fecha_eliminacion__isnull=True,
+        )
+        .select_related('movimiento', 'movimiento__caja', 'movimiento__empleado', 'movimiento__propiedad')
+        .annotate(
+            fecha_banco=Coalesce(
+                'fecha',
+                'movimiento__fecha_transferencia',
+                TruncDate('movimiento__fecha'),
+            )
+        )
     )
+
+
+def _qs_movimientos_cuenta(sucursal, destino):
+    """
+    Movimientos con transferencia a la cuenta.
+    Incluye legacy (destino en el movimiento) y cupones múltiples (TransferenciaMovimientoCaja).
+    """
+    tr_exist = TransferenciaMovimientoCaja.objects.filter(
+        movimiento_id=OuterRef('pk'),
+        destino=destino,
+        monto__gt=0,
+    )
+    return (
+        MovimientoCaja.objects.filter(sucursal=sucursal)
+        .filter(Q(destino_deposito=destino, monto_deposito__gt=0) | Exists(tr_exist))
+        .annotate(fecha_banco=Coalesce(F('fecha_transferencia'), TruncDate('fecha')))
+        .prefetch_related('transferencias')
+    )
+
+
+def _monto_deposito_en_cuenta(mov, destino) -> Decimal:
+    trs = [
+        t for t in mov.transferencias.all()
+        if (t.destino or '') == destino and Decimal(str(t.monto or 0)) > 0
+    ]
+    if trs:
+        return sum((Decimal(str(t.monto or 0)) for t in trs), Decimal('0')).quantize(Decimal('0.01'))
+    if (mov.destino_deposito or '') == destino:
+        return Decimal(str(mov.monto_deposito or 0)).quantize(Decimal('0.01'))
+    return Decimal('0.00')
 
 
 def _neto_movimientos_cuenta(qs) -> Decimal:
+    """Neto del extracto. Si qs es de transferencias, suma monto; si es movimientos, monto_deposito."""
+    model = getattr(qs, 'model', None)
+    campo = 'monto' if model is TransferenciaMovimientoCaja else 'monto_deposito'
+    tipo_path = 'movimiento__tipo' if model is TransferenciaMovimientoCaja else 'tipo'
     total_ing = (
-        qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(t=Sum('monto_deposito'))['t']
+        qs.filter(**{tipo_path: TipoMovimientoCajaEnum.INGRESO}).aggregate(t=Sum(campo))['t']
         or Decimal('0')
     )
     total_egr = (
-        qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(t=Sum('monto_deposito'))['t']
+        qs.filter(**{tipo_path: TipoMovimientoCajaEnum.EGRESO}).aggregate(t=Sum(campo))['t']
         or Decimal('0')
     )
     return (Decimal(str(total_ing)) - Decimal(str(total_egr))).quantize(Decimal('0.01'))
@@ -125,7 +175,7 @@ def _saldo_apertura_periodo(
         return Decimal('0.00')
     if fd <= corte:
         return Decimal('0.00')
-    qs_prev = _qs_movimientos_cuenta(sucursal, destino).filter(
+    qs_prev = _qs_transferencias_cuenta(sucursal, destino).filter(
         fecha_banco__gte=corte,
         fecha_banco__lt=fd,
     )
@@ -141,13 +191,13 @@ def ingreso_egreso_cuenta_en_fecha(cuenta, sucursal, fecha_dia):
     if fd is None:
         return Decimal('0.00'), Decimal('0.00')
     destino = f'cuenta_{cuenta.id}'
-    qs = _qs_movimientos_cuenta(sucursal, destino).filter(fecha_banco=fd)
+    qs = _qs_transferencias_cuenta(sucursal, destino).filter(fecha_banco=fd)
     ing = (
-        qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(t=Sum('monto_deposito'))['t']
+        qs.filter(movimiento__tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(t=Sum('monto'))['t']
         or Decimal('0')
     )
     egr = (
-        qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(t=Sum('monto_deposito'))['t']
+        qs.filter(movimiento__tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(t=Sum('monto'))['t']
         or Decimal('0')
     )
     return (
@@ -171,7 +221,7 @@ def saldo_cuenta_bancaria_al(cuenta, sucursal, fecha_hasta) -> Decimal:
     corte = _fecha_corte_cuenta(cuenta)
     if fh < corte:
         return Decimal('0.00')
-    qs = _qs_movimientos_cuenta(sucursal, destino).filter(
+    qs = _qs_transferencias_cuenta(sucursal, destino).filter(
         fecha_banco__gte=corte,
         fecha_banco__lte=fh,
     )
@@ -499,13 +549,8 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
     modo_imprimir = request.GET.get('imprimir') == '1'
 
     movimientos_qs = (
-        MovimientoCaja.objects.filter(
-            sucursal=request.user.sucursal,
-            destino_deposito=destino,
-            monto_deposito__gt=0,
-        )
+        _qs_movimientos_cuenta(request.user.sucursal, destino)
         .select_related('caja', 'empleado', 'propiedad')
-        .annotate(fecha_banco=Coalesce(F('fecha_transferencia'), TruncDate('fecha')))
         # Orden tipo extracto: de más viejo a más nuevo, el saldo acum. se lee hacia abajo.
         .order_by('fecha_banco', 'fecha', 'id')
     )
@@ -530,15 +575,21 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         if fecha_hasta:
             movimientos_qs = movimientos_qs.filter(fecha_banco__lte=fecha_hasta)
 
+    tr_periodo = _qs_transferencias_cuenta(request.user.sucursal, destino)
+    if not periodo_completo:
+        if fecha_desde:
+            tr_periodo = tr_periodo.filter(fecha_banco__gte=fecha_desde)
+        if fecha_hasta:
+            tr_periodo = tr_periodo.filter(fecha_banco__lte=fecha_hasta)
     total_ingresos = (
-        movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
-            t=Sum('monto_deposito')
+        tr_periodo.filter(movimiento__tipo=TipoMovimientoCajaEnum.INGRESO).aggregate(
+            t=Sum('monto')
         )['t']
         or Decimal('0')
     )
     total_egresos = (
-        movimientos_qs.filter(tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(
-            t=Sum('monto_deposito')
+        tr_periodo.filter(movimiento__tipo=TipoMovimientoCajaEnum.EGRESO).aggregate(
+            t=Sum('monto')
         )['t']
         or Decimal('0')
     )
@@ -577,7 +628,9 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
         saldo_run = (saldo_run + saldo_inicial).quantize(Decimal('0.01'))
         saldo_despues_fila_inicial = saldo_run
     for mov in cronologicos:
-        monto = Decimal(str(mov.monto_deposito or 0))
+        monto = _monto_deposito_en_cuenta(mov, destino)
+        # Exponer en el template el importe atribuible a esta cuenta (no el total del recibo).
+        mov.monto_deposito_cuenta = monto
         if (mov.tipo or '').strip().upper() == TipoMovimientoCajaEnum.INGRESO:
             saldo_run += monto
         else:
@@ -624,6 +677,8 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
 
     if modo_imprimir:
         for mov in cronologicos:
+            if not hasattr(mov, 'monto_deposito_cuenta'):
+                mov.monto_deposito_cuenta = _monto_deposito_en_cuenta(mov, destino)
             mov.reporte_bc_extra = _reporte_cuenta_bancaria_movimiento_extras(mov)
             mov.saldo_acumulado = saldos_por_id.get(mov.id, saldo_base)
         return render(
@@ -649,6 +704,7 @@ def reporte_movimientos_cuenta_bancaria(request, cuenta_id):
     paginator = Paginator(movimientos_qs, 50)
     page = paginator.get_page(request.GET.get('page'))
     for mov in page.object_list:
+        mov.monto_deposito_cuenta = _monto_deposito_en_cuenta(mov, destino)
         mov.reporte_bc_extra = _reporte_cuenta_bancaria_movimiento_extras(mov)
         mov.saldo_acumulado = saldos_por_id.get(mov.id, saldo_base)
 

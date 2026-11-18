@@ -639,22 +639,8 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Transferencia</label>
-                                <div class="input-group flex-nowrap">
-                                    <input type="text" name="monto_deposito" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" aria-label="Importe transferencia" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
-                                    <select name="destino_deposito" id="destino_deposito_mov" class="form-select flex-grow-1 fw-bold" style="min-width: 10rem; max-width: 18rem; font-weight: 700;" aria-label="Cuenta destino transferencia">
-                                        <option value="">— Cuenta —</option>
-                                        {% for cuenta in cuentas_bancarias %}
-                                        <option value="cuenta_{{ cuenta.id }}" style="font-weight:700;">{{ cuenta.nombre_banco }}</option>
-                                        {% empty %}
-                                        <option value="" disabled>Sin cuentas en esta sucursal</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <label class="form-label small mt-1 mb-0" for="fecha_transferencia_mov">Fecha de transferencia</label>
-                                <input type="date" name="fecha_transferencia" id="fecha_transferencia_mov" class="form-control form-control-sm"
-                                       value="{% now 'Y-m-d' %}" style="max-width: 11rem;">
-                                <small class="text-muted d-block">Por defecto hoy; usada en el reporte bancario.</small>
-                                <small class="text-muted">Solo cuentas dadas de alta para <strong>{{ request.user.sucursal.nombre }}</strong>. <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}">Gestionar cuentas bancarias</a></small>
+                                <input type="text" name="monto_deposito" class="form-control monto input-monto-ar" inputmode="decimal" autocomplete="off" value="" placeholder="0" aria-label="Importe transferencia" oninput="formatearMontoCaja(this)" onblur="formatearMontoCajaBlur(this)">
+                                <small class="text-muted">Podés cargar varios cupones abajo.</small>
                             </div>
                         </div>
                         <div class="row mb-3" id="bloque_montos_usd">
@@ -779,6 +765,58 @@
                                 </div>
                                 <div class="col-md-1">
                                     <button type="button" class="btn btn-sm btn-outline-danger w-100 btn-quitar-cheque" title="Quitar">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                        <div id="bloque_detalle_transferencia" class="row mb-3 d-none border rounded p-3 bg-light">
+                            <div class="col-12 d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="text-muted mb-0">Cupones de transferencia <small>(cuenta + fecha)</small></h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btn_agregar_transferencia">
+                                    <i class="fas fa-plus me-1"></i>Agregar cupón
+                                </button>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-2">
+                                    Podés cobrar el mismo recibo con dos o más transferencias. La suma actualiza el total de Transferencia.
+                                    Solo cuentas de <strong>{{ request.user.sucursal.nombre }}</strong>.
+                                    <a href="{% url 'inmobiliaria:gestionar_cuentas_bancarias' %}">Gestionar cuentas</a>
+                                </small>
+                            </div>
+                            <div class="col-12" id="lista_transferencias_movimiento"></div>
+                            <div class="col-12 mt-1">
+                                <span class="small text-muted">Suma transferencias: </span>
+                                <strong id="suma_transferencias_label">$0,00</strong>
+                            </div>
+                        </div>
+                        <template id="tpl_fila_transferencia">
+                            <div class="row g-2 align-items-end mb-2 fila-transferencia border-bottom pb-2">
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Monto</label>
+                                    <input type="text" name="transferencia_item_monto" class="form-control form-control-sm input-monto-ar transferencia-monto" inputmode="decimal" autocomplete="off" placeholder="0">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0">Cuenta</label>
+                                    <select name="transferencia_item_destino" class="form-select form-select-sm fw-bold" style="font-weight:700;">
+                                        <option value="">— Cuenta —</option>
+                                        {% for cuenta in cuentas_bancarias %}
+                                        <option value="cuenta_{{ cuenta.id }}" style="font-weight:700;">{{ cuenta.nombre_banco }}</option>
+                                        {% empty %}
+                                        <option value="" disabled>Sin cuentas en esta sucursal</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Fecha</label>
+                                    <input type="date" name="transferencia_item_fecha" class="form-control form-control-sm" value="{% now 'Y-m-d' %}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Cupón / ref.</label>
+                                    <input type="text" name="transferencia_item_referencia" class="form-control form-control-sm" maxlength="64" autocomplete="off" placeholder="Opcional">
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-sm btn-outline-danger w-100 btn-quitar-transferencia" title="Quitar">
                                         <i class="fas fa-times"></i>
                                     </button>
                                 </div>
@@ -1893,8 +1931,8 @@ $(document).ready(function() {
         $('#bloque_montos_usd').toggleClass('d-none', soloArs && !(cotiz > 0));
         if (soloUsd) {
             $('#bloque_montos_ars .monto').val('');
-            $('#destino_deposito_mov').val('');
-            $('#bloque_detalle_tarjeta, #bloque_detalle_cheque').addClass('d-none');
+            $('#lista_transferencias_movimiento').empty();
+            $('#bloque_detalle_tarjeta, #bloque_detalle_cheque, #bloque_detalle_transferencia').addClass('d-none');
             // El reparto oficina/propietario/inquilino se carga en USD (mismo total).
         }
         if (soloArs && !(cotiz > 0)) {
@@ -2087,9 +2125,46 @@ $(document).ready(function() {
         }
     }
 
+    function agregarFilaTransferencia(datos) {
+        var tpl = document.getElementById('tpl_fila_transferencia');
+        if (!tpl) return;
+        $('#lista_transferencias_movimiento').append(tpl.innerHTML);
+        var $fila = $('#lista_transferencias_movimiento .fila-transferencia').last();
+        if (datos) {
+            if (datos.monto) $fila.find('[name="transferencia_item_monto"]').val(datos.monto);
+            if (datos.destino) $fila.find('[name="transferencia_item_destino"]').val(datos.destino);
+            if (datos.fecha) $fila.find('[name="transferencia_item_fecha"]').val(datos.fecha);
+            if (datos.referencia) $fila.find('[name="transferencia_item_referencia"]').val(datos.referencia);
+        }
+        var $monto = $fila.find('.transferencia-monto');
+        if ($monto.length && $monto.val()) formatearMontoAlSalir($monto[0]);
+        actualizarSumaTransferencias();
+    }
+
+    function actualizarSumaTransferencias() {
+        var suma = 0;
+        $('#lista_transferencias_movimiento .transferencia-monto').each(function() {
+            suma += parseMontoLocal($(this).val());
+        });
+        $('#suma_transferencias_label').text('$' + fmtMontoLocal(suma));
+        if (suma > 0) {
+            $('input[name="monto_deposito"]').val(fmtMontoLocal(suma));
+            actualizarTotalVisible();
+        }
+        return suma;
+    }
+
+    function asegurarFilasTransferencia() {
+        if ($('#lista_transferencias_movimiento .fila-transferencia').length === 0) {
+            var dep = parseMontoLocal($('input[name="monto_deposito"]').val());
+            agregarFilaTransferencia(dep > 0 ? { monto: fmtMontoLocal(dep) } : null);
+        }
+    }
+
     function actualizarVisibilidadMediosPago() {
         var tj = parseMontoLocal($('input[name="monto_tarjeta"]').val());
         var ch = parseMontoLocal($('input[name="monto_cheque"]').val());
+        var dep = parseMontoLocal($('input[name="monto_deposito"]').val());
         if (tj > 0) {
             $('#bloque_detalle_tarjeta').removeClass('d-none');
             asegurarFilasCupon();
@@ -2109,7 +2184,39 @@ $(document).ready(function() {
         }).length === 0) {
             $('#bloque_detalle_cheque').addClass('d-none');
         }
+        if (dep > 0) {
+            $('#bloque_detalle_transferencia').removeClass('d-none');
+            asegurarFilasTransferencia();
+        } else if ($('#lista_transferencias_movimiento .transferencia-monto').filter(function() {
+            return parseMontoLocal($(this).val()) > 0;
+        }).length === 0) {
+            $('#bloque_detalle_transferencia').addClass('d-none');
+        }
     }
+
+    $('#btn_agregar_transferencia').on('click', function() {
+        agregarFilaTransferencia(null);
+    });
+    $('#lista_transferencias_movimiento').on('click', '.btn-quitar-transferencia', function() {
+        var $filas = $('#lista_transferencias_movimiento .fila-transferencia');
+        if ($filas.length <= 1) {
+            $(this).closest('.fila-transferencia').find('input, select').val('');
+            $(this).closest('.fila-transferencia').find('[name="transferencia_item_fecha"]').val(
+                new Date().toISOString().slice(0, 10)
+            );
+        } else {
+            $(this).closest('.fila-transferencia').remove();
+        }
+        actualizarSumaTransferencias();
+        actualizarVisibilidadMediosPago();
+    });
+    $('#lista_transferencias_movimiento').on('input', '.transferencia-monto', function() {
+        formatearMontoAlEscribir(this);
+        actualizarSumaTransferencias();
+    });
+    $('input[name="monto_deposito"]').on('input', function() {
+        actualizarVisibilidadMediosPago();
+    });
 
     $('#btn_agregar_cheque').on('click', function() {
         agregarFilaCheque(null);
@@ -3070,8 +3177,6 @@ $(document).ready(function() {
         setVal('input[name="monto_cheque"]', fp.monto_cheque);
         setVal('input[name="monto_tarjeta"]', fp.monto_tarjeta);
         setVal('input[name="monto_deposito"]', fp.monto_deposito);
-        setVal('#destino_deposito_mov', fp.destino_deposito);
-        setVal('#fecha_transferencia_mov', fp.fecha_transferencia);
         setVal('#monto_dolares_mov', fp.monto_dolares || fp.dolares);
         if (parseMontoLocal(fp.monto_dolares || fp.dolares || '') > 0) {
             usdEditadoManual = true;
@@ -3137,6 +3242,26 @@ $(document).ready(function() {
             if (parseMontoLocal(fp.monto_cheque || '') > 0) {
                 $('#bloque_detalle_cheque').removeClass('d-none');
             }
+        }
+        $('#lista_transferencias_movimiento').empty();
+        if (fp.transferencias && fp.transferencias.length) {
+            fp.transferencias.forEach(function(t) {
+                agregarFilaTransferencia({
+                    monto: t.monto,
+                    destino: t.destino,
+                    fecha: t.fecha,
+                    referencia: t.referencia
+                });
+            });
+            $('#bloque_detalle_transferencia').removeClass('d-none');
+            actualizarSumaTransferencias();
+        } else if (parseMontoLocal(fp.monto_deposito || '') > 0) {
+            agregarFilaTransferencia({
+                monto: fp.monto_deposito,
+                destino: fp.destino_deposito,
+                fecha: fp.fecha_transferencia
+            });
+            $('#bloque_detalle_transferencia').removeClass('d-none');
         }
         setVal('#operacion_ref_tipo', fp.operacion_ref_tipo);
         setVal('#operacion_ref_id', fp.operacion_ref_id);

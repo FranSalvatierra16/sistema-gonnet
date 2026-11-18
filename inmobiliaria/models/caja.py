@@ -1008,6 +1008,71 @@ class CuponTarjetaMovimientoCaja(models.Model):
         return f'Cupón {cup} ${self.monto} (mov #{self.movimiento_id})'
 
 
+class TransferenciaMovimientoCaja(models.Model):
+    """
+    Detalle de una o más transferencias/depósitos asociados a un MovimientoCaja.
+    En la práctica operativa se llaman «cupones» de transferencia.
+    """
+    movimiento = models.ForeignKey(
+        MovimientoCaja,
+        on_delete=models.CASCADE,
+        related_name='transferencias',
+    )
+    monto = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    destino = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="cuenta_X, galicia, mp, etc.",
+    )
+    fecha = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha de transferencia',
+        help_text='Fecha real del banco para este cupón/transferencia.',
+    )
+    referencia = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text='Nº de cupón / referencia opcional',
+    )
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = 'inmobiliaria_transferenciamovimientocaja'
+        ordering = ['orden', 'id']
+        verbose_name = 'Transferencia de movimiento'
+        verbose_name_plural = 'Transferencias de movimiento'
+
+    def __str__(self):
+        ref = self.referencia or 's/n'
+        return f'Transferencia {ref} ${self.monto} (mov #{self.movimiento_id})'
+
+    def get_destino_display(self):
+        dest = (self.destino or '').strip()
+        if not dest:
+            return ''
+        if dest == 'galicia':
+            return 'Banco Galicia'
+        if dest == 'mp':
+            return 'Mercado Pago'
+        if dest == 'mixto':
+            return 'Mixto'
+        if dest.startswith('cuenta_'):
+            try:
+                from inmobiliaria.models.sucursal import CuentaBancaria
+
+                cid = int(dest.replace('cuenta_', '', 1))
+                nb = (
+                    CuentaBancaria.objects.filter(pk=cid)
+                    .values_list('nombre_banco', flat=True)
+                    .first()
+                )
+                return (nb or '').strip() or f'Cuenta #{cid}'
+            except Exception:
+                return dest
+        return dest
+
+
 class Concepto(models.Model):
     id = models.CharField(max_length=20, primary_key=True)  # ID personalizado
     nombre = models.CharField(max_length=100)

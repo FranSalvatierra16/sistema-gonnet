@@ -122,31 +122,58 @@ def _formas_de_pago_desde_movimiento_caja(movimiento, format_usd=None):
     if mc > 0:
         formas_con_montos.append(f'Cheque {_recibo_monto_str(movimiento.monto_cheque)}')
     if md > 0:
-        dest = (getattr(movimiento, 'destino_deposito', None) or '') or ''
-        if dest == 'galicia':
-            formas_con_montos.append(f'Transferencia Banco Galicia {_recibo_monto_str(movimiento.monto_deposito)}')
-        elif dest == 'mp':
-            formas_con_montos.append(f'Transferencia Mercado Pago {_recibo_monto_str(movimiento.monto_deposito)}')
-        elif dest.startswith('cuenta_'):
-            label = 'Transferencia'
-            try:
-                from .models.sucursal import CuentaBancaria
-
-                cid = int(dest.replace('cuenta_', '', 1))
-                nb = (
-                    CuentaBancaria.objects.filter(pk=cid)
-                    .values_list('nombre_banco', flat=True)
-                    .first()
-                )
-                if nb:
-                    label = (nb or '').strip() or f'Cuenta #{cid}'
-                else:
-                    label = f'Cuenta #{cid}'
-            except Exception:
-                pass
-            formas_con_montos.append(f'Transferencia {label} {_recibo_monto_str(movimiento.monto_deposito)}')
+        transferencias = []
+        try:
+            transferencias = list(movimiento.transferencias.all().order_by('orden', 'id'))
+        except Exception:
+            transferencias = []
+        if transferencias:
+            for tr in transferencias:
+                if Decimal(str(tr.monto or 0)) <= 0:
+                    continue
+                label = ''
+                try:
+                    label = (tr.get_destino_display() or '').strip()
+                except Exception:
+                    label = (tr.destino or '').strip()
+                parte = f'Transferencia'
+                if label:
+                    parte = f'Transferencia {label}'
+                parte = f'{parte} {_recibo_monto_str(tr.monto)}'
+                if tr.fecha:
+                    parte = f'{parte} ({tr.fecha.strftime("%d/%m/%Y")})'
+                if tr.referencia:
+                    parte = f'{parte} cupón {tr.referencia}'
+                formas_con_montos.append(parte)
         else:
-            formas_con_montos.append(f'Transferencia {_recibo_monto_str(movimiento.monto_deposito)}')
+            dest = (getattr(movimiento, 'destino_deposito', None) or '') or ''
+            if dest == 'galicia':
+                formas_con_montos.append(f'Transferencia Banco Galicia {_recibo_monto_str(movimiento.monto_deposito)}')
+            elif dest == 'mp':
+                formas_con_montos.append(f'Transferencia Mercado Pago {_recibo_monto_str(movimiento.monto_deposito)}')
+            elif dest.startswith('cuenta_'):
+                label = 'Transferencia'
+                try:
+                    from .models.sucursal import CuentaBancaria
+
+                    cid = int(dest.replace('cuenta_', '', 1))
+                    nb = (
+                        CuentaBancaria.objects.filter(pk=cid)
+                        .values_list('nombre_banco', flat=True)
+                        .first()
+                    )
+                    if nb:
+                        label = (nb or '').strip() or f'Cuenta #{cid}'
+                    else:
+                        label = f'Cuenta #{cid}'
+                except Exception:
+                    pass
+                formas_con_montos.append(f'Transferencia {label} {_recibo_monto_str(movimiento.monto_deposito)}')
+            else:
+                formas_con_montos.append(f'Transferencia {_recibo_monto_str(movimiento.monto_deposito)}')
+            ft = getattr(movimiento, 'fecha_transferencia', None)
+            if ft and formas_con_montos:
+                formas_con_montos[-1] = f'{formas_con_montos[-1]} ({ft.strftime("%d/%m/%Y")})'
 
     if musd > 0:
         if callable(format_usd):
@@ -8936,7 +8963,7 @@ def ver_recibo_movimiento(request, movimiento_id):
         movimiento = get_object_or_404(
             MovimientoCaja.objects.select_related(
                 'caja', 'propiedad', 'propiedad__propietario', 'empleado', 'sucursal'
-            ).prefetch_related('cheques', 'cupones_tarjeta'),
+            ).prefetch_related('cheques', 'cupones_tarjeta', 'transferencias'),
             id=movimiento_id,
             sucursal=request.user.sucursal,
         )
@@ -9415,6 +9442,9 @@ def ver_recibo_movimiento(request, movimiento_id):
             'total_deposito_mp': total_deposito_mp,
             'deposito_cuenta_label': deposito_cuenta_label,
             'deposito_cuenta_monto': deposito_cuenta_monto,
+            'transferencias_recibo': list(
+                movimiento.transferencias.all().order_by('orden', 'id')
+            ),
             'saldo_pendiente': saldo_pendiente,
             'total_pagado_acumulado': total_pagado_reserva if reserva else total_movimiento,
             'total_senia_pagada': total_senia_pagada_recibo if reserva else 0,  # ✅ NUEVO: Solo seña
@@ -14570,7 +14600,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     movimientos_qs = (
         MovimientoCaja.objects.filter(caja=caja)
         .select_related('propiedad', 'propiedad__propietario', 'empleado', 'recibo')
-        .prefetch_related('cheques', 'cupones_tarjeta')
+        .prefetch_related('cheques', 'cupones_tarjeta', 'transferencias')
         .order_by(*movimientos_order)
     )
     movimientos_all = list(movimientos_qs)
@@ -14627,7 +14657,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     movimientos_eliminados_qs = (
         MovimientoCaja.all_objects.filter(caja=caja, fecha_eliminacion__isnull=False)
         .select_related('propiedad', 'propiedad__propietario', 'empleado', 'eliminado_por')
-        .prefetch_related('cheques', 'cupones_tarjeta')
+        .prefetch_related('cheques', 'cupones_tarjeta', 'transferencias')
         .order_by('-fecha_eliminacion', '-id')
     )
     if busqueda:
@@ -15434,6 +15464,30 @@ def _form_post_desde_movimiento(movimiento):
     if cupones:
         fp['cupones'] = cupones
 
+    transferencias = []
+    try:
+        for t in movimiento.transferencias.all().order_by('orden', 'id'):
+            transferencias.append({
+                'monto': _m(t.monto),
+                'destino': (t.destino or '').strip(),
+                'fecha': t.fecha.strftime('%Y-%m-%d') if t.fecha else '',
+                'referencia': (t.referencia or '').strip(),
+            })
+    except Exception:
+        pass
+    if not transferencias and Decimal(str(movimiento.monto_deposito or 0)) > 0:
+        transferencias.append({
+            'monto': _m(movimiento.monto_deposito),
+            'destino': (movimiento.destino_deposito or '').strip(),
+            'fecha': (
+                movimiento.fecha_transferencia.strftime('%Y-%m-%d')
+                if movimiento.fecha_transferencia else ''
+            ),
+            'referencia': '',
+        })
+    if transferencias:
+        fp['transferencias'] = transferencias
+
     vale = (
         ValeVendedor.objects.filter(movimiento_caja=movimiento)
         .select_related('vendedor', 'persona_oficina')
@@ -15757,6 +15811,136 @@ def _aplicar_cupones_tarjeta_a_movimiento(movimiento, request, monto_tarjeta_act
             'numero': movimiento.tarjeta_numero,
             'tipo': movimiento.tarjeta_tipo,
         }]
+    return []
+
+
+def _parse_transferencias_movimiento_post(request, cuentas_ids=None):
+    """
+    Lee transferencias/cupones múltiples del POST
+    (transferencia_item_monto[], destino, fecha, referencia).
+    """
+    montos = request.POST.getlist('transferencia_item_monto')
+    destinos = request.POST.getlist('transferencia_item_destino')
+    fechas = request.POST.getlist('transferencia_item_fecha')
+    refs = request.POST.getlist('transferencia_item_referencia')
+    n = max(len(montos), len(destinos), len(fechas), len(refs))
+    if n == 0:
+        return []
+
+    def _at(lst, i):
+        return (lst[i] if i < len(lst) else '') or ''
+
+    ids_ok = None
+    if cuentas_ids is not None:
+        ids_ok = {int(x) for x in cuentas_ids if x is not None}
+
+    resultado = []
+    for i in range(n):
+        raw_monto = _at(montos, i).strip()
+        destino = _at(destinos, i).strip()[:50]
+        fv_raw = _at(fechas, i).strip()
+        referencia = _at(refs, i).strip()[:64]
+        fecha = None
+        if fv_raw:
+            try:
+                fecha = datetime.strptime(fv_raw, '%Y-%m-%d').date()
+            except ValueError:
+                fecha = None
+        try:
+            monto = parse_decimal_monto(raw_monto) if raw_monto else Decimal('0')
+        except (ValueError, TypeError, InvalidOperation):
+            monto = Decimal('0')
+        if monto < 0:
+            monto = Decimal('0')
+        if monto <= 0 and not destino and not fecha and not referencia:
+            continue
+        if destino.startswith('cuenta_') and ids_ok is not None:
+            suf = destino.replace('cuenta_', '', 1)
+            if not (suf.isdigit() and int(suf) in ids_ok):
+                destino = ''
+        resultado.append({
+            'monto': monto,
+            'destino': destino,
+            'fecha': fecha,
+            'referencia': referencia,
+        })
+    return resultado
+
+
+def _guardar_transferencias_movimiento(movimiento, transferencias_detalle):
+    """Persiste las transferencias (cupones) del movimiento."""
+    from inmobiliaria.models import TransferenciaMovimientoCaja
+
+    movimiento.transferencias.all().delete()
+    if not transferencias_detalle:
+        return
+    objs = [
+        TransferenciaMovimientoCaja(
+            movimiento=movimiento,
+            monto=item['monto'],
+            destino=item.get('destino') or '',
+            fecha=item.get('fecha'),
+            referencia=item.get('referencia') or '',
+            orden=idx,
+        )
+        for idx, item in enumerate(transferencias_detalle)
+    ]
+    TransferenciaMovimientoCaja.objects.bulk_create(objs)
+
+
+def _aplicar_transferencias_a_movimiento(movimiento, request, cuentas_bancarias=None):
+    """
+    Lee transferencias del POST, actualiza monto_deposito / destino / fecha legacy
+    y devuelve el detalle. Si hay filas con monto > 0, la suma es monto_deposito.
+    """
+    cuentas_ids = None
+    if cuentas_bancarias is not None:
+        cuentas_ids = [
+            getattr(c, 'id', None) for c in cuentas_bancarias
+            if getattr(c, 'id', None) is not None
+        ]
+    transferencias = _parse_transferencias_movimiento_post(request, cuentas_ids=cuentas_ids)
+    con_monto = [t for t in transferencias if t['monto'] > 0]
+    if con_monto:
+        suma = sum((t['monto'] for t in con_monto), Decimal('0'))
+        movimiento.monto_deposito = suma
+        destinos = {(t.get('destino') or '').strip() for t in con_monto if (t.get('destino') or '').strip()}
+        primero = con_monto[0]
+        if len(destinos) > 1:
+            movimiento.destino_deposito = 'mixto'
+        else:
+            movimiento.destino_deposito = (primero.get('destino') or '').strip() or None
+        fechas = [t.get('fecha') for t in con_monto if t.get('fecha')]
+        movimiento.fecha_transferencia = fechas[0] if fechas else timezone.localdate()
+        return con_monto
+
+    # Fallback legacy: un solo monto + destino + fecha del form
+    try:
+        md = parse_decimal_monto(request.POST.get('monto_deposito', '0') or '0')
+    except (ValueError, TypeError, InvalidOperation):
+        md = Decimal(str(movimiento.monto_deposito or 0))
+    if md and md > 0:
+        dd = (request.POST.get('destino_deposito') or '').strip()[:50]
+        if dd.startswith('cuenta_') and cuentas_ids is not None:
+            suf = dd.replace('cuenta_', '', 1)
+            if not (suf.isdigit() and int(suf) in set(cuentas_ids)):
+                dd = ''
+        try:
+            ft = _fecha_transferencia_desde_post(request)
+        except ValueError:
+            ft = timezone.localdate()
+        movimiento.monto_deposito = md
+        movimiento.destino_deposito = dd or None
+        movimiento.fecha_transferencia = ft
+        return [{
+            'monto': md,
+            'destino': dd,
+            'fecha': ft,
+            'referencia': '',
+        }]
+    movimiento.monto_deposito = Decimal('0')
+    movimiento.destino_deposito = None
+    movimiento.fecha_transferencia = None
     return []
 
 
@@ -16089,42 +16273,33 @@ def nuevo_movimiento(request, numero_caja=None):
                 movimiento.destino_deposito = None
                 movimiento.fecha_transferencia = None
 
-            dd_raw = (request.POST.get('destino_deposito') or '').strip()
-            if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
-                destino_ok = None
-                if dd_raw.startswith('cuenta_'):
-                    suf = dd_raw.replace('cuenta_', '', 1)
-                    cuentas_ids = {
-                        int(c.id) for c in cuentas_bancarias
-                        if getattr(c, 'id', None) is not None
-                    }
-                    if suf.isdigit() and int(suf) in cuentas_ids:
-                        destino_ok = dd_raw
-                if not destino_ok:
-                    messages.error(
-                        request,
-                        'Con importe en transferencia tenés que elegir una cuenta de la sucursal. '
-                        'Configurá cuentas en Caja → Cuentas bancarias si no aparece ninguna.',
-                    )
-                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
-                movimiento.destino_deposito = destino_ok
-            else:
-                movimiento.destino_deposito = None
-
             try:
                 movimiento.fecha = _fecha_movimiento_desde_post(request)
             except ValueError:
                 messages.error(request, 'La fecha del movimiento no es válida.')
                 return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
 
-            if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
-                try:
-                    movimiento.fecha_transferencia = _fecha_transferencia_desde_post(request)
-                except ValueError:
-                    messages.error(request, 'Fecha de transferencia/depósito inválida.')
-                    return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
+            transferencias_detalle = []
+            if moneda_mov != 'USD':
+                transferencias_detalle = _aplicar_transferencias_a_movimiento(
+                    movimiento, request, cuentas_bancarias=cuentas_bancarias
+                )
+                if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
+                    sin_destino = [
+                        t for t in transferencias_detalle
+                        if t['monto'] > 0 and not (t.get('destino') or '').strip()
+                    ]
+                    if sin_destino or not (movimiento.destino_deposito or '').strip():
+                        messages.error(
+                            request,
+                            'Con importe en transferencia tenés que elegir una cuenta en cada cupón. '
+                            'Configurá cuentas en Caja → Cuentas bancarias si no aparece ninguna.',
+                        )
+                        return render(request, 'inmobiliaria/caja/nuevo_movimiento.html', _ctx_nuevo_movimiento())
             else:
+                movimiento.destino_deposito = None
                 movimiento.fecha_transferencia = None
+                movimiento.monto_deposito = Decimal('0')
 
             cupones_detalle = _aplicar_cupones_tarjeta_a_movimiento(movimiento, request)
 
@@ -16461,6 +16636,7 @@ def nuevo_movimiento(request, numero_caja=None):
                     )
                 _guardar_cheques_movimiento(movimiento, cheques_detalle)
                 _guardar_cupones_tarjeta_movimiento(movimiento, cupones_detalle)
+                _guardar_transferencias_movimiento(movimiento, transferencias_detalle)
                 if not movimiento_edicion:
                     _marcar_movimiento_uid_usado(request, movimiento_uid)
                 if movimiento.tipo == TipoMovimientoCajaEnum.INGRESO:
@@ -23962,15 +24138,34 @@ def procesar_conceptos_y_crear_movimiento(request, caja, contrato, pago_cuota_co
             elif monto_deposito_mp > 0:
                 movimiento.destino_deposito = 'mp'
                 movimiento.monto_deposito = monto_deposito_mp
+        transferencias_detalle = []
         if movimiento.monto_deposito and float(movimiento.monto_deposito) > 0:
             try:
                 movimiento.fecha_transferencia = _fecha_transferencia_desde_post(request)
             except ValueError:
                 return None, 0, 'Fecha de transferencia inválida.'
+            if len(cuentas_con_monto) >= 1:
+                for data in cuentas_con_monto:
+                    cuenta_usada = data['cuenta']
+                    transferencias_detalle.append({
+                        'monto': Decimal(str(data['monto'])),
+                        'destino': f'cuenta_{cuenta_usada.id}',
+                        'fecha': movimiento.fecha_transferencia,
+                        'referencia': '',
+                    })
+            else:
+                transferencias_detalle.append({
+                    'monto': Decimal(str(movimiento.monto_deposito or 0)),
+                    'destino': (movimiento.destino_deposito or ''),
+                    'fecha': movimiento.fecha_transferencia,
+                    'referencia': '',
+                })
         else:
             movimiento.fecha_transferencia = None
         movimiento.save()
         _guardar_cheques_movimiento(movimiento, cheques_detalle)
+        if transferencias_detalle:
+            _guardar_transferencias_movimiento(movimiento, transferencias_detalle)
         _asignar_numero_recibo_a_movimiento(movimiento, sucursal=request.user.sucursal)
 
         return movimiento, total_movimiento
@@ -36008,13 +36203,47 @@ def _medios_pago_liquidacion_desde_post(request):
                 'fecha_vencimiento': cheque_fecha_vencimiento,
             }]
 
-    destino_deposito = _destino_deposito_liquidacion_desde_post(request, monto_deposito)
-    fecha_transferencia = None
-    if monto_deposito and monto_deposito > 0:
-        try:
-            fecha_transferencia = _fecha_transferencia_desde_post(request)
-        except ValueError:
-            raise ValueError('Fecha de transferencia/depósito inválida.')
+    from inmobiliaria.models.sucursal import CuentaBancaria as _CuentaBancariaLiq
+    cuentas_ids = list(
+        _CuentaBancariaLiq.objects.filter(
+            sucursal=request.user.sucursal, activa=True
+        ).values_list('id', flat=True)
+    )
+    transferencias_detalle = _parse_transferencias_movimiento_post(
+        request, cuentas_ids=cuentas_ids
+    )
+    con_monto_tr = [t for t in transferencias_detalle if t['monto'] > 0]
+    if con_monto_tr:
+        monto_deposito = sum((t['monto'] for t in con_monto_tr), Decimal('0'))
+        destinos = {(t.get('destino') or '').strip() for t in con_monto_tr if (t.get('destino') or '').strip()}
+        if any(not (t.get('destino') or '').strip() for t in con_monto_tr):
+            raise ValueError(
+                'Con importe en depósito/transferencia tenés que elegir una cuenta en cada cupón. '
+                'Configurá cuentas en Caja → Cuentas bancarias si no aparece ninguna.'
+            )
+        if len(destinos) > 1:
+            destino_deposito = 'mixto'
+        else:
+            destino_deposito = next(iter(destinos)) if destinos else None
+        fechas = [t.get('fecha') for t in con_monto_tr if t.get('fecha')]
+        fecha_transferencia = fechas[0] if fechas else timezone.localdate()
+        transferencias_detalle = con_monto_tr
+    else:
+        destino_deposito = _destino_deposito_liquidacion_desde_post(request, monto_deposito)
+        fecha_transferencia = None
+        if monto_deposito and monto_deposito > 0:
+            try:
+                fecha_transferencia = _fecha_transferencia_desde_post(request)
+            except ValueError:
+                raise ValueError('Fecha de transferencia/depósito inválida.')
+            transferencias_detalle = [{
+                'monto': monto_deposito,
+                'destino': destino_deposito or '',
+                'fecha': fecha_transferencia,
+                'referencia': '',
+            }]
+        else:
+            transferencias_detalle = []
 
     total_pago = (
         monto_efectivo + monto_cheque + monto_tarjeta + monto_deposito
@@ -36047,6 +36276,7 @@ def _medios_pago_liquidacion_desde_post(request):
         'cheques_detalle': cheques_detalle,
         'destino_deposito': destino_deposito,
         'fecha_transferencia': fecha_transferencia,
+        'transferencias_detalle': transferencias_detalle,
     }
 
 
@@ -36235,6 +36465,9 @@ def _pagar_liquidaciones_en_caja(request, liquidaciones):
         _guardar_cheques_movimiento(movimiento, cheques_detalle)
     if cupones_detalle and monto_tarjeta > 0:
         _guardar_cupones_tarjeta_movimiento(movimiento, cupones_detalle)
+    transferencias_detalle = medios.get('transferencias_detalle') or []
+    if transferencias_detalle and monto_deposito > 0:
+        _guardar_transferencias_movimiento(movimiento, transferencias_detalle)
 
     from inmobiliaria.models.liquidacion import PagoLiquidacion
 
