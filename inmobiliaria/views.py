@@ -22446,7 +22446,11 @@ def _importe_decimal_concepto_recibo(raw):
 
 
 def _fecha_hora_recibo_operacion(movimiento=None, recibo_obj=None):
-    """Fecha/hora del recibo = día del cobro (movimiento o emisión del recibo), no hoy."""
+    """
+    Fecha/hora del recibo.
+    Si el movimiento tiene fecha_transferencia (como en caja / banco), esa es la fecha
+    que figura en el recibo; la hora sigue siendo la del cobro en caja.
+    """
     dt = None
     if movimiento and getattr(movimiento, 'fecha', None):
         dt = movimiento.fecha
@@ -22456,6 +22460,10 @@ def _fecha_hora_recibo_operacion(movimiento=None, recibo_obj=None):
         dt = timezone.now()
     if timezone.is_aware(dt):
         dt = timezone.localtime(dt)
+
+    ft = getattr(movimiento, 'fecha_transferencia', None) if movimiento else None
+    if ft is not None:
+        return ft.strftime('%d/%m/%Y'), dt.strftime('%H:%M')
     return dt.strftime('%d/%m/%Y'), dt.strftime('%H:%M')
 
 
@@ -22627,12 +22635,16 @@ def _lineas_pagos_recibo_desde_movimiento(movimiento, recibo_obj=None, sucursal=
             mov_conceptos = canon
 
     fecha_mov = ''
-    if movimiento and getattr(movimiento, 'fecha', None):
+    if movimiento:
         try:
-            fm = movimiento.fecha
-            if timezone.is_aware(fm):
-                fm = timezone.localtime(fm)
-            fecha_mov = fm.strftime('%d/%m/%Y')
+            ft = getattr(movimiento, 'fecha_transferencia', None)
+            if ft is not None:
+                fecha_mov = ft.strftime('%d/%m/%Y')
+            elif getattr(movimiento, 'fecha', None):
+                fm = movimiento.fecha
+                if timezone.is_aware(fm):
+                    fm = timezone.localtime(fm)
+                fecha_mov = fm.strftime('%d/%m/%Y')
         except Exception:
             fecha_mov = ''
 
@@ -27327,11 +27339,7 @@ def recibo_contrato_24(request, contrato_id):
                 sucursal=request.user.sucursal,
                 asignar_si_falta=True,
             )
-            mf = primer_movimiento.fecha
-            if mf:
-                mf_local = timezone.localtime(mf) if timezone.is_aware(mf) else mf
-                fecha_recibo = mf_local.strftime('%d/%m/%Y')
-                hora_recibo = mf_local.strftime('%H:%M:%S')
+            fecha_recibo, hora_recibo = _fecha_hora_recibo_operacion(primer_movimiento)
 
         context = {
             'contrato': contrato,

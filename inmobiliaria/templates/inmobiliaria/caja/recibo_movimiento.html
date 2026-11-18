@@ -167,7 +167,17 @@
         <div class="recibo-header">
             <h1 class="recibo-title">RECIBO DE CAJA</h1>
             <p class="mb-1"><strong>Movimiento #{{ movimiento.id }}</strong></p>
-            <p class="mb-1">Fecha: {{ movimiento.fecha|date:"d/m/Y H:i" }}</p>
+            <p class="mb-1">Fecha:
+                {% if movimiento.fecha_transferencia %}
+                    {{ movimiento.fecha_transferencia|date:"d/m/Y" }}
+                    <small class="text-muted">(transferencia)</small>
+                {% else %}
+                    {{ movimiento.fecha|date:"d/m/Y H:i" }}
+                {% endif %}
+            </p>
+            {% if movimiento.fecha_transferencia %}
+            <p class="mb-1 small text-muted">Cargado en caja: {{ movimiento.fecha|date:"d/m/Y H:i" }}</p>
+            {% endif %}
             <p class="mb-0">Caja: #{{ movimiento.caja.numero }}</p>
         </div>
 
