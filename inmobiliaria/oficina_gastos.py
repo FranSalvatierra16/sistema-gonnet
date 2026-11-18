@@ -171,6 +171,9 @@ MAPA_CONCEPTOS_CAJA_A_OFICINA = {
     '19': ('Ingresos', 'Honorarios gestión cob.'),
     # Concepto 24: ingresos y egresos de caja → Recaudación fondos.
     '24': ('Recaudación fondos', 'Ingreso boletas desc. dep. gtia'),
+    # Concepto 11: cobros/pagos de roturas → resta (ingreso) o suma (egreso)
+    # al gasto de oficina Mantenimiento deptos › Roturas, faltantes y reposiciones.
+    '11': ('Mantenimiento deptos', 'Roturas, faltantes y reposiciones'),
 }
 
 # Por nombre normalizado del concepto (por si el id difiere entre ambientes).
@@ -194,6 +197,18 @@ MAPA_NOMBRE_CONCEPTO_A_OFICINA = {
     'boletas desc dep gtia': (
         'Recaudación fondos',
         'Ingreso boletas desc. dep. gtia',
+    ),
+    'roturas, faltantes y reposiciones': (
+        'Mantenimiento deptos',
+        'Roturas, faltantes y reposiciones',
+    ),
+    'roturas faltantes y reposiciones': (
+        'Mantenimiento deptos',
+        'Roturas, faltantes y reposiciones',
+    ),
+    'roturas faltantes reposiciones': (
+        'Mantenimiento deptos',
+        'Roturas, faltantes y reposiciones',
     ),
 }
 
@@ -921,10 +936,11 @@ def movimiento_cuenta_en_neto_caja_mapeada(movimiento):
 def _neto_gastos_oficina_desde_caja_mapeada(sucursal, fecha_desde, fecha_hasta):
     """
     Neto por categoría mapeada.
-    Regla dura: solo id de catálogo (22/130/24) + importe de esa línea.
+    Regla dura: solo id de catálogo (11/19/22/24/54/130) + importe de esa línea.
     Si el movimiento es solo ese concepto (sin líneas), usa el total del movimiento.
     Nunca usa el total de un cobro multi-concepto ni el nombre «Gastos bancarios».
     Egreso +, ingreso −, salvo CONCEPTOS_CAJA_SIEMPRE_GASTO (54), que siempre suma.
+    El 11 (roturas) resta en Mantenimiento deptos cuando es ingreso.
     """
     from django.db.models import Q
     from django.db.models.functions import Coalesce, TruncDate
