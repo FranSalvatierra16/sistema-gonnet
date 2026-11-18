@@ -34236,6 +34236,23 @@ def _filas_alquiler_desde_operaciones_incluidas(liquidacion, monto_prop_total):
     return filas
 
 
+def _monto_propietario_efectivo_para_cobranzas(liquidacion):
+    """
+    Monto al propietario para imprimir/detalle.
+    Si el pago está dividido y el campo quedó inflado (sync de carátula con el total),
+    usa el monto de la parte creada en esta liquidación.
+    """
+    from inmobiliaria.liquidacion_operacion import monto_parte_dividida_liquidacion
+
+    actual = Decimal(str(getattr(liquidacion, 'monto_propietario', None) or 0)).quantize(
+        Decimal('0.01')
+    )
+    parte = monto_parte_dividida_liquidacion(liquidacion)
+    if parte is not None and actual > parte + Decimal('0.05'):
+        return parte
+    return actual
+
+
 def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     """
     Detalle de liquidación de cobranzas para el propietario.
@@ -34244,7 +34261,7 @@ def _filas_debe_haber_liquidacion_cobranzas(liquidacion):
     Comisión locador/locatario no se listan en el detalle (van en honorarios/carátula).
     """
     filas = []
-    monto_prop = Decimal(str(liquidacion.monto_propietario or 0))
+    monto_prop = _monto_propietario_efectivo_para_cobranzas(liquidacion)
 
     filas_ops = _filas_alquiler_desde_operaciones_incluidas(liquidacion, monto_prop)
     if filas_ops:
