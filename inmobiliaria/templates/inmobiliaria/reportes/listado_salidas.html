@@ -9,7 +9,7 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 no-print">
         <div>
             <h1 class="h4 mb-1"><i class="fas fa-sign-out-alt text-danger"></i> Listado de Salidas</h1>
-            <p class="text-muted mb-0">Operaciones que finalizan alquiler en la fecha indicada.</p>
+            <p class="text-muted mb-0">Operaciones que finalizan alquiler en la fecha indicada. En invierno/24 meses podés cargar hora y quién hace la salida.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">
@@ -77,11 +77,12 @@
                             <th>Llave</th>
                             <th>Día</th>
                             <th>Hora</th>
+                            <th>Quién hace</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for s in salidas %}
-                        <tr>
+                        <tr data-contrato-id="{{ s.contrato_id|default:'' }}">
                             <td>{{ forloop.counter }}</td>
                             <td>{{ s.tipo_alquiler }}</td>
                             <td>{% if s.tipo_menu == 'invierno' or s.tipo_menu == '24_meses' %}<strong>{{ s.carpeta }}</strong>{% else %}{{ s.carpeta }}{% endif %}</td>
@@ -97,11 +98,43 @@
                             <td>{{ s.intervino }}</td>
                             <td>{{ s.llave }}</td>
                             <td>{{ s.dia }}</td>
-                            <td class="text-nowrap">{{ s.hora }}</td>
+                            <td class="text-nowrap">
+                                {% if s.editable_salida %}
+                                <input type="time"
+                                       class="form-control form-control-sm salida-hora no-print"
+                                       value="{{ s.hora_value }}"
+                                       style="min-width:6.5rem;max-width:7.5rem"
+                                       title="Hora de salida">
+                                <span class="print-only-hora d-none">{{ s.hora|default:"—" }}</span>
+                                {% else %}
+                                {{ s.hora }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if s.editable_salida %}
+                                <div class="d-flex gap-1 align-items-center no-print">
+                                    <input type="text"
+                                           class="form-control form-control-sm salida-quien"
+                                           value="{{ s.quien_hace }}"
+                                           maxlength="120"
+                                           placeholder="Nombre libre"
+                                           style="min-width:7rem;max-width:11rem"
+                                           title="Quién hace la salida (texto libre)">
+                                    <button type="button"
+                                            class="btn btn-outline-success btn-sm py-0 px-1 btn-guardar-salida"
+                                            title="Guardar">
+                                        <i class="fas fa-save"></i>
+                                    </button>
+                                </div>
+                                <span class="print-only-quien d-none">{{ s.quien_hace|default:"—" }}</span>
+                                {% else %}
+                                {{ s.quien_hace|default:"—" }}
+                                {% endif %}
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="16" class="text-center text-muted py-4">
+                            <td colspan="17" class="text-center text-muted py-4">
                                 No hay salidas para esa fecha.
                             </td>
                         </tr>
@@ -117,6 +150,7 @@
 @media print {
     .no-print, nav, footer, .navbar, .alert { display: none !important; }
     .print-only-header { display: block !important; }
+    .print-only-hora, .print-only-quien { display: inline !important; }
     body { background: #fff !important; font-size: 9pt; }
     .listado-entradas-salidas { margin: 0 !important; max-width: 100% !important; }
     .listado-tabla-print { border: none !important; box-shadow: none !important; }
@@ -132,4 +166,75 @@
     .table { font-size: 7pt; }
 }
 </style>
+<script>
+(function () {
+    function csrfToken() {
+        var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    function guardarFila(tr) {
+        var contratoId = tr.getAttribute('data-contrato-id');
+        if (!contratoId) return;
+        var horaInp = tr.querySelector('.salida-hora');
+        var quienInp = tr.querySelector('.salida-quien');
+        var btn = tr.querySelector('.btn-guardar-salida');
+        var body = new URLSearchParams();
+        body.set('hora_salida', horaInp ? horaInp.value : '');
+        body.set('quien_hace_salida', quienInp ? quienInp.value : '');
+        body.set('fecha', '{{ fecha }}');
+        body.set('tipo', '{{ tipo_filtro|default:"todos" }}');
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.add('btn-secondary');
+            btn.classList.remove('btn-outline-success');
+        }
+        fetch('{% url "inmobiliaria:guardar_salida_contrato" 0 %}'.replace('/0/', '/' + contratoId + '/'), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+            },
+            body: body.toString(),
+            credentials: 'same-origin'
+        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok || !res.d.ok) {
+                alert((res.d && res.d.error) ? res.d.error : 'No se pudo guardar.');
+                return;
+            }
+            var printHora = tr.querySelector('.print-only-hora');
+            var printQuien = tr.querySelector('.print-only-quien');
+            if (printHora) printHora.textContent = res.d.hora_salida || '—';
+            if (printQuien) printQuien.textContent = res.d.quien_hace_salida || '—';
+            if (btn) {
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-success');
+                setTimeout(function () {
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-outline-success');
+                    btn.disabled = false;
+                }, 800);
+            }
+          })
+          .catch(function () {
+            alert('Error de red al guardar.');
+            if (btn) {
+                btn.disabled = false;
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-outline-success');
+            }
+          });
+    }
+
+    document.querySelectorAll('.btn-guardar-salida').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var tr = btn.closest('tr');
+            if (tr) guardarFila(tr);
+        });
+    });
+})();
+</script>
 {% endblock %}

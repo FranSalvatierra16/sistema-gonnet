@@ -154,6 +154,19 @@ class ContratoAlquiler(models.Model):
         verbose_name='Nº carpeta',
         help_text='Número de carpeta física para contratos invierno / 24 meses.',
     )
+    hora_salida = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name='Hora de salida',
+        help_text='Hora pactada/cargada para la salida (invierno / 24 meses).',
+    )
+    quien_hace_salida = models.CharField(
+        max_length=120,
+        blank=True,
+        default='',
+        verbose_name='Quién hace la salida',
+        help_text='Texto libre: quién realiza la salida (no está ligado a un usuario).',
+    )
 
     class Meta:
         verbose_name = 'Contrato de Alquiler'

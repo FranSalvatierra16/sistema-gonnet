@@ -335,6 +335,11 @@ urlpatterns = [
     path('caja/cartera-cheques/', views.cartera_cheques_caja, name='cartera_cheques_caja'),
     path('reportes/entradas/', views.listado_entradas, name='listado_entradas'),
     path('reportes/salidas/', views.listado_salidas, name='listado_salidas'),
+    path(
+        'reportes/salidas/contrato/<int:contrato_id>/guardar/',
+        views.guardar_salida_contrato,
+        name='guardar_salida_contrato',
+    ),
     path('caja/arqueo/', views.arqueo_caja, name='arqueo_caja'),
     path('caja/historial/', views.historial_caja, name='historial_caja'),
     path('caja/movimientos/', views.todos_movimientos_caja, name='todos_movimientos_caja'),

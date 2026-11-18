@@ -5596,6 +5596,8 @@ def listado_salidas(request):
                 'fecha': r.fecha_fin,
                 'dia': _dia_semana(r.fecha_fin),
                 'hora': _fmt_hora(getattr(r, 'hora_egreso', None)),
+                'quien_hace': '',
+                'editable_salida': False,
             })
 
     if incluir_contratos:
@@ -5632,10 +5634,13 @@ def listado_salidas(request):
 
             tipo_menu = 'invierno' if int(c.duracion_meses or 0) <= 9 else '24_meses'
             carpeta = (getattr(c, 'numero_carpeta', None) or '').strip() or '—'
+            hora_c = getattr(c, 'hora_salida', None)
             salidas.append({
                 'tipo': 'contrato',
                 'tipo_alquiler': ('Invierno' if tipo_menu == 'invierno' else '24 meses'),
                 'tipo_menu': tipo_menu,
+                'contrato_id': c.id,
+                'editable_salida': True,
                 'titular': titular,
                 'propietario': propietario,
                 'propietario_apellido': prop_ap,
@@ -5652,7 +5657,9 @@ def listado_salidas(request):
                 'llave': (getattr(c.propiedad, 'llave', None) or '—'),
                 'fecha': c.fecha_fin,
                 'dia': _dia_semana(c.fecha_fin),
-                'hora': '10:00',
+                'hora': _fmt_hora(hora_c) if hora_c else '',
+                'hora_value': hora_c.strftime('%H:%M') if hora_c else '',
+                'quien_hace': (getattr(c, 'quien_hace_salida', None) or '').strip(),
             })
 
     salidas.sort(
@@ -5674,6 +5681,65 @@ def listado_salidas(request):
             'cantidad_salidas': len(salidas),
         },
     )
+
+
+@login_required
+@require_POST
+def guardar_salida_contrato(request, contrato_id):
+    """
+    Guarda hora de salida y quién la hace (texto libre) en un contrato.
+    Pensado para cargar desde el listado de salidas (invierno / 24 meses).
+    """
+    from datetime import time as _time
+
+    if not usuario_es_nivel_administracion(request.user):
+        return JsonResponse({'ok': False, 'error': 'Sin permisos.'}, status=403)
+
+    contrato = get_object_or_404(
+        ContratoAlquiler,
+        id=contrato_id,
+        sucursal=request.user.sucursal,
+    )
+
+    raw_hora = (request.POST.get('hora_salida') or '').strip()
+    quien = (request.POST.get('quien_hace_salida') or '').strip()[:120]
+
+    hora = None
+    if raw_hora:
+        try:
+            partes = raw_hora.split(':')
+            hora = _time(int(partes[0]), int(partes[1]) if len(partes) > 1 else 0)
+        except (ValueError, TypeError, IndexError):
+            return JsonResponse({'ok': False, 'error': 'Hora inválida.'}, status=400)
+
+    contrato.hora_salida = hora
+    contrato.quien_hace_salida = quien
+    contrato.save(update_fields=['hora_salida', 'quien_hace_salida'])
+
+    wants_json = (
+        'application/json' in (request.headers.get('Accept') or '')
+        or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    )
+    if wants_json:
+        return JsonResponse({
+            'ok': True,
+            'hora_salida': hora.strftime('%H:%M') if hora else '',
+            'quien_hace_salida': quien,
+        })
+
+    fecha = (request.POST.get('fecha') or '').strip()
+    tipo = (request.POST.get('tipo') or 'todos').strip() or 'todos'
+    messages.success(request, f'Salida del contrato #{contrato.id} guardada.')
+    from django.urls import reverse
+    url = reverse('inmobiliaria:listado_salidas')
+    qs = []
+    if fecha:
+        qs.append(f'fecha={fecha}')
+    if tipo:
+        qs.append(f'tipo={tipo}')
+    if qs:
+        url = f'{url}?{"&".join(qs)}'
+    return redirect(url)
 
 
 def crear_reserva(request):
