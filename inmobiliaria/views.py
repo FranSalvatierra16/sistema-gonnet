@@ -14570,7 +14570,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     movimientos_qs = (
         MovimientoCaja.objects.filter(caja=caja)
         .select_related('propiedad', 'propiedad__propietario', 'empleado', 'recibo')
-        .prefetch_related('cheques')
+        .prefetch_related('cheques', 'cupones_tarjeta')
         .order_by(*movimientos_order)
     )
     movimientos_all = list(movimientos_qs)
@@ -14627,7 +14627,7 @@ def _build_context_detalle_caja(request, caja, movimientos_order=('-fecha', '-id
     movimientos_eliminados_qs = (
         MovimientoCaja.all_objects.filter(caja=caja, fecha_eliminacion__isnull=False)
         .select_related('propiedad', 'propiedad__propietario', 'empleado', 'eliminado_por')
-        .prefetch_related('cheques')
+        .prefetch_related('cheques', 'cupones_tarjeta')
         .order_by('-fecha_eliminacion', '-id')
     )
     if busqueda:
