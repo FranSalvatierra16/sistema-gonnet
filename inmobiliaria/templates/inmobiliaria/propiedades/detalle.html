@@ -2586,14 +2586,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const info = data.disponibilidad;
                 console.log('📋 Información de disponibilidad:', info);
                 
+                // Limpiar límites duros previos
+                document.getElementById('edit_fecha_inicio').removeAttribute('max');
+                document.getElementById('edit_fecha_fin').removeAttribute('min');
+
                 if (info.tiene_reservas) {
                     // Mostrar información de restricciones
                     let textoRestricciones = `
-                        <p><strong>Esta disponibilidad tiene reservas:</strong></p>
-                        <ul>
-                            <li>📅 <strong>Fecha de inicio:</strong> No puede ser posterior al ${info.primera_reserva.fecha_inicio}</li>
-                            <li>📅 <strong>Fecha de fin:</strong> No puede ser anterior al ${info.ultima_reserva.fecha_fin}</li>
-                        </ul>
+                        <p><strong>Esta disponibilidad toca reservas:</strong></p>
+                        <p class="mb-1">Podés achicar o mover el tramo si la reserva sigue cubierta por <strong>el conjunto</strong> de disponibilidades de la ficha (tramos contiguos cuentan).</p>
+                        <p class="mb-0 small text-muted">No puede quedar un hueco sin disponibilidad en medio de una reserva.</p>
                     `;
                     
                     document.getElementById('texto-restricciones').innerHTML = textoRestricciones;
@@ -2613,16 +2615,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('lista-reservas').innerHTML = listaReservas;
                     document.getElementById('reservas-existentes').style.display = 'block';
                     
-                    // Establecer límites en los inputs
-                    if (info.limite_inicio_maximo) {
-                        document.getElementById('edit_fecha_inicio').max = info.limite_inicio_maximo;
-                        document.getElementById('help_fecha_inicio').textContent = `Máximo: ${info.primera_reserva.fecha_inicio}`;
-                    }
-                    
-                    if (info.limite_fin_minimo) {
-                        document.getElementById('edit_fecha_fin').min = info.limite_fin_minimo;
-                        document.getElementById('help_fecha_fin').textContent = `Mínimo: ${info.ultima_reserva.fecha_fin}`;
-                    }
+                    document.getElementById('help_fecha_inicio').textContent = 'Debe seguir cubriendo las reservas (junto con los otros tramos).';
+                    document.getElementById('help_fecha_fin').textContent = 'Debe seguir cubriendo las reservas (junto con los otros tramos).';
                 } else {
                     // Sin restricciones
                     document.getElementById('texto-restricciones').innerHTML = `

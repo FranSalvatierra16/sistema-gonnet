@@ -26392,10 +26392,79 @@ def eliminar_disponibilidad(request, disponibilidad_id):
         'error': 'Método no permitido'
     })
 
+def _fusionar_intervalos_fechas(intervalos):
+    """Fusiona intervalos [inicio, fin) contiguos o solapados."""
+    limpios = sorted(
+        ((a, b) for a, b in intervalos if a and b and a < b),
+        key=lambda x: (x[0], x[1]),
+    )
+    if not limpios:
+        return []
+    merged = [[limpios[0][0], limpios[0][1]]]
+    for a, b in limpios[1:]:
+        if a <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    return [(a, b) for a, b in merged]
+
+
+def _rango_cubierto_por_intervalos(inicio, fin, intervalos_merged):
+    """True si [inicio, fin) queda cubierto por la unión de intervalos fusionados."""
+    if not inicio or not fin or inicio >= fin:
+        return True
+    cursor = inicio
+    for a, b in intervalos_merged:
+        if b <= cursor:
+            continue
+        if a > cursor:
+            return False
+        cursor = max(cursor, b)
+        if cursor >= fin:
+            return True
+    return cursor >= fin
+
+
+def _reservas_descubiertas_tras_editar_disponibilidad(
+    propiedad, disponibilidad_id, nueva_fecha_inicio, nueva_fecha_fin
+):
+    """
+    Reservas que dejarían de estar cubiertas por el conjunto de disponibilidades
+    de la propiedad si se aplicara el cambio (se considera la unión / tramos contiguos).
+    """
+    intervalos = []
+    for d in Disponibilidad.objects.filter(propiedad=propiedad).only(
+        'id', 'fecha_inicio', 'fecha_fin'
+    ):
+        if int(d.id) == int(disponibilidad_id):
+            intervalos.append((nueva_fecha_inicio, nueva_fecha_fin))
+        else:
+            intervalos.append((d.fecha_inicio, d.fecha_fin))
+    merged = _fusionar_intervalos_fechas(intervalos)
+
+    # Reservas que tocaban el tramo viejo o el nuevo (o cualquier tramo de la propiedad).
+    reservas = Reserva.objects.filter(
+        propiedad=propiedad,
+        estado__in=['confirmada', 'pagada', 'confirmada_no_pagada'],
+        eliminada=False,
+    ).select_related('cliente').order_by('fecha_inicio', 'id')
+
+    descubiertas = []
+    for r in reservas:
+        if not r.fecha_inicio or not r.fecha_fin or r.fecha_inicio >= r.fecha_fin:
+            continue
+        if _rango_cubierto_por_intervalos(r.fecha_inicio, r.fecha_fin, merged):
+            continue
+        descubiertas.append(r)
+    return descubiertas
+
+
 @login_required
 def editar_disponibilidad(request, disponibilidad_id):
     """
-    Vista para editar una disponibilidad con validaciones inteligentes basadas en reservas
+    Vista para editar una disponibilidad con validaciones inteligentes basadas en reservas.
+    La reserva debe seguir cubierta por la unión de disponibilidades de la ficha
+    (pueden ser varios tramos contiguos), no obligatoriamente por este tramo solo.
     """
     if request.method == 'POST':
         try:
@@ -26417,53 +26486,8 @@ def editar_disponibilidad(request, disponibilidad_id):
                     'success': False,
                     'error': 'La fecha de inicio debe ser anterior a la fecha de fin'
                 })
-            
-            # Buscar reservas existentes en la disponibilidad actual
-            reservas_en_disponibilidad = Reserva.objects.filter(
-                propiedad=disponibilidad.propiedad,
-                fecha_inicio__lt=disponibilidad.fecha_fin,
-                fecha_fin__gt=disponibilidad.fecha_inicio,
-                estado__in=['confirmada', 'pagada', 'confirmada_no_pagada']
-            ).order_by('fecha_inicio')
-            
-# print(f"🔍 EDITANDO DISPONIBILIDAD {disponibilidad.id}")
-# print(f"📅 Original: {disponibilidad.fecha_inicio} - {disponibilidad.fecha_fin}")
-# print(f"📅 Nueva: {nueva_fecha_inicio} - {nueva_fecha_fin}")
-# print(f"📋 Reservas en disponibilidad: {reservas_en_disponibilidad.count()}")
-            
-            if reservas_en_disponibilidad.exists():
-                # HAY RESERVAS: Calcular límites permitidos
-                primera_reserva = reservas_en_disponibilidad.first()
-                ultima_reserva = reservas_en_disponibilidad.last()
-                
-                # Límites para fecha de inicio
-                limite_inicio_maximo = primera_reserva.fecha_inicio  # No puede pasar la primera reserva
-                
-                # Límites para fecha de fin
-                limite_fin_minimo = ultima_reserva.fecha_fin  # No puede ser antes de la última reserva
-                
-# print(f"🚧 LÍMITES CALCULADOS:")
-# print(f"   Fecha inicio: puede ir hasta {limite_inicio_maximo} (primera reserva)")
-# print(f"   Fecha fin: debe ser desde {limite_fin_minimo} (última reserva) en adelante")
-                
-                # Validar que las nuevas fechas respeten los límites
-                if nueva_fecha_inicio > limite_inicio_maximo:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'La fecha de inicio no puede ser posterior al {limite_inicio_maximo.strftime("%d/%m/%Y")}',
-                        'motivo': f'Hay una reserva que inicia el {primera_reserva.fecha_inicio.strftime("%d/%m/%Y")}',
-                        'limite_inicio_maximo': limite_inicio_maximo.strftime('%Y-%m-%d')
-                    })
-                
-                if nueva_fecha_fin < limite_fin_minimo:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'La fecha de fin no puede ser anterior al {limite_fin_minimo.strftime("%d/%m/%Y")}',
-                        'motivo': f'Hay una reserva que termina el {ultima_reserva.fecha_fin.strftime("%d/%m/%Y")}',
-                        'limite_fin_minimo': limite_fin_minimo.strftime('%Y-%m-%d')
-                    })
-                
-            # ✅ MEJORADO: Verificar superposición REAL con otras disponibilidades (permitir contiguas)
+
+            # ✅ Verificar superposición REAL con otras disponibilidades (permitir contiguas)
             otras_disponibilidades = Disponibilidad.objects.filter(
                 propiedad=disponibilidad.propiedad
             ).exclude(id=disponibilidad.id)
@@ -26485,6 +26509,27 @@ def editar_disponibilidad(request, disponibilidad_id):
                     'success': False,
                     'error': 'Las nuevas fechas se superponen con otras disponibilidades',
                     'conflictos': conflictos_reales
+                })
+
+            descubiertas = _reservas_descubiertas_tras_editar_disponibilidad(
+                disponibilidad.propiedad,
+                disponibilidad.id,
+                nueva_fecha_inicio,
+                nueva_fecha_fin,
+            )
+            if descubiertas:
+                r0 = descubiertas[0]
+                return JsonResponse({
+                    'success': False,
+                    'error': (
+                        f'Con esas fechas la reserva #{r0.id} '
+                        f'({r0.fecha_inicio.strftime("%d/%m/%Y")}–{r0.fecha_fin.strftime("%d/%m/%Y")}) '
+                        f'deja de estar cubierta por las disponibilidades de la ficha.'
+                    ),
+                    'motivo': (
+                        'La reserva puede repartirse entre varios tramos contiguos, '
+                        'pero no puede quedar ningún hueco en el medio.'
+                    ),
                 })
             
             # Si todas las validaciones pasan, actualizar la disponibilidad
@@ -26531,7 +26576,7 @@ def editar_disponibilidad(request, disponibilidad_id):
             })
     
     elif request.method == 'GET':
-        # Obtener información para edición (límites, etc.)
+        # Obtener información para edición (reservas que tocan este tramo).
         try:
             disponibilidad = get_object_or_404(Disponibilidad, id=disponibilidad_id)
             
@@ -26540,14 +26585,18 @@ def editar_disponibilidad(request, disponibilidad_id):
                 propiedad=disponibilidad.propiedad,
                 fecha_inicio__lt=disponibilidad.fecha_fin,
                 fecha_fin__gt=disponibilidad.fecha_inicio,
-                estado__in=['confirmada', 'pagada', 'confirmada_no_pagada']
+                estado__in=['confirmada', 'pagada', 'confirmada_no_pagada'],
+                eliminada=False,
             ).order_by('fecha_inicio')
             
             limites = {
                 'fecha_inicio_actual': disponibilidad.fecha_inicio.strftime('%Y-%m-%d'),
                 'fecha_fin_actual': disponibilidad.fecha_fin.strftime('%Y-%m-%d'),
                 'tiene_reservas': reservas_en_disponibilidad.exists(),
-                'reservas_info': []
+                'reservas_info': [],
+                # Ya no forzamos max/min duros: la cobertura puede ser entre varios tramos.
+                'limite_inicio_maximo': None,
+                'limite_fin_minimo': None,
             }
             
             if reservas_en_disponibilidad.exists():
@@ -26555,8 +26604,6 @@ def editar_disponibilidad(request, disponibilidad_id):
                 ultima_reserva = reservas_en_disponibilidad.last()
                 
                 limites.update({
-                    'limite_inicio_maximo': primera_reserva.fecha_inicio.strftime('%Y-%m-%d'),
-                    'limite_fin_minimo': ultima_reserva.fecha_fin.strftime('%Y-%m-%d'),
                     'primera_reserva': {
                         'fecha_inicio': primera_reserva.fecha_inicio.strftime('%d/%m/%Y'),
                         'fecha_fin': primera_reserva.fecha_fin.strftime('%d/%m/%Y')
