@@ -5736,6 +5736,11 @@ def listado_salidas(request):
                 apellido = (getattr(c.inquilino, 'apellido', '') or '').strip()
                 nombre = (getattr(c.inquilino, 'nombre', '') or '').strip()
                 titular = f'{apellido}, {nombre}'.strip(', ') or '—'
+            vendedor = '—'
+            if c.vendedor:
+                apv = (getattr(c.vendedor, 'apellido', '') or '').strip()
+                nov = (getattr(c.vendedor, 'nombre', '') or '').strip()
+                vendedor = (apv or nov or '—').upper()
             agenda.append({
                 'contrato_id': c.id,
                 'fecha_salida': fecha_sal,
@@ -5746,11 +5751,19 @@ def listado_salidas(request):
                 'tipo_alquiler': ('Invierno' if tipo_menu == 'invierno' else '24 meses'),
                 'carpeta': (getattr(c, 'numero_carpeta', None) or '').strip() or '—',
                 'titular': titular,
+                'productor': vendedor,
                 'direccion': (getattr(c.propiedad, 'direccion', None) or '—'),
                 'llave': (getattr(c.propiedad, 'llave', None) or '—'),
                 'operacion': f'{c.id:05d}',
             })
         agenda.sort(key=lambda x: (x.get('fecha_salida_iso') or '', x.get('hora_sort') or '99:99', x.get('operacion') or ''))
+
+    suma_depositos = Decimal('0')
+    for s in salidas:
+        try:
+            suma_depositos += Decimal(str(s.get('deposito') or 0))
+        except (InvalidOperation, TypeError, ValueError):
+            continue
 
     return render(
         request,
@@ -5761,6 +5774,7 @@ def listado_salidas(request):
             'tipo_filtro': tipo_filtro,
             'salidas': salidas,
             'cantidad_salidas': len(salidas),
+            'suma_depositos': suma_depositos,
             'agenda_salidas': agenda,
             'cantidad_agenda': len(agenda),
         },
@@ -5779,7 +5793,7 @@ def guardar_salida_contrato(request, contrato_id):
         return JsonResponse({'ok': False, 'error': 'Sin permisos.'}, status=403)
 
     contrato = get_object_or_404(
-        ContratoAlquiler.objects.select_related('inquilino', 'propiedad'),
+        ContratoAlquiler.objects.select_related('inquilino', 'propiedad', 'vendedor'),
         id=contrato_id,
         sucursal=request.user.sucursal,
     )
@@ -5822,25 +5836,33 @@ def guardar_salida_contrato(request, contrato_id):
             no = (getattr(contrato.inquilino, 'nombre', '') or '').strip()
             titular = f'{ap}, {no}'.strip(', ') or '—'
         tipo_menu = 'invierno' if int(contrato.duracion_meses or 0) <= 9 else '24_meses'
+        productor = '—'
+        if getattr(contrato, 'vendedor', None):
+            apv = (getattr(contrato.vendedor, 'apellido', '') or '').strip()
+            nov = (getattr(contrato.vendedor, 'nombre', '') or '').strip()
+            productor = (apv or nov or '—').upper()
+        confirmado = bool(fecha_sal or hora)
         return JsonResponse({
             'ok': True,
             'fecha_salida': fecha_sal.strftime('%Y-%m-%d') if fecha_sal else '',
             'fecha_salida_display': fecha_sal.strftime('%d/%m/%Y') if fecha_sal else '',
             'dia': dia_nombre,
             'hora_salida': hora.strftime('%H:%M') if hora else '',
+            'confirmado': confirmado,
             'agenda': {
                 'contrato_id': contrato.id,
                 'operacion': f'{contrato.id:05d}',
                 'tipo_alquiler': 'Invierno' if tipo_menu == 'invierno' else '24 meses',
                 'carpeta': (getattr(contrato, 'numero_carpeta', None) or '').strip() or '—',
                 'titular': titular,
+                'productor': productor,
                 'direccion': (getattr(contrato.propiedad, 'direccion', None) or '—') if contrato.propiedad_id else '—',
                 'llave': (getattr(contrato.propiedad, 'llave', None) or '—') if contrato.propiedad_id else '—',
                 'fecha_salida': fecha_sal.strftime('%Y-%m-%d') if fecha_sal else '',
                 'fecha_salida_display': fecha_sal.strftime('%d/%m/%Y') if fecha_sal else '',
                 'dia': dia_nombre,
                 'hora_salida': hora.strftime('%H:%M') if hora else '',
-                'en_agenda': bool(fecha_sal or hora),
+                'en_agenda': confirmado,
             },
         })
 
@@ -8282,7 +8304,13 @@ def procesar_movimiento_reserva(request):
                 activa=True
             ).order_by('nombre_banco', 'alias')
             
-            # ✅ Procesar montos de cuentas bancarias dinámicamente
+            # ✅ Cupones de transferencia múltiples (preferido) o montos por cuenta (legacy)
+            transferencias_detalle = _parse_transferencias_movimiento_post(
+                request,
+                cuentas_ids=[c.id for c in cuentas_bancarias],
+            )
+            transferencias_con_monto = [t for t in transferencias_detalle if t['monto'] > 0]
+
             montos_cuentas_bancarias = {}
             monto_deposito_total = Decimal('0')
             
@@ -8309,8 +8337,11 @@ def procesar_movimiento_reserva(request):
                 return JsonResponse({'success': False, 'error': str(exc)})
             monto_deposito_legacy = monto_deposito_galicia + monto_deposito_mp
             
-            # Usar el total dinámico o el legacy como fallback
-            monto_deposito = monto_deposito_total if monto_deposito_total > 0 else monto_deposito_legacy
+            if transferencias_con_monto:
+                monto_deposito = sum((t['monto'] for t in transferencias_con_monto), Decimal('0'))
+            else:
+                # Usar el total dinámico o el legacy como fallback
+                monto_deposito = monto_deposito_total if monto_deposito_total > 0 else monto_deposito_legacy
 
             # Cobro mixto: se mantienen pesos y dólares; se validan con cotización más abajo.
             total_ars_medios = (
@@ -8506,47 +8537,95 @@ def procesar_movimiento_reserva(request):
             # Crear movimientos separados para transferencias si existen
             movimientos_creados = [movimiento_principal]
             
-            # ✅ ASIGNAR DESTINO DE TRANSFERENCIA DINÁMICAMENTE
-            cuentas_con_monto = [data for data in montos_cuentas_bancarias.values() if data['monto'] > 0]
-            
-            if len(cuentas_con_monto) == 1:
-                # Solo una cuenta bancaria con monto
-                cuenta_usada = cuentas_con_monto[0]['cuenta']
-                movimiento_principal.destino_deposito = f"cuenta_{cuenta_usada.id}"
-                movimiento_principal.save()
-# print(f"✅ Destino asignado: Cuenta {cuenta_usada.nombre_banco} (ID: {cuenta_usada.id})")
-            elif len(cuentas_con_monto) > 1:
-                # Múltiples cuentas bancarias con monto - actualizar concepto
-                detalles_cuentas = []
-                for data in cuentas_con_monto:
-                    cuenta = data['cuenta']
-                    monto = data['monto']
-                    detalles_cuentas.append(f"{cuenta.nombre_banco}: ${monto}")
+            if transferencias_con_monto:
+                # Cupones múltiples: destino/fecha en el movimiento + detalle TransferenciaMovimientoCaja
+                destinos = {
+                    (t.get('destino') or '').strip()
+                    for t in transferencias_con_monto
+                    if (t.get('destino') or '').strip()
+                }
+                primero = transferencias_con_monto[0]
+                if len(destinos) > 1:
+                    movimiento_principal.destino_deposito = 'mixto'
+                else:
+                    movimiento_principal.destino_deposito = (
+                        (primero.get('destino') or '').strip() or None
+                    )
+                fechas = [t.get('fecha') for t in transferencias_con_monto if t.get('fecha')]
+                movimiento_principal.fecha_transferencia = (
+                    fechas[0] if fechas else timezone.localdate()
+                )
+                movimiento_principal.monto_deposito = monto_deposito
+                movimiento_principal.save(
+                    update_fields=['destino_deposito', 'fecha_transferencia', 'monto_deposito']
+                )
+                _guardar_transferencias_movimiento(movimiento_principal, transferencias_con_monto)
+            else:
+                # ✅ ASIGNAR DESTINO DE TRANSFERENCIA DINÁMICAMENTE (legacy por cuenta)
+                cuentas_con_monto = [data for data in montos_cuentas_bancarias.values() if data['monto'] > 0]
                 
-                concepto_actualizado = f"Operaci\u00f3n {reserva.id} - " + ", ".join(detalles_cuentas)
-                movimiento_principal.concepto = concepto_actualizado
-                movimiento_principal.destino_deposito = 'mixto'
-                movimiento_principal.save()
-# print(f"✅ Destino mixto asignado: {', '.join(detalles_cuentas)}")
-            elif monto_deposito_legacy > 0:
-                # Fallback a lógica legacy si hay montos en campos antiguos
-                if monto_deposito_galicia > 0 and monto_deposito_mp == 0:
-                    movimiento_principal.destino_deposito = 'galicia'
+                if len(cuentas_con_monto) == 1:
+                    # Solo una cuenta bancaria con monto
+                    cuenta_usada = cuentas_con_monto[0]['cuenta']
+                    movimiento_principal.destino_deposito = f"cuenta_{cuenta_usada.id}"
                     movimiento_principal.save()
-            elif monto_deposito_mp > 0 and monto_deposito_galicia == 0:
-                    movimiento_principal.destino_deposito = 'mp'
-                    movimiento_principal.save()
-            elif monto_deposito_galicia > 0 and monto_deposito_mp > 0:
-                    concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
+                elif len(cuentas_con_monto) > 1:
+                    # Múltiples cuentas bancarias con monto - actualizar concepto
+                    detalles_cuentas = []
+                    for data in cuentas_con_monto:
+                        cuenta = data['cuenta']
+                        monto = data['monto']
+                        detalles_cuentas.append(f"{cuenta.nombre_banco}: ${monto}")
+                    
+                    concepto_actualizado = f"Operaci\u00f3n {reserva.id} - " + ", ".join(detalles_cuentas)
                     movimiento_principal.concepto = concepto_actualizado
+                    movimiento_principal.destino_deposito = 'mixto'
                     movimiento_principal.save()
+                elif monto_deposito_legacy > 0:
+                    # Fallback a lógica legacy si hay montos en campos antiguos
+                    if monto_deposito_galicia > 0 and monto_deposito_mp == 0:
+                        movimiento_principal.destino_deposito = 'galicia'
+                        movimiento_principal.save()
+                    elif monto_deposito_mp > 0 and monto_deposito_galicia == 0:
+                        movimiento_principal.destino_deposito = 'mp'
+                        movimiento_principal.save()
+                    elif monto_deposito_galicia > 0 and monto_deposito_mp > 0:
+                        concepto_actualizado = f"Operaci\u00f3n {reserva.id} - Galicia: ${monto_deposito_galicia}, MP: ${monto_deposito_mp}"
+                        movimiento_principal.concepto = concepto_actualizado
+                        movimiento_principal.save()
 
-            if monto_deposito and monto_deposito > 0:
-                try:
-                    movimiento_principal.fecha_transferencia = _fecha_transferencia_desde_post(request)
-                except ValueError:
-                    return JsonResponse({'success': False, 'error': 'Fecha de transferencia inválida.'})
-                movimiento_principal.save(update_fields=['fecha_transferencia'])
+                if monto_deposito and monto_deposito > 0:
+                    try:
+                        movimiento_principal.fecha_transferencia = _fecha_transferencia_desde_post(request)
+                    except ValueError:
+                        return JsonResponse({'success': False, 'error': 'Fecha de transferencia inválida.'})
+                    movimiento_principal.save(update_fields=['fecha_transferencia'])
+                    # Persistir también como cupones (uno por cuenta con monto) para el recibo
+                    legacy_detalle = []
+                    for data in cuentas_con_monto:
+                        legacy_detalle.append({
+                            'monto': data['monto'],
+                            'destino': f"cuenta_{data['cuenta'].id}",
+                            'fecha': movimiento_principal.fecha_transferencia,
+                            'referencia': '',
+                        })
+                    if not legacy_detalle and monto_deposito_legacy > 0:
+                        if monto_deposito_galicia > 0:
+                            legacy_detalle.append({
+                                'monto': monto_deposito_galicia,
+                                'destino': 'galicia',
+                                'fecha': movimiento_principal.fecha_transferencia,
+                                'referencia': '',
+                            })
+                        if monto_deposito_mp > 0:
+                            legacy_detalle.append({
+                                'monto': monto_deposito_mp,
+                                'destino': 'mp',
+                                'fecha': movimiento_principal.fecha_transferencia,
+                                'referencia': '',
+                            })
+                    if legacy_detalle:
+                        _guardar_transferencias_movimiento(movimiento_principal, legacy_detalle)
             
             total_movimiento_creado = (
                 (monto_efectivo or 0)

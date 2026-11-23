@@ -228,9 +228,9 @@ function calcularTotalPagos() {
         console.log('   monto_tarjeta:', tarjetaElement ? 'SÍ' : 'NO', tarjetaElement?.value);
         console.log('   monto_dolares:', dolaresElement ? 'SÍ' : 'NO', dolaresElement?.value);
         
-        // Contar campos dinámicos de cuentas bancarias
+        const camposCuponesTransferencia = document.querySelectorAll('#lista_transferencias_reserva .transferencia-monto');
         const camposCuentasBancarias = document.querySelectorAll('.cuenta-bancaria-dinamica');
-        console.log('   Campos cuentas bancarias encontrados:', camposCuentasBancarias.length);
+        console.log('   Cupones transferencia:', camposCuponesTransferencia.length, '| Cuentas legacy:', camposCuentasBancarias.length);
         
         function parsearValor(elemento) {
             if (!elemento || elemento.value == null || String(elemento.value).trim() === '') return 0;
@@ -241,12 +241,23 @@ function calcularTotalPagos() {
         const cheque = parsearValor(chequeElement);
         const tarjeta = parsearValor(tarjetaElement);
         const dolares = parsearValor(dolaresElement);
-        let totalCuentasBancarias = 0;
-        camposCuentasBancarias.forEach(campo => {
-            const valor = parsearValor(campo);
-            totalCuentasBancarias += valor;
-        });
-        const totalArs = efectivo + cheque + tarjeta + totalCuentasBancarias;
+        let totalTransferencias = 0;
+        if (camposCuponesTransferencia.length) {
+            camposCuponesTransferencia.forEach(campo => {
+                totalTransferencias += parsearValor(campo);
+            });
+        } else {
+            camposCuentasBancarias.forEach(campo => {
+                totalTransferencias += parsearValor(campo);
+            });
+        }
+        const sumaLabel = document.getElementById('suma_transferencias_reserva_label');
+        if (sumaLabel) {
+            sumaLabel.textContent = '$' + (typeof fmtMilesAR === 'function' ? fmtMilesAR(totalTransferencias) : totalTransferencias.toFixed(2));
+        }
+        const montoDepTotal = document.getElementById('monto_deposito_total');
+        if (montoDepTotal) montoDepTotal.value = String(totalTransferencias);
+        const totalArs = efectivo + cheque + tarjeta + totalTransferencias;
         const cotizEl = document.getElementById('cotizacion_dolar');
         const cotiz = parsearValor(cotizEl);
         const hayArs = totalArs > 0.01;
@@ -404,11 +415,11 @@ function procesarMovimiento() {
     // ✅ DESFORMATEAR VALORES NUMÉRICOS antes de enviar
     const camposNumericos = [
         'monto_efectivo', 'monto_cheque', 'monto_tarjeta', 'saldo_ocupar',
-        'monto_deposito_galicia', 'monto_deposito_mp',
+        'monto_deposito_galicia', 'monto_deposito_mp', 'monto_deposito',
         'monto_dolares', 'cotizacion_dolar',
     ];
     
-    // También incluir cuentas bancarias dinámicas
+    // También incluir cuentas bancarias dinámicas (legacy)
     const cuentasBancarias = document.querySelectorAll('[name^="monto_deposito_"]');
     cuentasBancarias.forEach(campo => {
         if (campo.name && !camposNumericos.includes(campo.name)) {
@@ -425,6 +436,27 @@ function procesarMovimiento() {
             console.log(`🔧 Desformateado ${nombreCampo}: "${campo.value}" → "${valorDesformateado}"`);
         }
     });
+
+    // Cupones de transferencia: varios inputs con el mismo name → reemplazar en FormData
+    formData.delete('transferencia_item_monto');
+    formData.delete('transferencia_item_destino');
+    formData.delete('transferencia_item_fecha');
+    formData.delete('transferencia_item_referencia');
+    document.querySelectorAll('#lista_transferencias_reserva .fila-transferencia').forEach(fila => {
+        const montoEl = fila.querySelector('[name="transferencia_item_monto"]');
+        const destEl = fila.querySelector('[name="transferencia_item_destino"]');
+        const fechaEl = fila.querySelector('[name="transferencia_item_fecha"]');
+        const refEl = fila.querySelector('[name="transferencia_item_referencia"]');
+        const montoRaw = montoEl ? String(parseDecimalMontoJS(montoEl.value || '0')) : '0';
+        formData.append('transferencia_item_monto', montoRaw);
+        formData.append('transferencia_item_destino', destEl ? (destEl.value || '') : '');
+        formData.append('transferencia_item_fecha', fechaEl ? (fechaEl.value || '') : '');
+        formData.append('transferencia_item_referencia', refEl ? (refEl.value || '') : '');
+    });
+    const primeraFechaCup = document.querySelector('#lista_transferencias_reserva [name="transferencia_item_fecha"]');
+    if (primeraFechaCup && primeraFechaCup.value) {
+        formData.set('fecha_transferencia', primeraFechaCup.value);
+    }
     
             // ✅ Agregar conceptos al FormData
             conceptosAgregados.forEach((concepto, index) => {
@@ -1060,6 +1092,64 @@ function limpiarInfoVendedor() {
 }
 
 // Event listeners
+function agregarFilaTransferenciaReserva() {
+    const tpl = document.getElementById('tpl_fila_transferencia_reserva');
+    const lista = document.getElementById('lista_transferencias_reserva');
+    if (!tpl || !lista) return;
+    const nodo = tpl.content.cloneNode(true);
+    lista.appendChild(nodo);
+    const fila = lista.querySelector('.fila-transferencia:last-child');
+    if (fila) {
+        const monto = fila.querySelector('.transferencia-monto');
+        if (monto) {
+            monto.addEventListener('input', function() { if (typeof actualizarPagos === 'function') actualizarPagos(); });
+            monto.addEventListener('change', function() { if (typeof actualizarPagos === 'function') actualizarPagos(); });
+        }
+    }
+    if (typeof actualizarPagos === 'function') actualizarPagos();
+}
+
+function initCuponesTransferenciaReserva() {
+    const btnAdd = document.getElementById('btn_agregar_transferencia_reserva');
+    const lista = document.getElementById('lista_transferencias_reserva');
+    if (!lista) return;
+    if (btnAdd) {
+        btnAdd.addEventListener('click', function(e) {
+            e.preventDefault();
+            agregarFilaTransferenciaReserva();
+        });
+    }
+    lista.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-quitar-transferencia');
+        if (!btn) return;
+        e.preventDefault();
+        const filas = lista.querySelectorAll('.fila-transferencia');
+        const fila = btn.closest('.fila-transferencia');
+        if (!fila) return;
+        if (filas.length <= 1) {
+            fila.querySelectorAll('input[type="text"], input[type="date"]').forEach(function(inp) {
+                if (inp.name === 'transferencia_item_fecha') {
+                    const hoy = new Date();
+                    const yyyy = hoy.getFullYear();
+                    const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+                    const dd = String(hoy.getDate()).padStart(2, '0');
+                    inp.value = yyyy + '-' + mm + '-' + dd;
+                } else {
+                    inp.value = '';
+                }
+            });
+            const sel = fila.querySelector('select');
+            if (sel) sel.value = '';
+        } else {
+            fila.remove();
+        }
+        if (typeof actualizarPagos === 'function') actualizarPagos();
+    });
+    if (!lista.querySelector('.fila-transferencia')) {
+        agregarFilaTransferenciaReserva();
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof actualizarVisibilidadMonedaPago === 'function') {
         actualizarVisibilidadMonedaPago();
@@ -1067,6 +1157,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof calcularSaldoOcupar === 'function') {
         calcularSaldoOcupar();
     }
+    initCuponesTransferenciaReserva();
     
     // ✅ Event listener para los botones de seleccionar concepto (delegación de eventos)
     document.addEventListener('click', function(e) {
@@ -1564,35 +1655,55 @@ window.habilitarBotonProcesar = habilitarBotonProcesar;
                                     </div>
                                 
                                 <div class="row mb-2">
-                                    <div class="col-md-6">
-                                        <label class="form-label"><strong>TRANSFERENCIAS:</strong></label>
-                                        <div class="mb-2">
-                                            <label class="form-label mb-0 small" for="fecha_transferencia"><strong>Fecha de transferencia:</strong></label>
-                                            <input type="date" class="form-control form-control-sm" name="fecha_transferencia"
-                                                   id="fecha_transferencia" value="{% now 'Y-m-d' %}" style="max-width: 11rem;">
-                                            <small class="text-muted">Por defecto hoy; podés cambiarla si se acreditó otro día.</small>
+                                    <div class="col-12">
+                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                                            <label class="form-label mb-0"><strong>TRANSFERENCIAS / CUPONES:</strong></label>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" id="btn_agregar_transferencia_reserva">
+                                                <i class="fas fa-plus me-1"></i>Agregar cupón
+                                            </button>
                                         </div>
-                                        <div class="transferencias-container" id="transferencias-dinamicas-container">
-                                            <!-- Se cargarán dinámicamente las cuentas bancarias de la sucursal -->
-                                            {% for cuenta in cuentas_bancarias %}
-                                            <div class="transferencia-item">
-                                                {% if cuenta.tipo_cuenta == 'banco' %}
-                                                    <label class="form-label">🏛️ {{ cuenta.nombre_banco }} — {{ cuenta.titular }}</label>
-                                                {% else %}
-                                                    <label class="form-label">💰 {{ cuenta.nombre_banco }} — {{ cuenta.titular }}</label>
-                                                {% endif %}
-                                                <input type="text" class="form-control form-control-xs importe-pago cuenta-bancaria-dinamica" 
-                                                       id="{{ cuenta.field_name }}" name="{{ cuenta.field_name }}" 
-                                                       placeholder="0" onchange="actualizarPagos()" oninput="actualizarPagos()"
-                                                       data-cuenta-id="{{ cuenta.id }}">
-                                                <small class="text-muted d-block">CBU / alias: {{ cuenta.alias }}{% if cuenta.numero_cuenta %} · Cuenta: {{ cuenta.numero_cuenta }}{% endif %}</small>
-                                            </div>
-                                            {% empty %}
-                                            <div class="transferencia-item">
-                                                <p class="text-muted">No hay cuentas bancarias configuradas para esta sucursal.</p>
-                                            </div>
-                                            {% endfor %}
+                                        <small class="text-muted d-block mb-2">
+                                            Podés cargar dos o más transferencias (cuenta + fecha + cupón/ref.). La suma entra al total de pagos.
+                                        </small>
+                                        <div id="lista_transferencias_reserva" class="border rounded p-2 bg-light"></div>
+                                        <div class="mt-1">
+                                            <span class="small text-muted">Suma transferencias: </span>
+                                            <strong id="suma_transferencias_reserva_label">$0,00</strong>
                                         </div>
+                                        <template id="tpl_fila_transferencia_reserva">
+                                            <div class="row g-2 align-items-end mb-2 fila-transferencia border-bottom pb-2">
+                                                <div class="col-md-2">
+                                                    <label class="form-label small mb-0">Monto</label>
+                                                    <input type="text" name="transferencia_item_monto" class="form-control form-control-sm transferencia-monto importe-pago" inputmode="decimal" autocomplete="off" placeholder="0">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small mb-0">Cuenta</label>
+                                                    <select name="transferencia_item_destino" class="form-select form-select-sm">
+                                                        <option value="">— Cuenta —</option>
+                                                        {% for cuenta in cuentas_bancarias %}
+                                                        <option value="cuenta_{{ cuenta.id }}">{{ cuenta.nombre_banco }} — {{ cuenta.titular }}</option>
+                                                        {% empty %}
+                                                        <option value="" disabled>Sin cuentas en esta sucursal</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label small mb-0">Fecha</label>
+                                                    <input type="date" name="transferencia_item_fecha" class="form-control form-control-sm" value="{% now 'Y-m-d' %}">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label small mb-0">Cupón / ref.</label>
+                                                    <input type="text" name="transferencia_item_referencia" class="form-control form-control-sm" maxlength="64" autocomplete="off" placeholder="Opcional">
+                                                </div>
+                                                <div class="col-md-1">
+                                                    <button type="button" class="btn btn-sm btn-outline-danger w-100 btn-quitar-transferencia" title="Quitar">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        {# Compat: una sola fecha legacy si no hay filas de cupón #}
+                                        <input type="hidden" name="fecha_transferencia" id="fecha_transferencia" value="{% now 'Y-m-d' %}">
                                     </div>
                                 </div>
                                 

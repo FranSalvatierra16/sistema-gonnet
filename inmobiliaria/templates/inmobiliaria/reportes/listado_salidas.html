@@ -12,8 +12,11 @@
             <p class="text-muted mb-0">Operaciones que finalizan alquiler en la fecha indicada. En invierno/24 meses cargá el <strong>día</strong> y la <strong>hora</strong> de la salida; se van listando abajo en la agenda.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-            <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">
-                <i class="fas fa-print"></i> Imprimir
+            <button type="button" class="btn btn-primary btn-sm" onclick="imprimirListadoSalidas('todo')">
+                <i class="fas fa-print"></i> Imprimir listado
+            </button>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="imprimirListadoSalidas('agenda')">
+                <i class="fas fa-print"></i> Imprimir agenda
             </button>
             <a href="{% url 'inmobiliaria:listado_entradas' %}?fecha={{ fecha }}&tipo={{ tipo_filtro|default:'todos' }}" class="btn btn-outline-primary btn-sm">
                 <i class="fas fa-sign-in-alt"></i> Ver entradas
@@ -24,9 +27,13 @@
         </div>
     </div>
 
-    <div class="print-only-header d-none mb-2">
+    <div class="print-only-header print-header-todo d-none mb-2">
         <h2 class="h5 mb-0">Listado de Salidas — {{ fecha_obj|date:"d/m/Y" }}</h2>
-        <p class="mb-0 small">Total salidas: {{ cantidad_salidas }}{% if tipo_filtro and tipo_filtro != 'todos' %} · Filtro: {{ tipo_filtro }}{% endif %}</p>
+        <p class="mb-0 small">Total salidas: {{ cantidad_salidas }} · Suma depósitos: ${{ suma_depositos|format_price }}{% if tipo_filtro and tipo_filtro != 'todos' %} · Filtro: {{ tipo_filtro }}{% endif %}</p>
+    </div>
+    <div class="print-only-header print-header-agenda d-none mb-2">
+        <h2 class="h5 mb-0">Agenda de salidas — {{ fecha_obj|date:"d/m/Y" }}</h2>
+        <p class="mb-0 small">Ordenadas por día y hora · Total en agenda: <span class="print-agenda-count">{{ cantidad_agenda }}</span>{% if tipo_filtro and tipo_filtro != 'todos' %} · Filtro: {{ tipo_filtro }}{% endif %}</p>
     </div>
 
     <form method="get" class="card card-body mb-3 no-print">
@@ -42,7 +49,7 @@
                 </button>
             </div>
             <div class="col-md-7 text-md-end">
-                <div class="fw-semibold">Fecha: {{ fecha_obj|date:"d/m/Y" }} · Total salidas: {{ cantidad_salidas }}</div>
+                <div class="fw-semibold">Fecha: {{ fecha_obj|date:"d/m/Y" }}</div>
             </div>
             <div class="col-12">
                 <div class="btn-group mt-2" role="group" aria-label="Filtro por tipo">
@@ -55,7 +62,20 @@
         </div>
     </form>
 
-    <div class="card listado-tabla-print mb-3">
+    <div class="alert alert-secondary d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3" id="resumen-salidas-busqueda">
+        <div>
+            <span class="text-muted me-2">Resultado de la búsqueda</span>
+            <strong>Fecha: {{ fecha_obj|date:"d/m/Y" }}</strong>
+            <span class="mx-2">·</span>
+            <strong>Total salidas: {{ cantidad_salidas }}</strong>
+        </div>
+        <div class="fs-5 mb-0">
+            <span class="text-muted me-1">Total depósitos:</span>
+            <strong class="text-danger">${{ suma_depositos|format_price }}</strong>
+        </div>
+    </div>
+
+    <div class="card listado-tabla-print mb-3" id="listado-salidas-tabla">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-sm table-striped table-hover mb-0">
@@ -132,9 +152,10 @@
                             <td class="no-print">
                                 {% if s.editable_salida %}
                                 <button type="button"
-                                        class="btn btn-outline-success btn-sm py-0 px-1 btn-guardar-salida"
-                                        title="Guardar día y hora">
-                                    <i class="fas fa-save"></i>
+                                        class="btn btn-sm py-0 px-1 btn-guardar-salida {% if s.fecha_salida_cargada %}btn-danger{% else %}btn-success{% endif %}"
+                                        title="{% if s.fecha_salida_cargada %}Confirmado — podés editar y volver a guardar{% else %}Guardar / confirmar día y hora{% endif %}"
+                                        data-confirmado="{% if s.fecha_salida_cargada %}1{% else %}0{% endif %}">
+                                    <i class="fas fa-lock"></i>
                                 </button>
                                 {% endif %}
                             </td>
@@ -147,6 +168,15 @@
                         </tr>
                         {% endfor %}
                     </tbody>
+                    {% if salidas %}
+                    <tfoot class="table-light">
+                        <tr>
+                            <td colspan="11" class="text-end fw-semibold">Suma depósitos</td>
+                            <td class="text-end fw-semibold">${{ suma_depositos|format_price }}</td>
+                            <td colspan="5"></td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
                 </table>
             </div>
         </div>
@@ -158,7 +188,12 @@
                 <strong><i class="fas fa-calendar-check me-1"></i> Agenda de salidas cargadas</strong>
                 <span class="ms-2 small opacity-75">Se arma a medida que guardás día y/o hora · ordenadas por día y hora</span>
             </div>
-            <span class="badge bg-light text-danger" id="agenda-count">{{ cantidad_agenda }}</span>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-light no-print" onclick="imprimirListadoSalidas('agenda')" title="Imprimir agenda">
+                    <i class="fas fa-print text-danger"></i> Imprimir
+                </button>
+                <span class="badge bg-light text-danger" id="agenda-count">{{ cantidad_agenda }}</span>
+            </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -171,6 +206,7 @@
                             <th>Tipo</th>
                             <th>Carpeta</th>
                             <th>Titular</th>
+                            <th>Productor</th>
                             <th>Dirección</th>
                             <th>Llave</th>
                             <th>Op.</th>
@@ -187,13 +223,14 @@
                             <td>{{ a.tipo_alquiler }}</td>
                             <td><strong>{{ a.carpeta }}</strong></td>
                             <td>{{ a.titular }}</td>
+                            <td>{{ a.productor }}</td>
                             <td>{{ a.direccion }}</td>
                             <td>{{ a.llave }}</td>
                             <td>{{ a.operacion }}</td>
                         </tr>
                         {% empty %}
                         <tr id="agenda-vacia">
-                            <td colspan="9" class="text-center text-muted py-3">
+                            <td colspan="10" class="text-center text-muted py-3">
                                 Todavía no hay salidas con día u hora cargados en este período.
                             </td>
                         </tr>
@@ -208,13 +245,11 @@
 <style>
 @media print {
     .no-print, nav, footer, .navbar, .alert { display: none !important; }
-    .print-only-header { display: block !important; }
     .print-only-hora, .print-only-dia { display: inline !important; }
     body { background: #fff !important; font-size: 9pt; }
     .listado-entradas-salidas { margin: 0 !important; max-width: 100% !important; }
     .listado-tabla-print { border: none !important; box-shadow: none !important; }
     .listado-tabla-print .card-body { padding: 0 !important; }
-    .table { font-size: 8pt; }
     .table th, .table td { padding: 0.2rem 0.3rem !important; }
     .table-striped > tbody > tr:nth-of-type(odd) > * {
         -webkit-print-color-adjust: exact;
@@ -223,10 +258,55 @@
     a[href]:after { content: none !important; }
     @page { size: A4 portrait; margin: 0.8cm; }
     .table { font-size: 7pt; }
-    #agenda-salidas-card { break-before: page; }
+
+    /* Impresión completa: listado + agenda */
+    body.print-mode-todo .print-header-todo { display: block !important; }
+    body.print-mode-todo .print-header-agenda { display: none !important; }
+    body.print-mode-todo #agenda-salidas-card { break-before: page; }
+
+    /* Solo agenda de abajo */
+    body.print-mode-agenda .print-header-agenda { display: block !important; }
+    body.print-mode-agenda .print-header-todo { display: none !important; }
+    body.print-mode-agenda #listado-salidas-tabla { display: none !important; }
+    body.print-mode-agenda #agenda-salidas-card {
+        break-before: auto;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    body.print-mode-agenda #agenda-salidas-card .card-header {
+        background: #fff !important;
+        color: #000 !important;
+        border-bottom: 1px solid #000 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    body.print-mode-agenda #agenda-salidas-card .card-header .badge,
+    body.print-mode-agenda #agenda-salidas-card .card-header .opacity-75 {
+        display: none !important;
+    }
 }
 </style>
 <script>
+function imprimirListadoSalidas(modo) {
+    modo = modo === 'agenda' ? 'agenda' : 'todo';
+    document.body.classList.remove('print-mode-todo', 'print-mode-agenda');
+    document.body.classList.add(modo === 'agenda' ? 'print-mode-agenda' : 'print-mode-todo');
+    if (modo === 'agenda') {
+        var n = document.querySelectorAll('#agenda-salidas-body tr[data-agenda-id]').length;
+        document.querySelectorAll('.print-agenda-count').forEach(function (el) {
+            el.textContent = String(n);
+        });
+    }
+    var cleanup = function () {
+        document.body.classList.remove('print-mode-todo', 'print-mode-agenda');
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+    // Fallback por si afterprint no dispara
+    setTimeout(cleanup, 1500);
+}
+
 (function () {
     var DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -272,7 +352,7 @@
             if (!tbody.querySelector('tr[data-agenda-id]')) {
                 var trV = document.createElement('tr');
                 trV.id = 'agenda-vacia';
-                trV.innerHTML = '<td colspan="9" class="text-center text-muted py-3">Todavía no hay salidas con día u hora cargados en este período.</td>';
+                trV.innerHTML = '<td colspan="10" class="text-center text-muted py-3">Todavía no hay salidas con día u hora cargados en este período.</td>';
                 tbody.appendChild(trV);
             }
             actualizarContadorAgenda();
@@ -286,6 +366,7 @@
             '<td>' + (ag.tipo_alquiler || '') + '</td>' +
             '<td><strong>' + (ag.carpeta || '—') + '</strong></td>' +
             '<td>' + (ag.titular || '—') + '</td>' +
+            '<td>' + (ag.productor || '—') + '</td>' +
             '<td>' + (ag.direccion || '—') + '</td>' +
             '<td>' + (ag.llave || '—') + '</td>' +
             '<td>' + (ag.operacion || '') + '</td>';
@@ -335,10 +416,25 @@
         body.set('fecha_salida', fechaInp ? fechaInp.value : '');
         body.set('fecha', '{{ fecha }}');
         body.set('tipo', '{{ tipo_filtro|default:"todos" }}');
+        function pintarCandado(confirmado) {
+            if (!btn) return;
+            btn.disabled = false;
+            btn.classList.remove('btn-secondary', 'btn-success', 'btn-danger', 'btn-outline-success');
+            if (confirmado) {
+                btn.classList.add('btn-danger');
+                btn.setAttribute('data-confirmado', '1');
+                btn.title = 'Confirmado — podés editar y volver a guardar';
+            } else {
+                btn.classList.add('btn-success');
+                btn.setAttribute('data-confirmado', '0');
+                btn.title = 'Guardar / confirmar día y hora';
+            }
+        }
+
         if (btn) {
             btn.disabled = true;
             btn.classList.add('btn-secondary');
-            btn.classList.remove('btn-outline-success');
+            btn.classList.remove('btn-success', 'btn-danger');
         }
         fetch('{% url "inmobiliaria:guardar_salida_contrato" 0 %}'.replace('/0/', '/' + contratoId + '/'), {
             method: 'POST',
@@ -354,6 +450,7 @@
           .then(function (res) {
             if (!res.ok || !res.d.ok) {
                 alert((res.d && res.d.error) ? res.d.error : 'No se pudo guardar.');
+                pintarCandado(btn && btn.getAttribute('data-confirmado') === '1');
                 return;
             }
             var printHora = tr.querySelector('.print-only-hora');
@@ -366,23 +463,11 @@
                     (res.d.dia ? ' (' + res.d.dia + ')' : '');
             }
             if (res.d.agenda) upsertAgenda(res.d.agenda);
-            if (btn) {
-                btn.classList.remove('btn-secondary');
-                btn.classList.add('btn-success');
-                setTimeout(function () {
-                    btn.classList.remove('btn-success');
-                    btn.classList.add('btn-outline-success');
-                    btn.disabled = false;
-                }, 800);
-            }
+            pintarCandado(!!res.d.confirmado);
           })
           .catch(function () {
             alert('Error de red al guardar.');
-            if (btn) {
-                btn.disabled = false;
-                btn.classList.remove('btn-secondary');
-                btn.classList.add('btn-outline-success');
-            }
+            pintarCandado(btn && btn.getAttribute('data-confirmado') === '1');
           });
     }
 
