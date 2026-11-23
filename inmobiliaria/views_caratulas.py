@@ -1639,6 +1639,19 @@ def _sincronizar_montos_caratula_a_liquidaciones_reserva(
         if update_fields:
             principal._recalcular_monto_a_pagar_fields()
             principal.save(update_fields=update_fields + ['monto_gastos', 'monto_a_pagar'])
+        # Por si alguna parte quedó inflada con el total (datos viejos).
+        try:
+            from inmobiliaria.liquidacion_operacion import reparar_montos_liquidaciones_divididas
+
+            reparar_montos_liquidaciones_divididas(
+                dry_run=False,
+                ids=[liq.id for liq in liqs],
+            )
+        except Exception:
+            logger.exception(
+                'No se pudieron reparar liquidaciones divididas de reserva %s',
+                getattr(reserva, 'pk', None),
+            )
         return
 
     liq = liqs[0]

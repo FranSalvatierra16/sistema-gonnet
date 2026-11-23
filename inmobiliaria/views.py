@@ -30161,7 +30161,26 @@ def lista_liquidaciones(request):
     """
     from django.core.paginator import Paginator
     from django.db.models import Sum
-    from inmobiliaria.liquidacion_operacion import enriquecer_info_operacion_liquidaciones
+    from inmobiliaria.liquidacion_operacion import (
+        enriquecer_info_operacion_liquidaciones,
+        reparar_montos_liquidaciones_divididas,
+    )
+
+    # Partes divididas que quedaron con el total del mes → restaurar monto de cada parte.
+    try:
+        reparadas = reparar_montos_liquidaciones_divididas(
+            dry_run=False,
+            sucursal=request.user.sucursal,
+        )
+        if reparadas:
+            n = len(reparadas)
+            messages.warning(
+                request,
+                f'Se corrigieron {n} liquidación(es) divididas que mostraban el total '
+                f'del mes en lugar del monto de cada parte.',
+            )
+    except Exception:
+        logger.exception('No se pudieron reparar liquidaciones divididas en el listado')
 
     liquidaciones = LiquidacionPropietario.objects.filter(
         sucursal=request.user.sucursal
@@ -35284,6 +35303,27 @@ def detalle_liquidacion(request, liquidacion_id):
         id=liquidacion_id,
         sucursal=request.user.sucursal
     )
+    # Si es una parte dividida con monto inflado (total del mes), restaurar la parte.
+    try:
+        from inmobiliaria.liquidacion_operacion import reparar_montos_liquidaciones_divididas
+
+        reparadas = reparar_montos_liquidaciones_divididas(
+            dry_run=False,
+            ids=[liquidacion.id],
+        )
+        if reparadas:
+            liquidacion.refresh_from_db()
+            messages.warning(
+                request,
+                f'Se corrigió el monto de la liquidación #{liquidacion.id}: '
+                f'mostraba el total del mes y se restauró la parte '
+                f'(${reparadas[0]["antes"]} → ${reparadas[0]["despues"]}).',
+            )
+    except Exception:
+        logger.exception(
+            'No se pudo reparar liquidación dividida #%s', liquidacion_id
+        )
+
     # Solo lectura en GET: recalcular en memoria sin grabar ni sincronizar gastos.
     liquidacion._recalcular_monto_a_pagar_fields()
 
