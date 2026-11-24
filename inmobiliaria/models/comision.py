@@ -193,12 +193,18 @@ def _fecha_operacion_alta_reserva(reserva):
 
 def _fecha_operacion_comision_reserva(reserva, movimiento_caja):
     """
-    Por día: fecha de la operación (alta / Fecha op.), no el día de entrada ni el cobro.
-    Se acredita al confirmar la carátula; el listado usa esta fecha.
+    Por día: fecha del cobro/recibo (día en que se hizo la operación).
+    Si aún no hay movimiento, cae al alta de la reserva.
     """
+    if movimiento_caja is not None:
+        f = getattr(movimiento_caja, 'fecha', None)
+        if f is not None:
+            if timezone.is_naive(f):
+                return timezone.make_aware(f, timezone.get_current_timezone())
+            return f
     if reserva:
         return _fecha_operacion_alta_reserva(reserva)
-    return movimiento_caja.fecha if movimiento_caja else timezone.now()
+    return timezone.now()
 
 
 def porcentaje_fichaje_vendedor(vendedor, tipo_fichaje=None, categoria_operacion=None):

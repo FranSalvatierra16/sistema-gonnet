@@ -31343,11 +31343,9 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad, excepto_liquidacion_
     """
     IDs de cuotas (ContratoAlquiler) ya imputadas en liquidaciones no canceladas.
 
-    - Si en operaciones_incluidas hay `cuotas_ids` / `cuota_ids`, se usan tal cual.
-    - Liquidaciones finalizadas sin ese detalle (legacy): cuotas pagadas con
-      fecha_pago <= fecha de cierre de la liquidación (procesamiento o creación).
-    - Liquidaciones en estado pendiente: solo excluyen las cuotas que figuran
-      explícitamente en operaciones_incluidas (no bloquean el resto del contrato).
+    - Solo se excluyen cuotas que figuran explícitamente en operaciones_incluidas
+      (`contrato_cuota` o `cuotas_ids` / `cuota_ids`).
+    - Un pago a cuenta (monto parcial) no cierra la cuota: queda liquidable el saldo.
     - excepto_liquidacion_id: no contar esa liquidación (al editarla).
     """
     excepto = None
@@ -31398,9 +31396,9 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad, excepto_liquidacion_
                         _anotar_cuota_liquidada(liquidados, x, None)
             continue
 
-        ref_dt = liq.fecha_procesamiento or liq.fecha_creacion
-        ref_fecha = ref_dt.date() if ref_dt else None
-        vio_contrato_en_ops = False
+        # Solo cuotas explícitas en operaciones_incluidas.
+        # El atajo legacy por fecha_pago marcaba meses cobrados (ej. 7–8) como
+        # ya liquidados y en carátula quedaban «Aún no corresponde».
         for op in ops:
             if not isinstance(op, dict):
                 continue
@@ -31408,36 +31406,15 @@ def _cuotas_excluidas_por_liquidaciones_contrato(propiedad, excepto_liquidacion_
                 continue
             tlo = (op.get('tipo') or '').lower()
             if tlo == 'contrato_cuota':
-                vio_contrato_en_ops = True
                 _anotar_cuota_liquidada(liquidados, op.get('id'), _monto_propietario_op_cuota(op))
                 continue
             if tlo != 'contrato':
                 continue
-            vio_contrato_en_ops = True
-            try:
-                cid = int(op.get('id'))
-            except (TypeError, ValueError):
-                continue
             raw_ids = op.get('cuotas_ids') or op.get('cuota_ids')
             if raw_ids and isinstance(raw_ids, list):
+                # Lista explícita de cuotas: quedan cubiertas (completas) por esta liquidación.
                 for x in raw_ids:
                     _anotar_cuota_liquidada(liquidados, x, None)
-            elif ref_fecha is not None:
-                for cq_id in CuotaMensual.objects.filter(
-                    contrato_id=cid,
-                    estado__in=('pagada', 'pagada_con_mora'),
-                    fecha_pago__isnull=False,
-                    fecha_pago__lte=ref_fecha,
-                ).values_list('id', flat=True):
-                    _anotar_cuota_liquidada(liquidados, cq_id, None)
-        if not vio_contrato_en_ops and liq.contrato_id and ref_fecha is not None:
-            for cq_id in CuotaMensual.objects.filter(
-                contrato_id=liq.contrato_id,
-                estado__in=('pagada', 'pagada_con_mora'),
-                fecha_pago__isnull=False,
-                fecha_pago__lte=ref_fecha,
-            ).values_list('id', flat=True):
-                _anotar_cuota_liquidada(liquidados, cq_id, None)
     tol = Decimal('0.05')
     totales = {}
     if liquidados:

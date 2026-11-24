@@ -3960,7 +3960,103 @@ def _q_busqueda_texto_caratulas(q, tokens):
     return q_obj
 
 
-def _fecha_operacion_reserva(reserva):
+def _fecha_local_de_dt(valor):
+    if not valor:
+        return None
+    try:
+        if hasattr(valor, 'hour'):
+            if timezone.is_naive(valor):
+                valor = timezone.make_aware(valor, timezone.get_current_timezone())
+            return timezone.localtime(valor).date()
+        if hasattr(valor, 'year'):
+            return valor
+        if hasattr(valor, 'date'):
+            return valor.date()
+    except Exception:
+        return None
+    return None
+
+
+def _mapa_primer_cobro_reservas(reserva_ids, sucursal=None):
+    """
+    Primer ingreso de caja por reserva (día real de la operación / recibo).
+    Devuelve {reserva_id: datetime aware}.
+    """
+    import re as _re_op
+
+    from inmobiliaria.models.caja import MovimientoCaja, TipoMovimientoCajaEnum
+
+    if not reserva_ids:
+        return {}
+    ids = {int(x) for x in reserva_ids if x}
+    if not ids:
+        return {}
+
+    # 1) Recibos vinculados a la reserva
+    out = {}
+    from inmobiliaria.models import Recibo
+
+    for rid, fmov in (
+        Recibo.objects.filter(
+            reserva_id__in=ids,
+            movimiento_caja__isnull=False,
+            movimiento_caja__fecha_eliminacion__isnull=True,
+        )
+        .values_list('reserva_id', 'movimiento_caja__fecha')
+        .order_by('reserva_id', 'movimiento_caja__fecha', 'movimiento_caja__id')
+    ):
+        rid = int(rid)
+        if rid in out or not fmov:
+            continue
+        if timezone.is_naive(fmov):
+            fmov = timezone.make_aware(fmov, timezone.get_current_timezone())
+        out[rid] = fmov
+
+    faltan = ids - set(out)
+    if not faltan:
+        return out
+
+    # 2) Movimientos cuyo concepto menciona Operación N
+    qs = MovimientoCaja.objects.filter(
+        tipo=TipoMovimientoCajaEnum.INGRESO,
+        fecha_eliminacion__isnull=True,
+    ).filter(
+        Q(concepto__icontains='Operación') | Q(concepto__icontains='Operacion')
+    )
+    if sucursal is not None:
+        qs = qs.filter(sucursal=sucursal)
+    qs = qs.order_by('fecha', 'id').only('id', 'fecha', 'concepto')
+    for mov in qs.iterator(chunk_size=500):
+        m = _re_op.search(r'Operaci[oó]n\s*#?\s*(\d+)', mov.concepto or '', _re_op.I)
+        if not m:
+            continue
+        rid = int(m.group(1))
+        if rid not in faltan or rid in out:
+            continue
+        fmov = mov.fecha
+        if not fmov:
+            continue
+        if timezone.is_naive(fmov):
+            fmov = timezone.make_aware(fmov, timezone.get_current_timezone())
+        out[rid] = fmov
+        if len(out) >= len(ids):
+            break
+    return out
+
+
+def _fecha_operacion_reserva(reserva, primer_cobro_dt=None):
+    """
+    Fecha op. en carátulas: día del cobro/recibo si existe; si no, alta de la reserva.
+    """
+    if primer_cobro_dt is not None:
+        d = _fecha_local_de_dt(primer_cobro_dt)
+        if d:
+            return d
+    cached = getattr(reserva, '_fecha_primer_cobro', None)
+    if cached is not None:
+        d = _fecha_local_de_dt(cached)
+        if d:
+            return d
     fc = getattr(reserva, 'fecha_creacion', None)
     if fc:
         try:
@@ -3970,8 +4066,18 @@ def _fecha_operacion_reserva(reserva):
     return reserva.fecha_inicio
 
 
-def _instante_operacion_reserva(reserva):
-    """Momento en que se cargó la reserva (para orden cronológico)."""
+def _instante_operacion_reserva(reserva, primer_cobro_dt=None):
+    """Momento real de la operación (cobro) o alta de la reserva."""
+    cobro = primer_cobro_dt if primer_cobro_dt is not None else getattr(
+        reserva, '_fecha_primer_cobro', None
+    )
+    if cobro is not None:
+        if timezone.is_naive(cobro):
+            return timezone.make_aware(cobro, timezone.get_current_timezone())
+        try:
+            return timezone.localtime(cobro)
+        except Exception:
+            return cobro
     fc = getattr(reserva, 'fecha_creacion', None)
     if fc:
         try:
@@ -4142,15 +4248,59 @@ def lista_caratulas(request):
                 pass
         if dr_desde and dr_hasta and dr_hasta < dr_desde:
             dr_desde, dr_hasta = dr_hasta, dr_desde
-        if dr_desde and dr_hasta:
-            reservas = reservas.filter(
-                fecha_creacion__gte=_aware_day_start(dr_desde),
-                fecha_creacion__lt=_aware_day_end_exclusive(dr_hasta),
+        if dr_desde or dr_hasta:
+            # Incluir por alta O por día real del cobro (recibo), no solo fecha de reserva.
+            ids_cobro = set()
+            qs_mov = MovimientoCaja.objects.filter(
+                tipo=TipoMovimientoCajaEnum.INGRESO,
+                fecha_eliminacion__isnull=True,
+                sucursal=sucursal,
+            ).filter(
+                Q(concepto__icontains='Operación') | Q(concepto__icontains='Operacion')
             )
-        elif dr_desde:
-            reservas = reservas.filter(fecha_creacion__gte=_aware_day_start(dr_desde))
-        elif dr_hasta:
-            reservas = reservas.filter(fecha_creacion__lt=_aware_day_end_exclusive(dr_hasta))
+            if dr_desde:
+                qs_mov = qs_mov.filter(fecha__gte=_aware_day_start(dr_desde))
+            if dr_hasta:
+                qs_mov = qs_mov.filter(fecha__lt=_aware_day_end_exclusive(dr_hasta))
+            import re as _re_filtro_op
+            for concepto in qs_mov.values_list('concepto', flat=True).iterator(chunk_size=500):
+                m = _re_filtro_op.search(
+                    r'Operaci[oó]n\s*#?\s*(\d+)', concepto or '', _re_filtro_op.I
+                )
+                if m:
+                    ids_cobro.add(int(m.group(1)))
+            from inmobiliaria.models import Recibo
+
+            qs_rec = Recibo.objects.filter(
+                reserva_id__isnull=False,
+                movimiento_caja__isnull=False,
+                movimiento_caja__fecha_eliminacion__isnull=True,
+            )
+            if sucursal is not None:
+                qs_rec = qs_rec.filter(movimiento_caja__sucursal=sucursal)
+            if dr_desde:
+                qs_rec = qs_rec.filter(
+                    movimiento_caja__fecha__gte=_aware_day_start(dr_desde)
+                )
+            if dr_hasta:
+                qs_rec = qs_rec.filter(
+                    movimiento_caja__fecha__lt=_aware_day_end_exclusive(dr_hasta)
+                )
+            ids_cobro.update(
+                int(x) for x in qs_rec.values_list('reserva_id', flat=True) if x
+            )
+
+            q_fecha = Q(pk__in=ids_cobro) if ids_cobro else Q(pk__in=[])
+            if dr_desde and dr_hasta:
+                q_fecha |= Q(
+                    fecha_creacion__gte=_aware_day_start(dr_desde),
+                    fecha_creacion__lt=_aware_day_end_exclusive(dr_hasta),
+                )
+            elif dr_desde:
+                q_fecha |= Q(fecha_creacion__gte=_aware_day_start(dr_desde))
+            elif dr_hasta:
+                q_fecha |= Q(fecha_creacion__lt=_aware_day_end_exclusive(dr_hasta))
+            reservas = reservas.filter(q_fecha)
 
     if estado_caratula_filtro == 'confirmada':
         reservas = reservas.filter(estado_confirmacion_caratula='confirmada')
@@ -4219,6 +4369,25 @@ def lista_caratulas(request):
     contratos_list = list(contratos)
 
     reserva_ids = [r.id for r in reservas_list]
+    cobros_por_reserva = _mapa_primer_cobro_reservas(reserva_ids, sucursal=sucursal)
+    for r in reservas_list:
+        r._fecha_primer_cobro = cobros_por_reserva.get(int(r.id))
+
+    # Si filtramos por fechas, quedarnos con las cuya Fecha op. real cae en el rango
+    # (cobro o alta), no solo las que matchearon el OR amplio de la query.
+    if not omitir_filtro_fechas and (dr_desde or dr_hasta):
+        filtradas = []
+        for r in reservas_list:
+            fop = _fecha_operacion_reserva(r, r._fecha_primer_cobro)
+            if not fop:
+                continue
+            if dr_desde and fop < dr_desde:
+                continue
+            if dr_hasta and fop > dr_hasta:
+                continue
+            filtradas.append(r)
+        reservas_list = filtradas
+        reserva_ids = [r.id for r in reservas_list]
 
     liq_por_reserva = {}
     if reserva_ids:
@@ -4296,11 +4465,15 @@ def lista_caratulas(request):
                 'tipo_display': f'Reserva · {tipo}',
                 'numero': r.id,
                 'numero_display': f'OP {r.id}',
-                'fecha': _fecha_operacion_reserva(r),
-                'fecha_operacion': _fecha_operacion_reserva(r),
+                'fecha': _fecha_operacion_reserva(r, getattr(r, '_fecha_primer_cobro', None)),
+                'fecha_operacion': _fecha_operacion_reserva(
+                    r, getattr(r, '_fecha_primer_cobro', None)
+                ),
                 'fecha_desde': getattr(r, 'fecha_inicio', None),
                 'fecha_hasta': getattr(r, 'fecha_fin', None),
-                'sort_instante': _instante_operacion_reserva(r),
+                'sort_instante': _instante_operacion_reserva(
+                    r, getattr(r, '_fecha_primer_cobro', None)
+                ),
                 'caratula': _caratula_nombre_cliente(r.cliente),
                 'propietario_nombre': _nombre_propietario_papel(getattr(p, 'propietario', None) if p else None),
                 'propiedad_linea': plinea,
