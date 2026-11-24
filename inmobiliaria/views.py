@@ -5603,11 +5603,15 @@ def listado_salidas(request):
                 nov = (getattr(r.vendedor, 'nombre', '') or '').strip()
                 vendedor = (apv or nov or '—').upper()
 
+            tit_ap = (getattr(r.cliente, 'apellido', '') or '').strip() if r.cliente else ''
+            tit_no = (getattr(r.cliente, 'nombre', '') or '').strip() if r.cliente else ''
             salidas.append({
                 'tipo': 'reserva',
                 'tipo_alquiler': 'Por día',
                 'tipo_menu': 'dia',
                 'titular': titular,
+                'titular_apellido': tit_ap,
+                'titular_nombre': tit_no,
                 'propietario': propietario,
                 'propietario_apellido': prop_ap,
                 'propietario_nombre': prop_no,
@@ -5663,6 +5667,8 @@ def listado_salidas(request):
             carpeta = (getattr(c, 'numero_carpeta', None) or '').strip() or '—'
             hora_c = getattr(c, 'hora_salida', None)
             fecha_sal = getattr(c, 'fecha_salida', None) or c.fecha_fin
+            tit_ap = (getattr(c.inquilino, 'apellido', '') or '').strip() if c.inquilino else ''
+            tit_no = (getattr(c.inquilino, 'nombre', '') or '').strip() if c.inquilino else ''
             salidas.append({
                 'tipo': 'contrato',
                 'tipo_alquiler': ('Invierno' if tipo_menu == 'invierno' else '24 meses'),
@@ -5670,6 +5676,8 @@ def listado_salidas(request):
                 'contrato_id': c.id,
                 'editable_salida': True,
                 'titular': titular,
+                'titular_apellido': tit_ap,
+                'titular_nombre': tit_no,
                 'propietario': propietario,
                 'propietario_apellido': prop_ap,
                 'propietario_nombre': prop_no,
@@ -5692,10 +5700,12 @@ def listado_salidas(request):
                 'hora_value': hora_c.strftime('%H:%M') if hora_c else '',
             })
 
+    # Por día: alfabético por inquilino (titular). Resto: mismo criterio de titular.
     salidas.sort(
         key=lambda x: (
-            (x.get('propietario_apellido') or '').casefold(),
-            (x.get('propietario_nombre') or '').casefold(),
+            (x.get('titular_apellido') or '').casefold(),
+            (x.get('titular_nombre') or '').casefold(),
+            (x.get('titular') or '').casefold(),
             x.get('operacion') or '',
         )
     )
