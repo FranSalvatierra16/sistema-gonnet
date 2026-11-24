@@ -30161,26 +30161,7 @@ def lista_liquidaciones(request):
     """
     from django.core.paginator import Paginator
     from django.db.models import Sum
-    from inmobiliaria.liquidacion_operacion import (
-        enriquecer_info_operacion_liquidaciones,
-        reparar_montos_liquidaciones_divididas,
-    )
-
-    # Partes divididas que quedaron con el total del mes → restaurar monto de cada parte.
-    try:
-        reparadas = reparar_montos_liquidaciones_divididas(
-            dry_run=False,
-            sucursal=request.user.sucursal,
-        )
-        if reparadas:
-            n = len(reparadas)
-            messages.warning(
-                request,
-                f'Se corrigieron {n} liquidación(es) divididas que mostraban el total '
-                f'del mes en lugar del monto de cada parte.',
-            )
-    except Exception:
-        logger.exception('No se pudieron reparar liquidaciones divididas en el listado')
+    from inmobiliaria.liquidacion_operacion import enriquecer_info_operacion_liquidaciones
 
     liquidaciones = LiquidacionPropietario.objects.filter(
         sucursal=request.user.sucursal
@@ -35303,27 +35284,6 @@ def detalle_liquidacion(request, liquidacion_id):
         id=liquidacion_id,
         sucursal=request.user.sucursal
     )
-    # Si es una parte dividida con monto inflado (total del mes), restaurar la parte.
-    try:
-        from inmobiliaria.liquidacion_operacion import reparar_montos_liquidaciones_divididas
-
-        reparadas = reparar_montos_liquidaciones_divididas(
-            dry_run=False,
-            ids=[liquidacion.id],
-        )
-        if reparadas:
-            liquidacion.refresh_from_db()
-            messages.warning(
-                request,
-                f'Se corrigió el monto de la liquidación #{liquidacion.id}: '
-                f'mostraba el total del mes y se restauró la parte '
-                f'(${reparadas[0]["antes"]} → ${reparadas[0]["despues"]}).',
-            )
-    except Exception:
-        logger.exception(
-            'No se pudo reparar liquidación dividida #%s', liquidacion_id
-        )
-
     # Solo lectura en GET: recalcular en memoria sin grabar ni sincronizar gastos.
     liquidacion._recalcular_monto_a_pagar_fields()
 
@@ -35438,7 +35398,7 @@ def detalle_liquidacion(request, liquidacion_id):
         'operaciones_tabla': _operaciones_incluidas_tabla(liquidacion),
         'puede_eliminar_liquidacion': usuario_es_nivel_administracion(request.user),
         'puede_editar_liquidacion': (
-            usuario_puede_eliminar_movimiento_caja(request.user)
+            usuario_es_nivel_administracion(request.user)
             and (liquidacion.estado or '') in ('pendiente', 'cerrada', 'oficina', 'procesada')
         ),
         'gastos_pendientes_disponibles': gastos_pendientes_disponibles,
@@ -35458,10 +35418,10 @@ def detalle_liquidacion(request, liquidacion_id):
 def editar_liquidacion(request, liquidacion_id):
     """
     Editar una liquidación con la misma pantalla que «crear».
-    Solo super administrador (nivel 5). Pendiente o cerrada (no pagada/cancelada).
+    Administración (nivel 4/5). Pendiente, cerrada u oficina (no pagada/cancelada).
     """
-    if not usuario_puede_eliminar_movimiento_caja(request.user):
-        messages.error(request, 'Solo el super administrador puede editar liquidaciones.')
+    if not usuario_es_nivel_administracion(request.user):
+        messages.error(request, 'No tenés permisos para editar liquidaciones.')
         return redirect('inmobiliaria:detalle_liquidacion', liquidacion_id=liquidacion_id)
 
     liquidacion = get_object_or_404(
@@ -35560,10 +35520,33 @@ def editar_liquidacion(request, liquidacion_id):
                         op_row['monto_propietario'] = str(m_prop_op.quantize(Decimal('0.01')))
                     operaciones_incluidas.append(op_row)
 
-            # Conservar bloques «division» previos si el formulario no los reenvía
+            # Conservar bloques «division» previos si el formulario no los reenvía,
+            # y alinear el monto de la parte con lo que el usuario editó.
+            import copy as _copy_ops
+
+            monto_parte_str = str(monto_propietario.quantize(Decimal('0.01')))
             for op in liquidacion.operaciones_incluidas or []:
-                if isinstance(op, dict) and (op.get('tipo') or '').lower() == 'division':
-                    operaciones_incluidas.append(op)
+                if not isinstance(op, dict) or (op.get('tipo') or '').lower() != 'division':
+                    continue
+                op_div = _copy_ops.deepcopy(op)
+                parte_n = op_div.get('parte_creada')
+                try:
+                    parte_n_int = int(parte_n) if parte_n is not None else None
+                except (TypeError, ValueError):
+                    parte_n_int = None
+                for p in op_div.get('operaciones') or []:
+                    if not isinstance(p, dict):
+                        continue
+                    es_esta = bool(p.get('creada_en_esta_liquidacion'))
+                    if not es_esta and parte_n_int is not None:
+                        try:
+                            es_esta = int(p.get('numero') or 0) == parte_n_int
+                        except (TypeError, ValueError):
+                            es_esta = False
+                    if es_esta:
+                        p['monto'] = monto_parte_str
+                        p['pendiente'] = False
+                operaciones_incluidas.append(op_div)
 
             contrato_fk = liquidacion.contrato
             reserva_fk = liquidacion.reserva

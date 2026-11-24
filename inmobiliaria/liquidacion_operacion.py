@@ -469,11 +469,9 @@ def reparar_montos_liquidaciones_divididas(*, dry_run=True, ids=None, sucursal=N
         if abs(actual - parte_monto) <= _TOLERANCIA_LIQ:
             continue
         total_div = monto_propietario_total_division_liquidacion(liq)
-        # Solo reparar si parece corrupción (actual ≈ total, o actual > parte).
-        parece_corrupto = actual > parte_monto + _TOLERANCIA_LIQ
-        if total_div is not None and abs(actual - total_div) <= _TOLERANCIA_LIQ:
-            parece_corrupto = True
-        if not parece_corrupto:
+        # Solo el caso típico de corrupción: el monto quedó igual al total del mes.
+        # Si el usuario editó la parte (ej. 1.050.000 → 1.150.000) NO se toca.
+        if total_div is None or abs(actual - total_div) > _TOLERANCIA_LIQ:
             continue
 
         info = {
