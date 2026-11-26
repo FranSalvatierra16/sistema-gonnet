@@ -31496,6 +31496,8 @@ def _fecha_cobranza_movimiento(movimiento):
 def _datos_liquidacion_desde_movimiento_cobro(movimiento, sucursal):
     """
     Arma cuotas e importes cobrados de un recibo de cobranza para liquidar al propietario.
+    El monto es el del recibo (líneas de alquiler / monto_este_pago), nunca el precio
+    mensual completo de la cuota.
     Devuelve dict con contrato, cuotas [{id, monto, numero, etiqueta}], fecha_cobranza,
     conceptos_otros (líneas del recibo que no son alquiler a cuota) y montos.
     """
@@ -31505,9 +31507,11 @@ def _datos_liquidacion_desde_movimiento_cobro(movimiento, sucursal):
         linea_es_imputacion_alquiler_cuota,
         payload_conceptos_desde_movimiento_detalle,
         payload_raiz_desde_movimiento_detalle,
+        resolver_cuota_por_mes_texto,
         texto_linea_concepto,
         _normalizar_codigo_concepto_caja,
     )
+    from inmobiliaria.models import Recibo
 
     vacio = {
         'ok': False,
@@ -31533,28 +31537,81 @@ def _datos_liquidacion_desde_movimiento_cobro(movimiento, sucursal):
     payload = payload_raiz_desde_movimiento_detalle(movimiento)
     payload_cuota_id = int(payload.get('cuota_id') or 0) if payload.get('pago_cuota_mensual') else 0
 
+    cuotas_todas = list(contrato.cuotas.all().order_by('numero_cuota'))
+    cuotas_by_id = {int(c.id): c for c in cuotas_todas}
+    linked = [c for c in cuotas_todas if getattr(c, 'movimiento_id', None) == movimiento.id]
+
     montos_por_cuota = {}
+    total_alquiler_lineas = Decimal('0')
+    sin_asignar = Decimal('0')
+
     for line in lineas_imputables_desde_movimiento(movimiento):
-        raw_q = str(line.get('cuota_objetivo_id') or '').strip()
-        if not raw_q.isdigit() and payload_cuota_id:
-            raw_q = str(payload_cuota_id)
-        if not raw_q.isdigit():
-            continue
-        cid = int(raw_q)
         try:
             imp = parse_decimal_monto(line.get('importe'))
         except Exception:
             imp = Decimal('0')
         if imp <= 0:
             continue
+        total_alquiler_lineas += imp
+
+        raw_q = str(line.get('cuota_objetivo_id') or '').strip()
+        cuota_target = cuotas_by_id.get(int(raw_q)) if raw_q.isdigit() else None
+        if cuota_target is None and payload_cuota_id:
+            cuota_target = cuotas_by_id.get(int(payload_cuota_id))
+        if cuota_target is None:
+            # «A CUENTA AGOSTO» / «SALDO JUNIO» → mismo criterio que la imputación de cobros.
+            cuota_target = resolver_cuota_por_mes_texto(
+                contrato, texto_linea_concepto(line), cuotas_todas
+            )
+        if cuota_target is None and len(linked) == 1:
+            cuota_target = linked[0]
+        if cuota_target is None:
+            sin_asignar += imp
+            continue
+        cid = int(cuota_target.id)
         montos_por_cuota[cid] = montos_por_cuota.get(cid, Decimal('0')) + imp
 
-    # Fallback: cuota.movimiento = este recibo
+    if sin_asignar > 0:
+        if len(montos_por_cuota) == 1:
+            solo = next(iter(montos_por_cuota))
+            montos_por_cuota[solo] += sin_asignar
+        elif len(linked) == 1:
+            lid = int(linked[0].id)
+            montos_por_cuota[lid] = montos_por_cuota.get(lid, Decimal('0')) + sin_asignar
+        elif not montos_por_cuota and linked:
+            montos_por_cuota[int(linked[0].id)] = sin_asignar
+
+    # Fallback: monto del recibo (nunca cuota.monto_total = precio del mes).
     if not montos_por_cuota:
-        for cq in CuotaMensual.objects.filter(movimiento_id=movimiento.id, contrato=contrato):
-            m = Decimal(str(cq.monto_total or 0))
-            if m > 0:
-                montos_por_cuota[int(cq.id)] = m
+        monto_recibo = total_alquiler_lineas
+        if monto_recibo <= 0:
+            recibo = (
+                Recibo.objects.filter(movimiento_caja_id=movimiento.id)
+                .only('monto_este_pago')
+                .first()
+            )
+            if recibo and recibo.monto_este_pago is not None:
+                monto_recibo = Decimal(str(recibo.monto_este_pago or 0))
+            else:
+                monto_recibo = Decimal(str(getattr(movimiento, 'monto_total', None) or 0))
+            # Restar conceptos del recibo que no son alquiler (honorarios, sellados, etc.).
+            for it in payload_conceptos_desde_movimiento_detalle(movimiento):
+                if not isinstance(it, dict) or linea_es_imputacion_alquiler_cuota(it):
+                    continue
+                try:
+                    imp_o = parse_decimal_monto(it.get('importe'))
+                except Exception:
+                    imp_o = Decimal('0')
+                if imp_o > 0:
+                    monto_recibo -= imp_o
+            if monto_recibo < 0:
+                monto_recibo = Decimal('0')
+
+        if monto_recibo > 0:
+            if linked:
+                montos_por_cuota[int(linked[0].id)] = monto_recibo.quantize(Decimal('0.01'))
+            elif payload_cuota_id and payload_cuota_id in cuotas_by_id:
+                montos_por_cuota[payload_cuota_id] = monto_recibo.quantize(Decimal('0.01'))
 
     if not montos_por_cuota:
         vacio['contrato'] = contrato
@@ -31646,6 +31703,8 @@ def _mapa_importe_cobrado_cuotas_en_movimientos_caja(contrato, cuota_ids, sucurs
     from inmobiliaria.cuotas_imputacion import (
         lineas_imputables_desde_movimiento,
         payload_raiz_desde_movimiento_detalle,
+        resolver_cuota_por_mes_texto,
+        texto_linea_concepto,
     )
 
     ids = {int(x) for x in (cuota_ids or ())}
@@ -31664,21 +31723,39 @@ def _mapa_importe_cobrado_cuotas_en_movimientos_caja(contrato, cuota_ids, sucurs
     else:
         movs = movimientos
 
+    cuotas_todas = list(contrato.cuotas.all().order_by('numero_cuota'))
+    cuotas_by_id = {int(c.id): c for c in cuotas_todas}
+
     for mov in movs:
         payload = payload_raiz_desde_movimiento_detalle(mov)
         payload_cuota_id = int(payload.get('cuota_id') or 0) if payload.get('pago_cuota_mensual') else 0
+        linked_ids = [
+            int(c.id) for c in cuotas_todas
+            if getattr(c, 'movimiento_id', None) == getattr(mov, 'id', None)
+        ]
         for line in lineas_imputables_desde_movimiento(mov):
-            raw_q = str(line.get('cuota_objetivo_id') or '').strip()
-            if not raw_q.isdigit() and payload_cuota_id:
-                raw_q = str(payload_cuota_id)
-            if not raw_q.isdigit():
-                continue
-            cid = int(raw_q)
-            if cid not in totals:
-                continue
             imp = parse_decimal_monto(line.get('importe'))
-            if imp > 0:
-                totals[cid] += imp
+            if imp <= 0:
+                continue
+            raw_q = str(line.get('cuota_objetivo_id') or '').strip()
+            cid = None
+            if raw_q.isdigit():
+                cid = int(raw_q)
+            elif payload_cuota_id:
+                cid = int(payload_cuota_id)
+            else:
+                cq = resolver_cuota_por_mes_texto(
+                    contrato, texto_linea_concepto(line), cuotas_todas
+                )
+                if cq is not None:
+                    cid = int(cq.id)
+                elif len(linked_ids) == 1:
+                    cid = linked_ids[0]
+            if cid is None or cid not in totals:
+                continue
+            if cid not in cuotas_by_id and cid not in ids:
+                continue
+            totals[cid] += imp
     return totals
 
 

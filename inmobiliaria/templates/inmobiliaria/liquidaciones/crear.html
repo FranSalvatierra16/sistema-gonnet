@@ -1133,6 +1133,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 const comLoc = op.comision_locador || '0';
                 const comLocat = op.comision_locatario || '0';
                 const opMoneda = (op.moneda || 'ARS').toUpperCase();
+                // Si venimos de «Liquidar recibo», usar el importe del recibo (no el precio del mes).
+                const montosReciboFila = montosCuotaDesdeRecibo();
+                const montoReciboRaw = (op.tipo === 'contrato_cuota')
+                    ? montosReciboFila[String(op.id)]
+                    : null;
+                const montoPropFila = (montoReciboRaw != null && montoReciboRaw !== '')
+                    ? String(montoReciboRaw).replace(',', '.')
+                    : String(op.monto_propietario || '0');
+                const montoTotalFila = (montoReciboRaw != null && montoReciboRaw !== '')
+                    ? String(montoReciboRaw).replace(',', '.')
+                    : String(op.monto_total || '0');
                 const tdSel = colProp
                     ? `<td><input type="checkbox" class="form-check-input operacion-checkbox"
                            data-tipo="${op.tipo}"
@@ -1141,9 +1152,9 @@ document.addEventListener('DOMContentLoaded', function() {
                            data-propiedad-id="${pid}"
                            data-moneda="${opMoneda}"
                            data-concepto-pago="${conceptoPago.replace(/"/g, '&quot;')}"
-                           data-monto-total="${op.monto_total}"
-                           data-monto-propietario="${op.monto_propietario || '0'}"
-                           data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
+                           data-monto-total="${montoTotalFila}"
+                           data-monto-propietario="${montoPropFila}"
+                           data-monto-inmobiliaria="${(montoReciboRaw != null && montoReciboRaw !== '') ? '0' : (op.monto_inmobiliaria || '0')}"
                            data-es-primera-cuota="${esPrimeraCuota}"
                            data-anticipada="${op.anticipada ? '1' : '0'}"
                            data-comision-locador="${comLoc}"
@@ -1158,9 +1169,9 @@ document.addEventListener('DOMContentLoaded', function() {
                            data-propiedad-id="${pid}"
                            data-moneda="${opMoneda}"
                            data-concepto-pago="${conceptoPago.replace(/"/g, '&quot;')}"
-                           data-monto-total="${op.monto_total}"
-                           data-monto-propietario="${op.monto_propietario || '0'}"
-                           data-monto-inmobiliaria="${op.monto_inmobiliaria || '0'}"
+                           data-monto-total="${montoTotalFila}"
+                           data-monto-propietario="${montoPropFila}"
+                           data-monto-inmobiliaria="${(montoReciboRaw != null && montoReciboRaw !== '') ? '0' : (op.monto_inmobiliaria || '0')}"
                            data-es-primera-cuota="${esPrimeraCuota}"
                            data-anticipada="${op.anticipada ? '1' : '0'}"
                            data-comision-locador="${comLoc}"
@@ -1177,7 +1188,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${tdProp}
                         <td>${formatearFechaLocalISO(op.fecha_inicio)}</td>
                         <td>${formatearFechaLocalISO(op.fecha_fin)}</td>
-                        <td class="text-end">${fmtMonedaLiq(op.monto_total, opMoneda)}</td>
+                        <td class="text-end">${fmtMonedaLiq(montoTotalFila, opMoneda)}</td>
                     </tr>
                 `;
             });
