@@ -19,7 +19,7 @@
         width: 100% !important;
         overflow-x: hidden !important;
     }
-
+    
     /* Navbar por encima del buscador full-width (dropdown Utilidades clickeable) */
     .navbar {
         position: relative !important;
@@ -1443,9 +1443,9 @@
                         <span id="simbolo_precio_modal" style="position: absolute; left: 16px; top: calc(50% + 10px); transform: translateY(-50%); font-size: 18px; font-weight: 500; color: #64748b; z-index: 1;">$</span>
                         <input type="text" id="precio_total_editable" class="input-monto-ar" inputmode="decimal" autocomplete="off"
                                style="width: 100%; padding: 16px 16px 16px 48px; font-size: 18px; font-weight: 600; border: 1px solid #d1d5db; border-radius: 8px; background: white; transition: all 0.2s; color: #1e293b;"
-                               onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+                           onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
                                onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none';">
-                    </div>
+                </div>
                 </div>
                 <small style="color: #64748b; font-size: 13px;">Si elegís USD, la seña y el cobro se hacen en dólares.</small>
             </div>
@@ -1475,7 +1475,7 @@
                 <div id="vendedor_ids_container"></div>
                 <div id="vendedor_info" style="display: none;"></div>
                 <div id="vendedor_nombre" style="display: none;"></div>
-            </div>
+                        </div>
             <!-- Inquilino -->
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
                 <h4 style="color: #334155; margin: 0 0 16px 0; font-size: 16px; font-weight: 600;">Inquilino</h4>
@@ -2131,7 +2131,7 @@ function autenticarYReservar() {
 
     function abrirGaleriaFotos(propiedadId) {
         console.log("=== ABRIENDO GALERÍA DE FOTOS ===");
-
+        
         if (!propiedadId) {
             Swal.fire({
                 icon: 'warning',
@@ -2140,17 +2140,17 @@ function autenticarYReservar() {
             });
             return;
         }
-
+        
         const carouselInner = document.getElementById('carouselInner');
         const thumbnailsContainer = document.getElementById('thumbnailsContainer');
         const contadorFotos = document.getElementById('contadorFotos');
         const tituloModal = document.getElementById('tituloModal');
-
+        
         if (!carouselInner || !thumbnailsContainer || !contadorFotos || !tituloModal) {
             console.error("Elementos del DOM faltantes");
             return;
         }
-
+        
         tituloModal.textContent = propiedadSeleccionada ? propiedadSeleccionada.direccion : `Ficha ${propiedadId}`;
 
         carouselInner.innerHTML = `
@@ -2167,7 +2167,7 @@ function autenticarYReservar() {
 
         const modalGaleriaFotos = new bootstrap.Modal(document.getElementById('modalGaleriaFotos'));
         modalGaleriaFotos.show();
-
+        
         const fotosPrecargadas = propiedadesImagenes[String(propiedadId)] || [];
         if (fotosPrecargadas.length > 0) {
             renderGaleriaFotos(fotosPrecargadas);
@@ -2524,7 +2524,7 @@ function seleccionarPropiedad(id, direccion, propietario, disponibilidad, precio
 window.mostrarModalOperacion = function() {
     console.log('=== OPERACIÓN DIRECTA ===');
     console.log('Propiedad seleccionada:', propiedadSeleccionada);
-
+    
     if (!propiedadSeleccionada) {
         alert('Por favor, selecciona una propiedad primero.');
         return;
@@ -5804,7 +5804,7 @@ function procesarAutenticacionSeguridad() {
                         alert('Autenticación exitosa, pero hubo un error al abrir la operación. Intenta de nuevo.');
                     }
                 }, 300);
-
+                
             } else if (urlDestino) {
                 // Redirigir a la URL destino (comportamiento original)
                 setTimeout(() => {
@@ -5952,11 +5952,25 @@ window.verHistorial = function() {
                         h.es_libre_invierno ?
                         '<small class="text-muted">Disponible para alquiler invierno</small>' :
                         '-';
-                    const accionesOMonto = ES_SUPER_ADMIN
-                        ? `<td class="text-end text-nowrap fw-semibold">${h.monto || '—'}</td>`
-                        : `<td>${h.contrato_id
-                            ? `<a href="/contratos/${h.contrato_id}/" class="btn btn-outline-info btn-sm" target="_blank" rel="noopener">Ver contrato</a>`
-                            : '-'}</td>`;
+                    let accionesOMonto = '<td>-</td>';
+                    if (ES_SUPER_ADMIN && h.reserva_id) {
+                        accionesOMonto = `<td class="text-nowrap">
+                            <button type="button"
+                                    class="btn btn-info btn-sm ver-monto-reserva"
+                                    data-reserva-id="${h.reserva_id}"
+                                    onclick="consultarReserva(${h.reserva_id})"
+                                    title="Ver monto de la operación">
+                                <i class="fas fa-dollar-sign"></i> Ver Monto
+                            </button>
+                            ${h.monto ? `<div class="small text-muted mt-1">${h.monto}</div>` : ''}
+                        </td>`;
+                    } else if (ES_SUPER_ADMIN && h.monto) {
+                        accionesOMonto = `<td class="text-end text-nowrap fw-semibold">${h.monto}</td>`;
+                    } else if (h.contrato_id) {
+                        accionesOMonto = `<td>
+                            <a href="/contratos/${h.contrato_id}/" class="btn btn-outline-info btn-sm" target="_blank" rel="noopener">Ver contrato</a>
+                        </td>`;
+                    }
                     
                     return `
                         <tr class="${estadoClass}">
@@ -6006,11 +6020,7 @@ window.verHistorial = function() {
                                 <th>Estado</th>
                                 <th>Reserva</th>
                                 <th>Última Actualización</th>
-                                {% if request.user.is_superuser or request.user.nivel >= 4 %}
-                                <th class="text-end">Monto</th>
-                                {% else %}
-                                <th>Acciones</th>
-                                {% endif %}
+                                <th>{% if request.user.is_superuser or request.user.nivel >= 4 %}Monto{% else %}Acciones{% endif %}</th>
                             </tr>
                         </thead>
                         <tbody id="historialTableBody">

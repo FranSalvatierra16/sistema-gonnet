@@ -1495,12 +1495,14 @@
                                 <td>{{ historial.fecha_actualizacion|date:"d/m/Y H:i" }}</td>
                                 <td>
                                     {% if historial.reserva %}
+                                        {% if user.is_superuser or user.nivel >= 4 %}
                                         <button type="button" 
                                                 class="btn btn-info btn-sm ver-monto-reserva"
                                                 data-reserva-id="{{ historial.reserva.id }}"
                                                 title="Ver monto de la operación">
                                             <i class="fas fa-dollar-sign"></i> Ver Monto
                                         </button>
+                                        {% endif %}
                                         <button type="button" 
                                                 class="btn btn-warning btn-sm editar-historial-reserva"
                                                 data-historial-id="{{ historial.id }}"
