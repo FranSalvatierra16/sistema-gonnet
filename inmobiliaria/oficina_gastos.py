@@ -482,8 +482,8 @@ def resolver_categoria_oficina_por_ruta(sucursal, raiz_nombre, sub_nombre):
                 parent=raiz,
                 nombre=sub_nombre.strip(),
                 activa=True,
-            orden=orden,
-        )
+                orden=orden,
+            )
     except Exception:
         return None
 
@@ -635,7 +635,7 @@ def _reubicar_gastos_bancarios_mal_categorizados(sucursal, fecha_desde, fecha_ha
     if not cat_origen_ids:
         return 0
     qs = GastoOficina.objects.filter(
-                sucursal=sucursal,
+        sucursal=sucursal,
         categoria_id__in=cat_origen_ids,
         fecha__gte=fecha_desde,
         fecha__lte=fecha_hasta,
@@ -859,7 +859,7 @@ def _movimiento_es_concepto_id_estricto(movimiento, concepto_id):
                 continue
             lid = str(linea.get('id') or linea.get('codigo') or '').strip()
             if lid == cid:
-    return True
+                return True
         return False
 
     try:
@@ -1916,7 +1916,7 @@ def _get_or_create_raiz(sucursal, nombre, orden):
 
 def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
     qs = CategoriaGastoOficina.objects.filter(
-            sucursal=sucursal,
+        sucursal=sucursal,
         parent=parent,
     )
     if vendedor_id := getattr(vendedor, 'id', None):
@@ -1968,7 +1968,7 @@ def _get_or_create_hijo(sucursal, parent, nombre, orden, vendedor=None):
                 sucursal=sucursal,
                 parent=parent,
                 nombre=nombre,
-            orden=orden,
+                orden=orden,
                 vendedor=vendedor,
             ), True
     except IntegrityError:
@@ -2021,8 +2021,8 @@ def _sync_subcategorias_vendedores(sucursal, raiz):
         )
     # Desactivar subcategorías de vendedores que ya no están activos.
     obsoletas = CategoriaGastoOficina.objects.filter(
-            sucursal=sucursal,
-            parent=raiz,
+        sucursal=sucursal,
+        parent=raiz,
         vendedor__isnull=False,
     ).exclude(vendedor_id__in=vendedor_ids)
     if obsoletas.exists():
@@ -2366,12 +2366,12 @@ def registrar_gasto_oficina_desde_movimiento(
     if monto_base is not None:
         total = abs(Decimal(str(monto_base)))
     else:
-    total = (
-        Decimal(str(movimiento.monto_efectivo or 0))
-        + Decimal(str(movimiento.monto_cheque or 0))
-        + Decimal(str(movimiento.monto_tarjeta or 0))
-        + Decimal(str(movimiento.monto_deposito or 0))
-    )
+        total = (
+            Decimal(str(movimiento.monto_efectivo or 0))
+            + Decimal(str(movimiento.monto_cheque or 0))
+            + Decimal(str(movimiento.monto_tarjeta or 0))
+            + Decimal(str(movimiento.monto_deposito or 0))
+        )
     # Solo USD: el gasto de oficina usa el monto en dólares como base del reparto.
     if monto_base is None and abs(total) < Decimal('0.005'):
         m_dol = Decimal(str(getattr(movimiento, 'monto_dolares', None) or 0))
@@ -2401,16 +2401,16 @@ def registrar_gasto_oficina_desde_movimiento(
 
     # Sin par o sin porcentajes: comportamiento histórico (100% local).
     if not par or porcentaje_colon is None or porcentaje_corrientes is None:
-    return GastoOficina.objects.create(
+        return GastoOficina.objects.create(
             sucursal=sucursal_local,
-        categoria=categoria,
-        fecha=fecha,
-        monto=total,
+            categoria=categoria,
+            fecha=fecha,
+            monto=total,
             descripcion=descripcion,
             observaciones=observaciones,
-        movimiento_caja=movimiento,
-        vendedor=vendedor,
-        usuario_creacion=usuario,
+            movimiento_caja=movimiento,
+            vendedor=vendedor,
+            usuario_creacion=usuario,
             porcentaje=Decimal('100') if par else None,
             monto_total=total if par else None,
             reciclable=bool(reciclable),
