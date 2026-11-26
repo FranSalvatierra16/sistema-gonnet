@@ -154,7 +154,7 @@
                                                    class="form-control" autocomplete="off"
                                                    oninput="buscarVendedorAutomaticoInvierno()"
                                                    onkeydown="if(event.key==='Enter'){event.preventDefault();buscarVendedorInvierno(event);}">
-                                            <button type="button" onclick="buscarVendedorInvierno(event)" class="btn btn-primary">🔍 Buscar</button>
+                                        <button type="button" onclick="buscarVendedorInvierno(event)" class="btn btn-primary">🔍 Buscar</button>
                                             <button type="button" onclick="agregarVendedorInvierno()" class="btn btn-success">➕ Agregar</button>
                                         </div>
                                         <div id="vendedor_sugerencias_invierno" class="list-group position-absolute shadow-sm border rounded mt-1 d-none"
@@ -904,10 +904,10 @@ document.getElementById('formContratoInvierno')?.addEventListener('submit', func
             return;
         }
         alert('❌ ' + (data && data.error ? data.error : 'Error al crear el contrato. El contrato no se creó.'));
-        if (data && data.redirect_url && confirm('¿Querés ir a la operación del contrato existente?')) {
-            window.location.href = data.redirect_url;
+            if (data && data.redirect_url && confirm('¿Querés ir a la operación del contrato existente?')) {
+                window.location.href = data.redirect_url;
             return;
-        }
+            }
         if (btnCrear) {
             btnCrear.dataset.enviando = '0';
             btnCrear.disabled = false;
