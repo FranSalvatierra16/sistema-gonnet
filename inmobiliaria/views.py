@@ -29986,7 +29986,12 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
             propiedad__sucursal=sucursal,
         )
         .select_related('propiedad', 'propiedad__propietario', 'propiedad__fichado_por')
-        .order_by('fecha_inicio', 'propiedad__direccion', 'id')
+        .order_by(
+            'propiedad__propietario__apellido',
+            'propiedad__propietario__nombre',
+            'fecha_inicio',
+            'id',
+        )
     )
 
     if filtro_desde and filtro_hasta:
@@ -30063,7 +30068,6 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
     tot_diferencia = Decimal('0')
     tot_otros = Decimal('0')
     tot_saldo = Decimal('0')
-    nro = 0
 
     for disp in disps:
         _filas_liq, _total_op, total_inm, total_prop = _totales_liq_disp(disp)
@@ -30081,12 +30085,17 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
         else:
             prop_nom = '—'
 
-        nro += 1
         filas_cierre.append({
-            'nro': nro,
+            'nro': 0,
             'disponibilidad': disp,
             'fecha': disp.fecha_inicio,
             'propietario': prop_nom,
+            'propietario_apellido': (
+                (getattr(propietario, 'apellido', None) or '').strip() if propietario else ''
+            ),
+            'propietario_nombre': (
+                (getattr(propietario, 'nombre', None) or '').strip() if propietario else ''
+            ),
             'direccion': (prop.direccion or '').strip() or f'#{prop.id}',
             'periodo_desde': disp.fecha_inicio,
             'periodo_hasta': disp.fecha_fin,
@@ -30107,6 +30116,19 @@ def reporte_asegurado_liquidaciones(request, disponibilidad_id=None):
             tot_diferencia += diferencia
             tot_otros += otros
             tot_saldo += saldo
+
+    # Orden alfabético por propietario (apellido, nombre).
+    filas_cierre.sort(
+        key=lambda f: (
+            (f.get('propietario_apellido') or '').casefold(),
+            (f.get('propietario_nombre') or '').casefold(),
+            (f.get('propietario') or '').casefold(),
+            f.get('fecha') or date.min,
+            (f.get('direccion') or '').casefold(),
+        )
+    )
+    for nro, fila in enumerate(filas_cierre, 1):
+        fila['nro'] = nro
 
     resumen_cierre = {
         'filas': filas_cierre,
