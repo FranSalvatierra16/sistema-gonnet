@@ -118,7 +118,8 @@ def _estado_display_reserva(reserva):
 def administracion_listado_operaciones(request):
     """
     Listado de todas las operaciones de la sucursal con filtro por fechas y tipo.
-    El rango Desde/Hasta filtra por fecha de alta (cuando se cargó), no por la estadía.
+    El rango Desde/Hasta filtra por Fecha op. (día del cobro), igual que Carátulas;
+    no por la estadía de entrada/salida.
     """
     if not _puede_administracion_operaciones(request.user):
         return HttpResponseForbidden()
@@ -170,6 +171,16 @@ def administracion_listado_operaciones(request):
         queryset_contratos_con_operacion,
         queryset_reservas_con_operacion,
     )
+    from inmobiliaria.models import MovimientoCaja, Recibo
+    from inmobiliaria.models.caja import TipoMovimientoCajaEnum
+    from inmobiliaria.views_caratulas import (
+        _aware_day_end_exclusive,
+        _aware_day_start,
+        _fecha_operacion_reserva,
+        _instante_operacion_contrato,
+        _instante_operacion_reserva,
+        _mapa_primer_cobro_reservas,
+    )
 
     reservas_qs = queryset_reservas_con_operacion(
         Reserva.objects.filter(sucursal=sucursal, eliminada=False)
@@ -184,14 +195,59 @@ def administracion_listado_operaciones(request):
         .order_by('-fecha_creacion', '-id')
     )
 
-    if not periodo_completo:
-        # Misma regla para todos: fecha de alta (carga), no la estadía de entrada/salida.
+    if not periodo_completo and (dr_desde or dr_hasta):
+        # Misma regla que Carátulas: Fecha op. = día del cobro (o alta si no hay cobro).
+        ids_cobro = set()
+        qs_mov = MovimientoCaja.objects.filter(
+            tipo=TipoMovimientoCajaEnum.INGRESO,
+            fecha_eliminacion__isnull=True,
+            sucursal=sucursal,
+        ).filter(
+            Q(concepto__icontains='Operación') | Q(concepto__icontains='Operacion')
+        )
         if dr_desde:
-            reservas_qs = reservas_qs.filter(fecha_creacion__date__gte=dr_desde)
-            contratos_qs = contratos_qs.filter(fecha_creacion__date__gte=dr_desde)
+            qs_mov = qs_mov.filter(fecha__gte=_aware_day_start(dr_desde))
         if dr_hasta:
-            reservas_qs = reservas_qs.filter(fecha_creacion__date__lte=dr_hasta)
-            contratos_qs = contratos_qs.filter(fecha_creacion__date__lte=dr_hasta)
+            qs_mov = qs_mov.filter(fecha__lt=_aware_day_end_exclusive(dr_hasta))
+        import re as _re_filtro_op
+        for concepto in qs_mov.values_list('concepto', flat=True).iterator(chunk_size=500):
+            m = _re_filtro_op.search(
+                r'Operaci[oó]n\s*#?\s*(\d+)', concepto or '', _re_filtro_op.I
+            )
+            if m:
+                ids_cobro.add(int(m.group(1)))
+
+        qs_rec = Recibo.objects.filter(
+            reserva_id__isnull=False,
+            movimiento_caja__isnull=False,
+            movimiento_caja__fecha_eliminacion__isnull=True,
+            movimiento_caja__sucursal=sucursal,
+        )
+        if dr_desde:
+            qs_rec = qs_rec.filter(movimiento_caja__fecha__gte=_aware_day_start(dr_desde))
+        if dr_hasta:
+            qs_rec = qs_rec.filter(
+                movimiento_caja__fecha__lt=_aware_day_end_exclusive(dr_hasta)
+            )
+        ids_cobro.update(int(x) for x in qs_rec.values_list('reserva_id', flat=True) if x)
+
+        q_fecha = Q(pk__in=ids_cobro) if ids_cobro else Q(pk__in=[])
+        if dr_desde and dr_hasta:
+            q_fecha |= Q(
+                fecha_creacion__gte=_aware_day_start(dr_desde),
+                fecha_creacion__lt=_aware_day_end_exclusive(dr_hasta),
+            )
+            contratos_qs = contratos_qs.filter(
+                fecha_operacion__gte=dr_desde,
+                fecha_operacion__lte=dr_hasta,
+            )
+        elif dr_desde:
+            q_fecha |= Q(fecha_creacion__gte=_aware_day_start(dr_desde))
+            contratos_qs = contratos_qs.filter(fecha_operacion__gte=dr_desde)
+        elif dr_hasta:
+            q_fecha |= Q(fecha_creacion__lt=_aware_day_end_exclusive(dr_hasta))
+            contratos_qs = contratos_qs.filter(fecha_operacion__lte=dr_hasta)
+        reservas_qs = reservas_qs.filter(q_fecha)
 
     if q:
         q_res = (
@@ -222,22 +278,44 @@ def administracion_listado_operaciones(request):
         reservas_qs = reservas_qs.filter(q_res)
         contratos_qs = contratos_qs.filter(q_ctr)
 
+    reservas_list = list(reservas_qs)
+    cobros_por_reserva = _mapa_primer_cobro_reservas(
+        [r.id for r in reservas_list], sucursal=sucursal
+    )
+    for r in reservas_list:
+        r._fecha_primer_cobro = cobros_por_reserva.get(int(r.id))
+
+    # Quedarse solo con las cuya Fecha op. real cae en el rango (igual que Carátulas).
+    if not periodo_completo and (dr_desde or dr_hasta):
+        filtradas = []
+        for r in reservas_list:
+            fop = _fecha_operacion_reserva(r, r._fecha_primer_cobro)
+            if not fop:
+                continue
+            if dr_desde and fop < dr_desde:
+                continue
+            if dr_hasta and fop > dr_hasta:
+                continue
+            filtradas.append(r)
+        reservas_list = filtradas
+
     filas = []
     conteos = defaultdict(int)
 
-    for reserva in reservas_qs.iterator(chunk_size=200):
+    for reserva in reservas_list:
         cat = _categoria_reserva(reserva)
         conteos[cat] += 1
         if not _coincide_tipo_filtro(cat, tipo_filtro):
             continue
         prop = reserva.propiedad
+        instante = _instante_operacion_reserva(reserva, reserva._fecha_primer_cobro)
         filas.append({
             'kind': 'reserva',
             'pk': reserva.id,
             'numero': reserva.id,
             'tipo': ETIQUETAS_TIPO.get(cat, cat),
             'tipo_key': cat,
-            'fecha_registro': reserva.fecha_creacion,
+            'fecha_registro': instante,
             'fecha_inicio': reserva.fecha_inicio,
             'fecha_fin': reserva.fecha_fin,
             'cliente': _nombre_persona(reserva.cliente),
@@ -246,7 +324,7 @@ def administracion_listado_operaciones(request):
             'vendedor': _nombre_persona(reserva.vendedor),
             'estado': _estado_display_reserva(reserva),
             'url_detalle': reverse('inmobiliaria:caratula_reserva', args=[reserva.id]),
-            'sort': reserva.fecha_creacion,
+            'sort': instante,
         })
 
     for contrato in contratos_qs.iterator(chunk_size=200):
@@ -255,13 +333,14 @@ def administracion_listado_operaciones(request):
         if not _coincide_tipo_filtro(cat, tipo_filtro):
             continue
         prop = contrato.propiedad
+        instante = _instante_operacion_contrato(contrato)
         filas.append({
             'kind': 'contrato',
             'pk': contrato.id,
             'numero': contrato.id,
             'tipo': _etiqueta_tipo_contrato(contrato, cat),
             'tipo_key': cat,
-            'fecha_registro': contrato.fecha_creacion,
+            'fecha_registro': instante,
             'fecha_inicio': contrato.fecha_inicio,
             'fecha_fin': contrato.fecha_fin,
             'cliente': _nombre_persona(contrato.inquilino),
@@ -270,7 +349,7 @@ def administracion_listado_operaciones(request):
             'vendedor': _nombre_persona(contrato.vendedor),
             'estado': contrato.get_estado_display() if hasattr(contrato, 'get_estado_display') else contrato.estado,
             'url_detalle': reverse('inmobiliaria:caratula_contrato', args=[contrato.id]),
-            'sort': contrato.fecha_creacion,
+            'sort': instante,
         })
 
     total_sin_filtro_tipo = sum(conteos.values())

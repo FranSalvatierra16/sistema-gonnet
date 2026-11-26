@@ -40,7 +40,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 no-print">
         <div>
             <h2 class="mb-1"><i class="fas fa-list-alt me-2 text-primary"></i>Operaciones registradas</h2>
-            <p class="text-muted mb-0 small">Todas las operaciones de la sucursal. Filtrá por fecha de alta y por tipo (por día, invierno, 24 meses, etc.).</p>
+            <p class="text-muted mb-0 small">Todas las operaciones de la sucursal. Filtrá por fecha de operación (cobro) y por tipo (por día, invierno, 24 meses, etc.).</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-outline-dark btn-sm"
@@ -60,7 +60,7 @@
             {% if periodo_completo %}
                 Todas las operaciones
             {% else %}
-                Alta {{ fecha_desde }} — {{ fecha_hasta }}
+                Fecha op. {{ fecha_desde }} — {{ fecha_hasta }}
             {% endif %}
             {% if q %} · Búsqueda: {{ q }}{% endif %}
             {% if tipo_filtro %} · Tipo: {{ tipo_filtro }}{% endif %}
@@ -118,8 +118,8 @@
             </div>
             {% else %}
             <div class="alert alert-light border py-2 small mb-3">
-                <strong>Desde / Hasta</strong> filtran por la <strong>fecha de alta</strong> (día en que se cargó la operación),
-                no por la entrada ni la salida del alquiler.
+                <strong>Desde / Hasta</strong> filtran por la <strong>fecha de operación</strong> (día del cobro),
+                la misma que en Carátulas; no por la entrada ni la salida del alquiler.
                 No se listan reservas de calendario sin seña ni cobro (estado «Reservado»),
                 ni operaciones <strong>anuladas</strong> / contratos <strong>rescindidos</strong>.
             </div>
@@ -168,7 +168,7 @@
                     <tr>
                         <th>N°</th>
                         <th>Tipo</th>
-                        <th>Fecha alta</th>
+                        <th>Fecha op.</th>
                         <th>Entrada</th>
                         <th>Salida</th>
                         <th>Cliente / inquilino</th>
