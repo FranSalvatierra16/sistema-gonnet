@@ -208,6 +208,8 @@
                             <th>Titular</th>
                             <th>Productor</th>
                             <th>Dirección</th>
+                            <th>Piso</th>
+                            <th>Depto</th>
                             <th>Llave</th>
                             <th>Op.</th>
                         </tr>
@@ -225,12 +227,14 @@
                             <td>{{ a.titular }}</td>
                             <td>{{ a.productor }}</td>
                             <td>{{ a.direccion }}</td>
+                            <td>{{ a.piso }}</td>
+                            <td>{{ a.depto }}</td>
                             <td>{{ a.llave }}</td>
                             <td>{{ a.operacion }}</td>
                         </tr>
                         {% empty %}
                         <tr id="agenda-vacia">
-                            <td colspan="10" class="text-center text-muted py-3">
+                            <td colspan="12" class="text-center text-muted py-3">
                                 Todavía no hay salidas con día u hora cargados en este período.
                             </td>
                         </tr>
@@ -352,7 +356,7 @@ function imprimirListadoSalidas(modo) {
             if (!tbody.querySelector('tr[data-agenda-id]')) {
                 var trV = document.createElement('tr');
                 trV.id = 'agenda-vacia';
-                trV.innerHTML = '<td colspan="10" class="text-center text-muted py-3">Todavía no hay salidas con día u hora cargados en este período.</td>';
+                trV.innerHTML = '<td colspan="12" class="text-center text-muted py-3">Todavía no hay salidas con día u hora cargados en este período.</td>';
                 tbody.appendChild(trV);
             }
             actualizarContadorAgenda();
@@ -368,6 +372,8 @@ function imprimirListadoSalidas(modo) {
             '<td>' + (ag.titular || '—') + '</td>' +
             '<td>' + (ag.productor || '—') + '</td>' +
             '<td>' + (ag.direccion || '—') + '</td>' +
+            '<td>' + (ag.piso || '—') + '</td>' +
+            '<td>' + (ag.depto || '—') + '</td>' +
             '<td>' + (ag.llave || '—') + '</td>' +
             '<td>' + (ag.operacion || '') + '</td>';
 

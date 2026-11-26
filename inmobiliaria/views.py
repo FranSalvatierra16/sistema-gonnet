@@ -5763,6 +5763,8 @@ def listado_salidas(request):
                 'titular': titular,
                 'productor': vendedor,
                 'direccion': (getattr(c.propiedad, 'direccion', None) or '—'),
+                'piso': (getattr(c.propiedad, 'piso', None) or '—'),
+                'depto': (getattr(c.propiedad, 'departamento', None) or '—'),
                 'llave': (getattr(c.propiedad, 'llave', None) or '—'),
                 'operacion': f'{c.id:05d}',
             })
@@ -5867,6 +5869,8 @@ def guardar_salida_contrato(request, contrato_id):
                 'titular': titular,
                 'productor': productor,
                 'direccion': (getattr(contrato.propiedad, 'direccion', None) or '—') if contrato.propiedad_id else '—',
+                'piso': (getattr(contrato.propiedad, 'piso', None) or '—') if contrato.propiedad_id else '—',
+                'depto': (getattr(contrato.propiedad, 'departamento', None) or '—') if contrato.propiedad_id else '—',
                 'llave': (getattr(contrato.propiedad, 'llave', None) or '—') if contrato.propiedad_id else '—',
                 'fecha_salida': fecha_sal.strftime('%Y-%m-%d') if fecha_sal else '',
                 'fecha_salida_display': fecha_sal.strftime('%d/%m/%Y') if fecha_sal else '',
