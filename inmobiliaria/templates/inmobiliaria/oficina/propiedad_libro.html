@@ -403,6 +403,14 @@
                             {% elif f.sin_caja and not f.url_operacion %}
                             <span class="badge bg-light text-muted border ms-1 no-print" title="Tomado de la operación/contrato">op.</span>
                             {% endif %}
+                            {% if f.movimiento_id and not f.es_inicio_caja and not f.es_subtotal_hasta_fecha %}
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger ms-1 no-print btn-quitar-mov-libro"
+                                    data-movimiento-id="{{ f.movimiento_id }}"
+                                    title="Quitar del libro (no borra el movimiento de caja)">
+                                <i class="fas fa-unlink me-1"></i>Quitar
+                            </button>
+                            {% endif %}
                             {% if exige_facturado_negro and f.clasificacion_libro == 'facturado' %}
                             <span class="badge bg-success ms-1 solo-imprimir">Facturado</span>
                             {% elif exige_facturado_negro and f.clasificacion_libro == 'negro' %}
@@ -968,6 +976,7 @@
     var urlInicio = '{% url "inmobiliaria:oficina_propiedad_libro_inicio_caja" propiedad.id %}';
     var urlCostos = '{% url "inmobiliaria:oficina_propiedad_libro_costos_compra" propiedad.id %}';
     var urlClasif = '{% url "inmobiliaria:oficina_propiedad_libro_clasificacion" propiedad.id %}';
+    var urlQuitarMov = '{% url "inmobiliaria:oficina_propiedad_libro_movimiento_quitar" propiedad.id %}';
     var exigeClasif = {% if exige_facturado_negro %}true{% else %}false{% endif %};
     var urlLiqModalBase = '{% url "inmobiliaria:oficina_propiedad_libro_liquidacion_modal" propiedad.id 0 %}'.replace(/\/0\/?$/, '/');
     var urlLiqDetalleBase = '{% url "inmobiliaria:detalle_liquidacion" 0 %}'.replace(/\/0\/?$/, '/');
@@ -1223,6 +1232,34 @@
     }
 
     document.addEventListener('click', function(e) {
+        var btnQuitar = e.target.closest('.btn-quitar-mov-libro');
+        if (btnQuitar) {
+            e.preventDefault();
+            var midQ = btnQuitar.getAttribute('data-movimiento-id');
+            if (!midQ) return;
+            if (!confirm('¿Quitar este movimiento del libro de este departamento?\nNo se borra de caja: solo deja de figurar acá.')) {
+                return;
+            }
+            var trQ = btnQuitar.closest('tr');
+            btnQuitar.disabled = true;
+            var bodyQ = new URLSearchParams();
+            bodyQ.set('movimiento_id', midQ);
+            postForm(urlQuitarMov, bodyQ)
+              .then(function(res) {
+                if (!res.okHttp || !res.d || !res.d.ok) {
+                    alert((res.d && res.d.error) || 'No se pudo quitar del libro.');
+                    btnQuitar.disabled = false;
+                    return;
+                }
+                if (trQ) trQ.remove();
+              })
+              .catch(function() {
+                alert('Error de red al quitar del libro.');
+                btnQuitar.disabled = false;
+              });
+            return;
+        }
+
         var btnLiq = e.target.closest('.btn-ver-liquidacion-libro');
         if (!btnLiq) return;
         e.preventDefault();

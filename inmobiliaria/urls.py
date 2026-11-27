@@ -414,6 +414,11 @@ urlpatterns = [
         name='oficina_propiedad_libro_fila_manual_eliminar',
     ),
     path(
+        'oficina/propiedades/<str:propiedad_id>/libro/movimiento/quitar/',
+        views_oficina.oficina_propiedad_libro_movimiento_quitar,
+        name='oficina_propiedad_libro_movimiento_quitar',
+    ),
+    path(
         'oficina/propiedades/<str:propiedad_id>/libro/cotizacion/',
         views_oficina.oficina_propiedad_libro_actualizar_cotizacion,
         name='oficina_propiedad_libro_cotizacion',

@@ -63,10 +63,27 @@ _RE_OPERACION_ANULADA = re.compile(
 # Cobros mal vinculados que no deben aparecer en libros de oficina (desconfiguran totales).
 _MOVIMIENTOS_EXCLUIDOS_LIBRO_OFICINA = frozenset({4441})
 
+# Ingresos de caja que son cobros de locación/honorarios/depósito: el libro
+# acredita alquileres solo vía liquidación confirmada (no el bruto del recibo).
+_RE_COBRO_LOCACION_LIBRO = re.compile(
+    r'(?:'
+    r'total\s+locaci[oó]n'
+    r'|honorarios?(?:\s+de\s+administraci[oó]n)?'
+    r'|dep[oó]sito\s+(?:de\s+)?garant[ií]a'
+    r'|se[nñ]a(?:\s+de\s+garant[ií]a)?'
+    r')',
+    re.IGNORECASE,
+)
+
 
 def _concepto_es_operacion_anulada(concepto):
     """True si el movimiento es un contrasiento de operación anulada."""
     return bool(_RE_OPERACION_ANULADA.search(concepto or ''))
+
+
+def _concepto_es_cobro_locacion_libro(concepto):
+    """True si el texto parece un cobro de operación (locación/honorarios/depósito)."""
+    return bool(_RE_COBRO_LOCACION_LIBRO.search(concepto or ''))
 
 
 def _movimiento_excluido_libro_oficina(mov, propiedad=None):
@@ -79,6 +96,11 @@ def _movimiento_excluido_libro_oficina(mov, propiedad=None):
         return True
     if propiedad is not None and _movimiento_ajeno_al_libro(mov, propiedad):
         return True
+    # Ingresos tipo recibo de locación (aunque falte «Operación #N» en el texto).
+    tipo = (getattr(mov, 'tipo', None) or '').strip().upper()
+    if tipo in ('IN', 'I', 'INGRESO'):
+        if _concepto_es_cobro_locacion_libro(getattr(mov, 'concepto', None)):
+            return True
     return False
 
 
@@ -479,11 +501,29 @@ def _filas_liquidaciones_confirmadas_libro(
         qs = qs.filter(Q(fecha_desde__isnull=True) | Q(fecha_desde__lte=dr_hasta + margen))
 
     from inmobiliaria.views import fecha_periodo_libro_liquidacion
+    from inmobiliaria.views_caratulas import _mapa_primer_cobro_reservas
+
+    liqs = list(qs)
+    cobros_reserva = _mapa_primer_cobro_reservas(
+        [getattr(l, 'reserva_id', None) for l in liqs if getattr(l, 'reserva_id', None)],
+        sucursal=sucursal,
+    )
 
     filas = []
-    for liq in qs:
-        # Mes que le corresponde = período de locación (cuotas) o fecha_desde.
-        fecha_raw = fecha_periodo_libro_liquidacion(liq)
+    for liq in liqs:
+        # Por día (reserva): fecha del cobro / proceso (igual que carátulas).
+        # Contrato mensual: período de locación (mes del alquiler).
+        reserva_id = getattr(liq, 'reserva_id', None)
+        if reserva_id:
+            fecha_raw = (
+                cobros_reserva.get(int(reserva_id))
+                or getattr(liq, 'fecha_procesamiento', None)
+                or getattr(liq, 'fecha_creacion', None)
+                or fecha_periodo_libro_liquidacion(liq)
+            )
+        else:
+            # Mes que le corresponde = período de locación (cuotas) o fecha_desde.
+            fecha_raw = fecha_periodo_libro_liquidacion(liq)
         if fecha_raw is None:
             continue
         if isinstance(fecha_raw, datetime):
@@ -523,7 +563,6 @@ def _filas_liquidaciones_confirmadas_libro(
             if cotiz <= 0:
                 cotiz = None
 
-        reserva_id = getattr(liq, 'reserva_id', None)
         contrato_id = getattr(liq, 'contrato_id', None)
         url_operacion = None
         try:
@@ -2059,6 +2098,9 @@ def _fila_libro_desde_movimiento(mov, monto_prop_por_reserva=None, cotiz_por_res
             return None
         if re.search(r'Operaci[oó]n\s*#?\s*\d+', conc_chk, re.IGNORECASE):
             return None
+        # Cobros sin «Operación #» en el texto (ej. «Total Locación…; Depósito Garantía»).
+        if _concepto_es_cobro_locacion_libro(conc_chk):
+            return None
 
     # Egresos de pago de liquidación al propietario: el alquiler ya se acredita
     # por la fila de liquidación confirmada; no duplicar como gasto.
@@ -3156,6 +3198,43 @@ def oficina_propiedad_libro_fila_manual_eliminar(request, propiedad_id):
     if not deleted:
         return JsonResponse({'ok': False, 'error': 'No se encontró la fila.'}, status=404)
     return JsonResponse({'ok': True})
+
+
+@login_required
+@require_POST
+def oficina_propiedad_libro_movimiento_quitar(request, propiedad_id):
+    """
+    Saca un movimiento de caja del libro de este depto (desvincula propiedad).
+    No borra el movimiento de caja: solo deja de figurar en el libro.
+    """
+    if not _puede_oficina(request.user):
+        return JsonResponse({'ok': False, 'error': 'Sin permiso.'}, status=403)
+
+    from inmobiliaria.models import MovimientoCaja, Propiedad
+
+    sucursal, en_cartera = _propiedad_en_cartera_oficina(request.user, propiedad_id)
+    if not en_cartera:
+        return JsonResponse({'ok': False, 'error': 'Sin permiso sobre esa propiedad.'}, status=403)
+
+    propiedad = get_object_or_404(Propiedad, pk=propiedad_id, sucursal=sucursal)
+    mid = (request.POST.get('movimiento_id') or '').strip()
+    if not mid.isdigit():
+        return JsonResponse({'ok': False, 'error': 'Movimiento inválido.'}, status=400)
+
+    mov = MovimientoCaja.objects.filter(
+        pk=int(mid),
+        propiedad=propiedad,
+        fecha_eliminacion__isnull=True,
+    ).first()
+    if not mov:
+        return JsonResponse(
+            {'ok': False, 'error': 'No se encontró el movimiento en este libro.'},
+            status=404,
+        )
+
+    mov.propiedad = None
+    mov.save(update_fields=['propiedad'])
+    return JsonResponse({'ok': True, 'movimiento_id': mov.id})
 
 
 @login_required
