@@ -45,7 +45,14 @@
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">Gestionar Precios para {{ propiedad.direccion }}</h2>
+    <h2 class="mb-0">
+        Gestionar Precios para {{ propiedad.direccion }}
+        {% if propiedad.piso or propiedad.departamento %}
+            <span class="text-muted fs-5 fw-normal">
+                —{% if propiedad.piso %} Piso {{ propiedad.piso }}{% endif %}{% if propiedad.piso and propiedad.departamento %} ·{% endif %}{% if propiedad.departamento %} Dpto {{ propiedad.departamento }}{% endif %}
+            </span>
+        {% endif %}
+    </h2>
     <div class="d-flex gap-2">
         <button type="button" class="btn btn-info" onclick="verHistorial()">
             <i class="fas fa-history"></i> Ver Historial
