@@ -5728,7 +5728,7 @@ def listado_salidas(request):
                     hora_salida__isnull=False,
                 )
             )
-            .select_related('inquilino', 'propiedad', 'vendedor')
+            .select_related('inquilino', 'propiedad', 'propiedad__propietario', 'vendedor')
         )
         if tipo_filtro == 'invierno':
             qs_ag = qs_ag.filter(duracion_meses__lte=9)
@@ -5751,6 +5751,10 @@ def listado_salidas(request):
                 apv = (getattr(c.vendedor, 'apellido', '') or '').strip()
                 nov = (getattr(c.vendedor, 'nombre', '') or '').strip()
                 vendedor = (apv or nov or '—').upper()
+            prop_ap = '—'
+            prop_obj = getattr(getattr(c, 'propiedad', None), 'propietario', None)
+            if prop_obj:
+                prop_ap = (getattr(prop_obj, 'apellido', '') or '').strip() or '—'
             agenda.append({
                 'contrato_id': c.id,
                 'fecha_salida': fecha_sal,
@@ -5761,6 +5765,7 @@ def listado_salidas(request):
                 'tipo_alquiler': ('Invierno' if tipo_menu == 'invierno' else '24 meses'),
                 'carpeta': (getattr(c, 'numero_carpeta', None) or '').strip() or '—',
                 'titular': titular,
+                'propietario': prop_ap,
                 'productor': vendedor,
                 'direccion': (getattr(c.propiedad, 'direccion', None) or '—'),
                 'piso': (getattr(c.propiedad, 'piso', None) or '—'),
@@ -5805,7 +5810,9 @@ def guardar_salida_contrato(request, contrato_id):
         return JsonResponse({'ok': False, 'error': 'Sin permisos.'}, status=403)
 
     contrato = get_object_or_404(
-        ContratoAlquiler.objects.select_related('inquilino', 'propiedad', 'vendedor'),
+        ContratoAlquiler.objects.select_related(
+            'inquilino', 'propiedad', 'propiedad__propietario', 'vendedor'
+        ),
         id=contrato_id,
         sucursal=request.user.sucursal,
     )
@@ -5853,6 +5860,10 @@ def guardar_salida_contrato(request, contrato_id):
             apv = (getattr(contrato.vendedor, 'apellido', '') or '').strip()
             nov = (getattr(contrato.vendedor, 'nombre', '') or '').strip()
             productor = (apv or nov or '—').upper()
+        prop_ap = '—'
+        prop_obj = getattr(getattr(contrato, 'propiedad', None), 'propietario', None)
+        if prop_obj:
+            prop_ap = (getattr(prop_obj, 'apellido', '') or '').strip() or '—'
         confirmado = bool(fecha_sal or hora)
         return JsonResponse({
             'ok': True,
@@ -5867,6 +5878,7 @@ def guardar_salida_contrato(request, contrato_id):
                 'tipo_alquiler': 'Invierno' if tipo_menu == 'invierno' else '24 meses',
                 'carpeta': (getattr(contrato, 'numero_carpeta', None) or '').strip() or '—',
                 'titular': titular,
+                'propietario': prop_ap,
                 'productor': productor,
                 'direccion': (getattr(contrato.propiedad, 'direccion', None) or '—') if contrato.propiedad_id else '—',
                 'piso': (getattr(contrato.propiedad, 'piso', None) or '—') if contrato.propiedad_id else '—',

@@ -206,6 +206,7 @@
                             <th>Tipo</th>
                             <th>Carpeta</th>
                             <th>Titular</th>
+                            <th>Propietario</th>
                             <th>Productor</th>
                             <th>Dirección</th>
                             <th>Piso</th>
@@ -225,6 +226,7 @@
                             <td>{{ a.tipo_alquiler }}</td>
                             <td><strong>{{ a.carpeta }}</strong></td>
                             <td>{{ a.titular }}</td>
+                            <td>{{ a.propietario }}</td>
                             <td>{{ a.productor }}</td>
                             <td>{{ a.direccion }}</td>
                             <td>{{ a.piso }}</td>
@@ -234,7 +236,7 @@
                         </tr>
                         {% empty %}
                         <tr id="agenda-vacia">
-                            <td colspan="12" class="text-center text-muted py-3">
+                            <td colspan="13" class="text-center text-muted py-3">
                                 Todavía no hay salidas con día u hora cargados en este período.
                             </td>
                         </tr>
@@ -356,7 +358,7 @@ function imprimirListadoSalidas(modo) {
             if (!tbody.querySelector('tr[data-agenda-id]')) {
                 var trV = document.createElement('tr');
                 trV.id = 'agenda-vacia';
-                trV.innerHTML = '<td colspan="12" class="text-center text-muted py-3">Todavía no hay salidas con día u hora cargados en este período.</td>';
+                trV.innerHTML = '<td colspan="13" class="text-center text-muted py-3">Todavía no hay salidas con día u hora cargados en este período.</td>';
                 tbody.appendChild(trV);
             }
             actualizarContadorAgenda();
@@ -370,6 +372,7 @@ function imprimirListadoSalidas(modo) {
             '<td>' + (ag.tipo_alquiler || '') + '</td>' +
             '<td><strong>' + (ag.carpeta || '—') + '</strong></td>' +
             '<td>' + (ag.titular || '—') + '</td>' +
+            '<td>' + (ag.propietario || '—') + '</td>' +
             '<td>' + (ag.productor || '—') + '</td>' +
             '<td>' + (ag.direccion || '—') + '</td>' +
             '<td>' + (ag.piso || '—') + '</td>' +
